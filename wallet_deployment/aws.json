@@ -1,0 +1,206 @@
+{
+  "regions": [
+    {
+      "name": "pdx",
+      "ext-name": "us-west-2",
+      "vpc": {
+        "id": "vpc-cd3e33b4",
+        "sg": "sg-020cb5729fa212d43"
+      },
+      "ami": {
+        "default": "ami-061392db613a6357b"
+      },
+      "limit": {
+        "t3.micro": 3000,
+        "t2.micro": 3000
+      },
+      "keypair": "oregon-key-benchmark",
+      "code": "4"
+    },
+    {
+      "name": "sfo",
+      "ext-name": "us-west-1",
+      "vpc": {
+        "id": "vpc-bb770fdcd",
+        "sg": "sg-0a66ccb6ab9161a14"
+      },
+      "ami": {
+        "default": "ami-0019ef04ac50be30f"
+      },
+      "limit": {
+        "t3.micro": 1500,
+        "t2.micro": 3000
+      },
+      "keypair": "california-key-benchmark",
+      "code": "3"
+    },
+    {
+      "name": "dub",
+      "ext-name": "eu-west-1",
+      "vpc": {
+        "id": "vpc-80166ce6",
+        "sg": "sg-0aa8954acb79fdb58"
+      },
+      "ami": {
+        "default": "ami-07683a44e80cd32c5"
+      },
+      "limit": {
+        "t3.micro": 3000,
+        "t2.micro": 3000
+      },
+      "keypair": "ireland-key-benchmark",
+      "code": "8"
+    },
+    {
+      "name": "nrt",
+      "ext-name": "ap-northeast-1",
+      "vpc": {
+        "id": "vpc-dd631cba",
+        "sg": "sg-009aeb97f675c1ad5"
+      },
+      "ami": {
+        "default": "ami-0f9ae750e8274075b"
+      },
+      "limit": {
+        "t3.micro": 1000,
+        "t2.micro": 3000
+      },
+      "keypair": "tokyo-key-benchmark",
+      "code": "5"
+    },
+    {
+      "name": "fra",
+      "ext-name": "eu-central-1",
+      "vpc": {
+        "id": "vpc-94246aff",
+        "sg": "sg-0bb06fcd8b25b5910"
+      },
+      "ami": {
+        "default": "ami-09def150731bdbcc2"
+      },
+      "limit": {
+        "t3.micro": 1000,
+        "t2.micro": 3000
+      },
+      "keypair": "frankfurt-key-benchmark",
+      "code": "7"
+    },
+    {
+      "name": "cmh",
+      "ext-name": "us-east-2",
+      "vpc": {
+        "id": "vpc-2c420a44",
+        "sg": "sg-0789078f1c76defbe"
+      },
+      "ami": {
+        "default": "ami-02bcbb802e03574ba"
+      },
+      "limit": {
+        "t3.micro": 3000,
+        "t2.micro": 3000
+      },
+      "keypair": "ohio-key-benchmark",
+      "code": "2"
+    },
+    {
+      "name": "sin",
+      "ext-name": "ap-southeast-1",
+      "vpc": {
+        "id": "vpc-864103e1",
+        "sg": "sg-05f9b60044a19dfb2"
+      },
+      "ami": {
+        "default": "ami-0b419c3a4b01d1859"
+      },
+      "limit": {
+        "t3.micro": 3000,
+        "t2.micro": 3000
+      },
+      "keypair": "singapore-key-benchmark",
+      "code": "6"
+    },
+    {
+      "name": "iad",
+      "ext-name": "us-east-1",
+      "vpc": {
+        "id": "vpc-88c9c2f3",
+        "sg": "sg-04d0b62ee08ce8800"
+      },
+      "ami": {
+        "default": "ami-0de53d8956e8dcf80"
+      },
+      "limit": {
+        "t3.micro": 1000,
+        "t2.micro": 3000
+      },
+      "keypair": "virginia-key-benchmark",
+      "code": "1"
+    }
+  ],
+  "keyfiles": [
+    {
+      "keypair": "california-key-benchmark",
+      "keyfile": "../keys/california-key-benchmark.pem"
+    },
+    {
+      "keypair": "ireland-key-benchmark",
+      "keyfile": "../keys/ireland-key-benchmark.pem"
+    },
+    {
+      "keypair": "oregon-key-benchmark",
+      "keyfile": "../keys/oregon-key-benchmark.pem"
+    },
+    {
+      "keypair": "tokyo-key-benchmark",
+      "keyfile": "../keys/tokyo-key-benchmark.pem"
+    },
+    {
+      "keypair": "frankfurt-key-benchmark",
+      "keyfile": "../keys/frankfurt-key-benchmark.pem"
+    },
+    {
+      "keypair": "ohio-key-benchmark",
+      "keyfile": "../keys/ohio-key-benchmark.pem"
+    },
+    {
+      "keypair": "singapore-key-benchmark",
+      "keyfile": "../keys/singapore-key-benchmark.pem"
+    },
+    {
+      "keypair": "virginia-key-benchmark",
+      "keyfile": "../keys/virginia-key-benchmark.pem"
+    }
+  ],
+  "userdata": [
+    {
+      "name": "http:",
+      "file": "../../configs/userdata-soldier-http.sh"
+    },
+    {
+      "name": "legacy",
+      "file": "../../configs/userdata-soldier.sh"
+    }
+  ],
+  "instance": [
+    {
+      "name": "t3.micro",
+      "price": 0.0104
+    },
+    {
+      "name": "t3.small",
+      "price": 0.0209
+    },
+    {
+      "name": "t3.medium",
+      "price": 0.0418
+    },
+    {
+      "name": "t3.large",
+      "price": 0.0835
+    },
+    {
+      "name": "t2.micro",
+      "price": 0.0116
+    }
+  ]
+}
