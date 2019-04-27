@@ -1,16 +1,11 @@
 
 
 
-- environment: 
-  region_name: us-west-1
+- environment:
   key: tag:type
   values: testnode
   document_name: AWS-RunRemoteScript
   source_type: Github
-  owner: bwu2sfu
-  repo: harmony-ops
-  path: aws/ssm
-  get_options: branch:master
   command_line: nanny.sh
 
 
