@@ -2,18 +2,17 @@
 from argparse import ArgumentParser
 
 import boto3
-import sys
 import json
 import yaml
 import argparse
-
+import ast
 '''
 
 Usage: 	# $python3 main.py <key_ec2_tag> <value_ec2_tag> <wallet.sh>
 
 
 cmd for testing
-$python3 main.py -k tag:type -v testnode -d AWS-RunRemoteScript -s Github -o bwu2sfu -r harmony-ops -f aws/ssm -b branch:master -c nanny.sh -a aws2.json
+$python3 main.py -k tag:type -v testnode -d AWS-RunRemoteScript -s Github -o bwu2sfu -r harmony-ops -f aws/ssm -b branch:master -c nanny.sh -a aws.json
 
 
 '''
@@ -80,12 +79,41 @@ def main():
 		for i in range(len(aws_data['regions'])):
 			regions.append(aws_data['regions'][i]['ext-name'])
 
-	for i in range(len(regions)):
+	# for i in range(len(regions)):
+	for i in range(1):
 		client_name = 'client_' + regions[i]
 		client_name = boto3.client('ssm', region_name=regions[i])
 
-		response = client_name.send_command(Targets=[{"Key": key, "Values": [values, ]}, ], DocumentName=document_name, Parameters={"sourceType": [source_type], "sourceInfo": ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine": [command_line]})
+		print("key: " + key)
+		print("values: " + values)
+		print("source type: " + source_type)
+		print("document name: " + document_name)
+		print("owner: " + owner)
+		print("repo: " + repo)
+		print("path: " + path)
+		print("get_options: " + get_options)
+		print("command_line: " + command_line)
 
+
+		target_string = '[{"Key" : "' + key + '", "Values" : ["' + values + '"]}]'
+		target_array = json.loads(target_string)
+		# print(target_array)
+
+
+
+		para_string = '{"sourceType" : ["' + source_type + '"],' + '"sourceInfo" : ["{\\"owner\\" : \\"' + owner + '\\", ' + '\\"repository\\":\\"' + repo + '\\", \\"path\\":\\"' + path + '\\",\\"getOptions\\":\\"' + get_options + '\\"}"],' + '"commandLine" : ["' + command_line + '"]}'
+		para_string2 = '{"sourceType" : ["' + source_type + '"],' + '"sourceInfo" : ["{"owner":"' + owner + '", "repository":"' + repo + '", "path" : "' + path + '", "getOptions":"' + get_options + '"}"], "commandLine" : ["' + command_line + '"]}'
+
+		print(para_string)
+		print(para_string2)
+		# ref_string = '{"sourceType" : ["GitHub"],"sourceInfo" : ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\",\"getOptions\":\"branch:master\"}"],"commandLine" : ["nanny.sh"]}'
+		# print(ref_string)
+
+
+		para_json = json.loads(para_string)
+
+		# response = client_name.send_command(Targets=[{"Key": key, "Values": [values, ]}, ], DocumentName=document_name, Parameters={"sourceType": [source_type], "sourceInfo": ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine": [command_line]})
+		response = client_name.send_command(Targets = target_array, DocumentName = document_name, Parameters = ast.literal_eval(para_string))
 
 if __name__ == "__main__":
 	main()
@@ -94,3 +122,25 @@ if __name__ == "__main__":
 
 # AWS did a lousy job to document how to invoke a script from Github on multiple EC2 instances, the following command finally worked after hours of troubleshooting
 # response = client.send_command(Targets = [{"Key" : "tag:type", "Values" : ["testnode",]},], DocumentName = "AWS-RunRemoteScript", Parameters = {"sourceType" : ["GitHub"], "sourceInfo" : ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine" : ["nanny.sh"]})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
