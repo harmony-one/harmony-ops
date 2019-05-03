@@ -104,16 +104,20 @@ def main():
 		para_string = '{"sourceType" : ["' + source_type + '"],' + '"sourceInfo" : ["{\\"owner\\" : \\"' + owner + '\\", ' + '\\"repository\\":\\"' + repo + '\\", \\"path\\":\\"' + path + '\\",\\"getOptions\\":\\"' + get_options + '\\"}"],' + '"commandLine" : ["' + command_line + '"]}'
 		para_string2 = '{"sourceType" : ["' + source_type + '"],' + '"sourceInfo" : ["{"owner":"' + owner + '", "repository":"' + repo + '", "path" : "' + path + '", "getOptions":"' + get_options + '"}"], "commandLine" : ["' + command_line + '"]}'
 
-		print(para_string)
-		print(para_string2)
+		# print(para_string)
+		# print(para_string2)
+
+		para_dict = ast.literal_eval(para_string)
+		print(type(para_dict))
+		print(para_dict)
+		para_dict['sourceInfo'][0] = str(para_dict['sourceInfo'][0]).replace('\"', '\\"')
+		print(para_dict)
+
 		# ref_string = '{"sourceType" : ["GitHub"],"sourceInfo" : ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\",\"getOptions\":\"branch:master\"}"],"commandLine" : ["nanny.sh"]}'
 		# print(ref_string)
 
-
-		para_json = json.loads(para_string)
-
 		# response = client_name.send_command(Targets=[{"Key": key, "Values": [values, ]}, ], DocumentName=document_name, Parameters={"sourceType": [source_type], "sourceInfo": ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine": [command_line]})
-		response = client_name.send_command(Targets = target_array, DocumentName = document_name, Parameters = ast.literal_eval(para_string))
+		# response = client_name.send_command(Targets = target_array, DocumentName = document_name, Parameters = ast.literal_eval(para_string))
 
 if __name__ == "__main__":
 	main()
