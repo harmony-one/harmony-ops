@@ -79,39 +79,57 @@ def main():
 		for i in range(len(aws_data['regions'])):
 			regions.append(aws_data['regions'][i]['ext-name'])
 
-	# for i in range(len(regions)):
-	for i in range(1):
+	for i in range(len(regions)):
+	# for i in range(1):
 		client_name = 'client_' + regions[i]
 		client_name = boto3.client('ssm', region_name=regions[i])
 
-		print("key: " + key)
-		print("values: " + values)
-		print("source type: " + source_type)
-		print("document name: " + document_name)
-		print("owner: " + owner)
-		print("repo: " + repo)
-		print("path: " + path)
-		print("get_options: " + get_options)
-		print("command_line: " + command_line)
+		# print("key: " + key)
+		# print("values: " + values)
+		# print("source type: " + source_type)
+		# print("document name: " + document_name)
+		# print("owner: " + owner)
+		# print("repo: " + repo)
+		# print("path: " + path)
+		# print("get_options: " + get_options)
+		# print("command_line: " + command_line)
+		# print()
 
 
-		target_string = '[{"Key" : "' + key + '", "Values" : ["' + values + '"]}]'
-		target_array = json.loads(target_string)
+		target_dict = {
+			"Key" : "",
+			"Values" : []
+		}
+		target_dict["Key"] = key
+		target_dict["Values"].append(values)
+
+		target_array = []
+		target_array.append(target_dict)
+
+		# print("TARGET ARRAY")
 		# print(target_array)
 
 
+		# POC
+		para_dict = {
+			"sourceType" : [],
+			"sourceInfo" : [],
+			"commandLine" : []
+		}
 
-		para_string = '{"sourceType" : ["' + source_type + '"],' + '"sourceInfo" : ["{\\"owner\\" : \\"' + owner + '\\", ' + '\\"repository\\":\\"' + repo + '\\", \\"path\\":\\"' + path + '\\",\\"getOptions\\":\\"' + get_options + '\\"}"],' + '"commandLine" : ["' + command_line + '"]}'
-		para_string2 = '{"sourceType" : ["' + source_type + '"],' + '"sourceInfo" : ["{"owner":"' + owner + '", "repository":"' + repo + '", "path" : "' + path + '", "getOptions":"' + get_options + '"}"], "commandLine" : ["' + command_line + '"]}'
 
-		# print(para_string)
-		# print(para_string2)
+		para_dict["sourceType"].append(source_type)
+		para_dict["commandLine"].append(command_line)
 
-		para_dict = ast.literal_eval(para_string)
-		print(type(para_dict))
-		print(para_dict)
-		para_dict['sourceInfo'][0] = str(para_dict['sourceInfo'][0]).replace('\"', '\\"')
-		print(para_dict)
+		info_json = {
+			"owner" : owner,
+			"repository" : repo,
+			"path" : path,
+			"getOptions" : get_options
+
+		}
+
+		para_dict["sourceInfo"].append(json.dumps(info_json))
 
 		# ref_string = '{"sourceType" : ["GitHub"],"sourceInfo" : ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\",\"getOptions\":\"branch:master\"}"],"commandLine" : ["nanny.sh"]}'
 		# print(ref_string)
@@ -119,13 +137,17 @@ def main():
 		# response = client_name.send_command(Targets=[{"Key": key, "Values": [values, ]}, ], DocumentName=document_name, Parameters={"sourceType": [source_type], "sourceInfo": ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine": [command_line]})
 		# response = client_name.send_command(Targets = target_array, DocumentName = document_name, Parameters = ast.literal_eval(para_string))
 
+		# FUNCTIONAL CMD
+		# response = client_name.send_command(Targets=[{"Key": "tag:type", "Values": ["testnode", ]}, ], DocumentName="AWS-RunRemoteScript", Parameters={"sourceType": ["GitHub"], "sourceInfo": ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine": ["nanny.sh"]})
+		response = client_name.send_command(Targets=target_array, DocumentName=document_name, Parameters=para_dict)
+
 if __name__ == "__main__":
 	main()
 
 
 
 # AWS did a lousy job to document how to invoke a script from Github on multiple EC2 instances, the following command finally worked after hours of troubleshooting
-# response = client.send_command(Targets = [{"Key" : "tag:type", "Values" : ["testnode",]},], DocumentName = "AWS-RunRemoteScript", Parameters = {"sourceType" : ["GitHub"], "sourceInfo" : ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine" : ["nanny.sh"]})
+# response = client_name.send_command(Targets = [{"Key" : "tag:type", "Values" : ["testnode",]},], DocumentName = "AWS-RunRemoteScript", Parameters = {"sourceType" : ["GitHub"], "sourceInfo" : ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine" : ["nanny.sh"]})
 
 
 
