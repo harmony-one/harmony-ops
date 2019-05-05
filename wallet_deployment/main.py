@@ -12,8 +12,7 @@ Usage: 	# $python3 main.py <key_ec2_tag> <value_ec2_tag> <wallet.sh>
 
 
 cmd for testing
-$python3 main.py -k tag:type -v testnode -d AWS-RunRemoteScript -s Github -o bwu2sfu -r harmony-ops -f aws/ssm -b branch:master -c nanny.sh -a aws.json
-
+python3 main.py -k tag:type -v testnode -d AWS-RunRemoteScript -s GitHub -o bwu2sfu -r harmony-ops -f aws/ssm -b branch:master -c nanny.sh -a aws.json
 
 '''
 
