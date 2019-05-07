@@ -80,6 +80,7 @@ def main():
 
 	for i in range(len(regions)):
 	# for i in range(1):
+		print("region name is: " + regions[i])
 		client_name = 'client_' + regions[i]
 		client_name = boto3.client('ssm', region_name=regions[i])
 
