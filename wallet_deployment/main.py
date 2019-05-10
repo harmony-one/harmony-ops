@@ -10,12 +10,35 @@ import pprint
 import time
 '''
 
-Usage: 	# $python3 main.py <key_ec2_tag> <value_ec2_tag> <wallet.sh>
+Usage: 	
+
+1. Retrieve parameters through parsing a yaml format configuration file
+See the attached profile.yaml file for reference
+
+$python3 main.py <key_ec2_tag> <value_ec2_tag> <wallet.sh>
+
+
+2. 
+
+$python3 main.py -k tag:Name -v 4-banjo-od-2019-04-30_22_14_16 -d AWS-RunRemoteScript -s GitHub -o bwu2sfu -r harmony-ops -f aws/ssm -b branch:master -c deploy_wallet.sh -a aws.json
+'-p', '--profile', 	help = 'preset configuration files for different testing', required = False
+'-k', '--key', 		help = 'key of the tag attached to the EC2 instance', required = False
+'-v', '--value', 	help='value of the tag attached to the EC2 instance', required = False
+'-d', '--document', help='document name', required = False
+'-s', '--source', 	help='source type', required = False
+'-o', '--owner', 	help='owner of the repo', required=False
+'-r', '--repo', 	help='name of the repository', required=False
+'-b', '--branch', 	help='branch', required=False
+'-c', '--command', 	help='script to be executed', required=False
+'-a', '--awsjson', 	help='json file to define aws regions', required=False
 
 
 cmd for testing
 python3 main.py -k tag:type -v testnode -d AWS-RunRemoteScript -s GitHub -o bwu2sfu -r harmony-ops -f aws/ssm -b branch:master -c nanny.sh -a aws.json
 python3 main.py -k tag:Name -v 4-banjo-od-2019-04-30_22_14_16 -d AWS-RunRemoteScript -s GitHub -o bwu2sfu -r harmony-ops -f aws/ssm -b branch:master -c deploy_wallet.sh -a aws.json
+
+
+
 '''
 
 
@@ -166,7 +189,6 @@ def main():
 			# print(para_dict)
 			ssm_resp_name = client_ssm_name.send_command(Targets=target_array, DocumentName=document_name, Parameters=para_dict, MaxErrors='100%')
 			pprint.pprint(ssm_resp_name)
-
 
 			print("----")
 			time.sleep(1)
