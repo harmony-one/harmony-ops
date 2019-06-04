@@ -32,12 +32,13 @@ $python3 main.py -k tag:Name -v 4-banjo-od-2019-04-30_22_14_16 -d AWS-RunRemoteS
 '-c', '--command', 	help='script to be executed', required=False
 '-a', '--awsjson', 	help='json file to define aws regions', required=False
 
+ KNOWLEDGE
+* AWS SSM Log files: /var/log/amazon/ssm
+* About Github 403 API rate limit exceeded
+
 
 cmd for testing
-python3 main.py -k tag:type -v testnode -d AWS-RunRemoteScript -s GitHub -o bwu2sfu -r harmony-ops -f aws/ssm -b branch:master -c nanny.sh -a aws.json
-python3 main.py -k tag:Name -v 4-banjo-od-2019-04-30_22_14_16 -d AWS-RunRemoteScript -s GitHub -o bwu2sfu -r harmony-ops -f aws/ssm -b branch:master -c deploy_wallet.sh -a aws.json
-
-
+$python3 main.py -k tag:Name -v Andy_test_4 -d AWS-RunRemoteScript -s GitHub -o bwu2sfu -r experiment-deploy-1 -f configs -b branch:master -c userdata-soldier-http.sh -a aws.json
 
 '''
 
@@ -104,7 +105,6 @@ def main():
 			regions.append(aws_data['regions'][i]['ext-name'])
 
 	for i in range(len(regions)):
-	# for i in range(2):
 		
 		try:
 			print("----")
@@ -127,17 +127,6 @@ def main():
 
 			print("total number of test nodes: " + str(len(ec2_resp_name["Reservations"])))
 
-			# print("key: " + key)
-			# print("values: " + values)
-			# print("source type: " + source_type)
-			# print("document name: " + document_name)
-			# print("owner: " + owner)
-			# print("repo: " + repo)
-			# print("path: " + path)
-			# print("get_options: " + get_options)
-			# print("command_line: " + command_line)
-			# print()
-
 
 			target_dict = {
 				"Key" : "",
@@ -149,11 +138,7 @@ def main():
 			target_array = []
 			target_array.append(target_dict)
 
-			# print("TARGET ARRAY")
-			# print(target_array)
 
-
-			# POC
 			para_dict = {
 				"sourceType" : [],
 				"sourceInfo" : [],
@@ -174,19 +159,9 @@ def main():
 
 			para_dict["sourceInfo"].append(json.dumps(info_json))
 
-			# ref_string = '{"sourceType" : ["GitHub"],"sourceInfo" : ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\",\"getOptions\":\"branch:master\"}"],"commandLine" : ["nanny.sh"]}'
-			# print(ref_string)
-
-			# response = client_name.send_command(Targets=[{"Key": key, "Values": [values, ]}, ], DocumentName=document_name, Parameters={"sourceType": [source_type], "sourceInfo": ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine": [command_line]})
-			# response = client_name.send_command(Targets = target_array, DocumentName = document_name, Parameters = ast.literal_eval(para_string))
-
-			# FUNCTIONAL CMD
-			# response = client_name.send_command(Targets=[{"Key": "tag:type", "Values": ["testnode", ]}, ], DocumentName="AWS-RunRemoteScript", Parameters={"sourceType": ["GitHub"], "sourceInfo": ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine": ["nanny.sh"]})
 			print("Invoking script stored in GitHub in region " + regions[i])
 			ssm_resp_name = 'resp_ssm' + regions[i]
-			# print(target_array)
-			# print(document_name)
-			# print(para_dict)
+
 			ssm_resp_name = client_ssm_name.send_command(Targets=target_array, DocumentName=document_name, Parameters=para_dict, MaxErrors='100%')
 			pprint.pprint(ssm_resp_name)
 
@@ -200,30 +175,6 @@ def main():
 
 if __name__ == "__main__":
 	main()
-
-
-
-# AWS did a lousy job to document how to invoke a script from Github on multiple EC2 instances, the following command finally worked after hours of troubleshooting
-# response = client_name.send_command(Targets = [{"Key" : "tag:type", "Values" : ["testnode",]},], DocumentName = "AWS-RunRemoteScript", Parameters = {"sourceType" : ["GitHub"], "sourceInfo" : ["{\"owner\" : \"bwu2sfu\", \"repository\":\"harmony-ops\", \"path\":\"aws/ssm\", \"getOptions\":\"branch:master\"}"],"commandLine" : ["nanny.sh"]})
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
