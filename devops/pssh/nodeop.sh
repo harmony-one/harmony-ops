@@ -10,7 +10,7 @@ declare -A OPS
 OPS[ps]="pgrep PROCESS | grep ^[0-9]"
 OPS[viewid]='tail -n 50 ../tmp_log/log-*/*.log | grep -o "myViewID.:[0-9]*" | tail -n 1'
 OPS[soldier]='tail -n 3 soldier-*.log'
-OPS[kill]='sudo pkill harmony'
+OPS[kill]='sudo pkill PROCESS'
 OPS[nodelog]='tail -n 20 ../tmp_log/log-*/*.log'
 OPS[cleandb]="sudo rm -rf harmony_db_*"
 OPS[mvharmony]="sudo mv -f harmony harmony.orig"
@@ -20,7 +20,7 @@ declare -A USAGE
 USAGE[ps     ]="run ps command to check existence of PROCESS"
 USAGE[viewid ]="find the latest viewid from the log"
 USAGE[soldier]="print latest soldier log"
-USAGE[kill   ]="kill the harmony process on node"
+USAGE[kill   ]="kill the PROCESS on node"
 USAGE[nodelog]="print latest harmony node log"
 USAGE[cleandb]="remove existing harmony_db"
 USAGE[mvharmony]="move harmony to harmony.orig"
@@ -32,7 +32,7 @@ function do_op_cmd
    outdir=${2:-$op}
 
    case $op in
-      ps)
+      ps|kill)
          extra=${3:-harmony}
          CMD=$(echo ${OPS[$op]} | sed s/PROCESS/$extra/)
          ;;
