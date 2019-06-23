@@ -4,9 +4,10 @@ ME=$(basename $0)
 ACTION=${1}
 HOSTS=${2:-hosts.txt}
 OUT=${3}
+EXTRA=${4}
 
 declare -A OPS
-OPS[ps]="ps -ef | grep harmony"
+OPS[ps]="pgrep PROCESS | grep ^[0-9]"
 OPS[viewid]='tail -n 50 ../tmp_log/log-*/*.log | grep -o "myViewID.:[0-9]*" | tail -n 1'
 OPS[soldier]='tail -n 3 soldier-*.log'
 OPS[kill]='sudo pkill harmony'
@@ -16,7 +17,7 @@ OPS[mvharmony]="sudo mv -f harmony harmony.orig"
 OPS[upgrade]="aws s3 cp s3://pub.harmony.one/release/linux-x86_64/drum/harmony . ; chmod +x harmony"
 
 declare -A USAGE
-USAGE[ps     ]="run ps command to check existence of harmony process"
+USAGE[ps     ]="run ps command to check existence of PROCESS"
 USAGE[viewid ]="find the latest viewid from the log"
 USAGE[soldier]="print latest soldier log"
 USAGE[kill   ]="kill the harmony process on node"
@@ -29,7 +30,18 @@ function do_op_cmd
 {
    op=$1
    outdir=${2:-$op}
-   pssh -l ec2-user -h $HOSTS -o $outdir "${OPS[$op]}"
+
+   case $op in
+      ps)
+         extra=${3:-harmony}
+         CMD=$(echo ${OPS[$op]} | sed s/PROCESS/$extra/)
+         ;;
+      *)
+         CMD=${OPS[$op]}
+         ;;
+   esac
+
+   pssh -l ec2-user -h $HOSTS -o $outdir "$CMD"
 }
 
 function check_env
@@ -47,7 +59,7 @@ function check_env
 function usage
 {
    cat<<EOT
-Usage: $ME action [host_file] [output_dir]
+Usage: $ME action [host_file] [output_dir] [extra_param_to_cmd]
 
 Actions:
 
@@ -55,7 +67,13 @@ EOT
    for action in "${!USAGE[@]}"; do
       echo -e "\t$action\t\t${USAGE[$action]}"
    done
-   echo
+   cat<<EOT
+
+Examples:
+
+   $ME ps all-host.txt allhost soldier
+
+EOT
    exit 0
 }
 
@@ -64,7 +82,7 @@ check_env
 actions=" ${!OPS[@]} "
 
 if [[ $actions =~ " $ACTION " ]]; then
-   do_op_cmd $ACTION $OUT
+   do_op_cmd $ACTION $OUT $EXTRA
 else
    usage
 fi
