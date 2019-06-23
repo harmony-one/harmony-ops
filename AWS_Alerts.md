@@ -48,7 +48,8 @@ See for Amazon Linux: https://docs.fluentbit.io/manual/installation/redhat_cento
     Types ViewID:integer
 ```
 
-# Amazon Elasticsearch Service
+# Create Amazon Elasticsearch Service
+t2.small instance is enough
 
 # Configure Kibana
 Create monitor, trigger and destination
