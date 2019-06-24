@@ -1,1 +1,0 @@
-join <(curl -s https://harmony.one/20190621/06 | sort) <(curl -s https://harmony.one/20190622/06 | sort) | awk '/^one/ {print $1, $7 - $4, $3 - $6}' | sort -rnk2,2 -rnk3,3 > top-day
