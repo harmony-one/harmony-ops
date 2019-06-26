@@ -13,6 +13,7 @@
 
 ## ACTION REQUIRED
 **Auto Upgrade -** None
+
 **Manual Upgrade -**  Manually restart node.sh
 
 ## PLANNED RELEASES
