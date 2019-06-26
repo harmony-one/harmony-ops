@@ -49,7 +49,7 @@ chmod u+x wallet.sh
 ```
 curl -LO https://harmony.one/node.sh
 chmod a+x node.sh
-sudo ./node.sh -c
+sudo ./node.sh
 ```
 
 
