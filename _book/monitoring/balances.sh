@@ -1,1 +1,0 @@
-for x in `curl -s https://raw.githubusercontent.com/harmony-one/harmony/master/internal/genesis/foundational.go | grep Address | cut -d'"' -f4`; do ./wallet.sh balances -address=$x; done > balances-fn-drum_20190614-177-g276bc258-0
