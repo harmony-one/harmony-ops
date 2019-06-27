@@ -1,5 +1,0 @@
-root: ./docs/
-
-structure:
-  readme: ./STATUS.md
-  summary: ./SUMMARY.md
