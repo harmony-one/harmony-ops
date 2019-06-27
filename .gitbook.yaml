@@ -3,3 +3,6 @@ root: ./
 structure:
   readme: ./docs/STATUS.md
   summary: ./docs/SUMMARY.md
+
+redirects:
+  previous/page: new-folder/page.md
