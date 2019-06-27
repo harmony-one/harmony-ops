@@ -6,12 +6,12 @@
 
 ## Monitoring and Reporting Tools
 
-* [Harmony Genisis Node Status](./reporting/status.md)
-* [Harmony Shard Status - Blockchain Height](./reporting/shardStatus.md)
-* [Foundational Node Rewards](./reporting/nodeRewards.md)
-* [Foundational Node Reward Rate - 1 hour](./reporting/reward1h.md)
-* [Foundational Node Reward Rate - 4 hour](./reporting/reward4h.md)
-* [Foundational Node Reward Rate - 1 day](./reporting/reward1d.md)
+* [Harmony Genisis Node Status](./docs/reporting/status.md)
+* [Harmony Shard Status - Blockchain Height](./docs/reporting/shardStatus.md)
+* [Foundational Node Rewards](./docs/reporting/nodeRewards.md)
+* [Foundational Node Reward Rate - 1 hour](./docs/reporting/reward1h.md)
+* [Foundational Node Reward Rate - 4 hour](./docs/reporting/reward4h.md)
+* [Foundational Node Reward Rate - 1 day](./docs/reporting/reward1d.md)
 
 ## Foundational Node Playbook
 * [Setting up your node](https://harmony.one/fn-setup)
