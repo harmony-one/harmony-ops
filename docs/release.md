@@ -1,6 +1,6 @@
-# HARMONY RELEASE STATUS PAGE
+#### HARMONY RELEASE STATUS PAGE
 
-## CURRENT RELEASE
+#### CURRENT RELEASE
 
 **Release Date -** Tuesday June 25th 19:00 Pacific Time
 
@@ -11,16 +11,16 @@
 **Release Detail -** Harmony (C) 2018. harmony, version v3768-r3_20190626-0-g12bb1d44 (jenkins@ 2019-06-26T02:45:49+0000)
 
 
-## ACTION REQUIRED
+#### ACTION REQUIRED
 **Auto Upgrade -** None
 
 **Manual Upgrade -**  Manually restart node.sh
 
-## PLANNED RELEASES
+#### PLANNED RELEASES
 
-## PREVIOUS RELEASES
+#### PREVIOUS RELEASES
 
-## Additional Information
+#### Additional Information
 
 **Checking your version -** `./mystatus.sh`
 
@@ -51,5 +51,6 @@ curl -LO https://harmony.one/node.sh
 chmod a+x node.sh
 sudo ./node.sh
 ```
+
 
 

@@ -1,8 +1,34 @@
-# harmony-ops
+# Harmony Foundational Node Success Guide
+This provides information for Harmony Foundational Nodes to be sucessful.
 
-Harmony Ops Master Repository.
+## Harmony Mainnet Release
 
-# Cheat Sheet
+#### Current Release
+
+**Release Date -** Tuesday June 25th 19:00 Pacific Time
+
+**Release Type -** Rolling Upgrade
+
+**Release Version -** v3768-r3_20190626-0-g12bb1d44
+
+**Release Detail -** Harmony (C) 2018. harmony, version v3768-r3_20190626-0-g12bb1d44 (jenkins@ 2019-06-26T02:45:49+0000)
+
+
+#### Action Required
+**Auto Upgrade -** None
+
+**Manual Upgrade -**  Manually restart node.sh
+
+#### PLANNED RELEASES
+
+
+#### PREVIOUS RELEASES
+
+#### Additional Information
+
+**Checking your version -** `./mystatus.sh`
+
+**Ensuring you have the latest version of the software**
 
 **Setup**
 
@@ -27,5 +53,8 @@ chmod u+x wallet.sh
 ```
 curl -LO https://harmony.one/node.sh
 chmod a+x node.sh
-sudo ./node.sh -c
+sudo ./node.sh
 ```
+
+
+
