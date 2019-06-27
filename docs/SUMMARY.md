@@ -1,4 +1,4 @@
-# harmony-ops
+# Harmony Operations Wiki
 
 ## Harmony Status
 
@@ -15,6 +15,7 @@
 
 ## Foundational Node Playbook
 * [Setting up your node](https://harmony.one/fn-setup)
-* [Upgrading your node](./README.MD)
-* Troubleshooting your node
+* [Harmony Monitoring Overview](./playbook/overview.md)
+* [Upgrading your node](./playbook/readme.MD)
+* [Troubleshooting](./playbook/troubleshooting.md)
 * [Frequently Asked Questions](https://harmony.one/fn-faq)
