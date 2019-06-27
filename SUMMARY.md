@@ -1,4 +1,4 @@
-# Harmony Operations Wiki
+# Summary
 
 ## Harmony Status
 
@@ -6,8 +6,8 @@
 
 ## Monitoring and Reporting Tools
 
-* [Harmony Foundational Node Status](https://status.harmony.one/)
-* [Harmony Shard Status - Blockchain Height](https://harmony.one/status)
+* [Harmony Genisis Node Status](./docs/reporting/status.md)
+* [Harmony Shard Status - Blockchain Height](./docs/reporting/shardStatus.md)
 * [Foundational Node Rewards](https://harmony.one/balances)
 * [Foundational Node Reward Rate - 1 hour](https://harmony.one/1h)
 * [Foundational Node Reward Rate - 4 hour](https://harmony.one/4h)
