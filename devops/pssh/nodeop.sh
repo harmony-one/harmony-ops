@@ -41,7 +41,7 @@ function do_op_cmd
          ;;
    esac
 
-   pssh -l ec2-user -h $HOSTS -o $outdir "$CMD"
+   pssh -t 5 -l ec2-user -h $HOSTS -o $outdir "$CMD"
 }
 
 function check_env
