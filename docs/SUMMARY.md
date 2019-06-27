@@ -4,7 +4,6 @@
 
 * [Release Status](./STATUS.md)
 
-    
 ## Monitoring and Reporting Tools
 
 * [Harmony Foundational Node Status](https://status.harmony.one/)
@@ -13,7 +12,6 @@
 * [Foundational Node Reward Rate - 1 hour](https://harmony.one/1h)
 * [Foundational Node Reward Rate - 4 hour](https://harmony.one/4h)
 * [Foundational Node Reward Rate - 1 day](https://harmony.one/day)
-
 
 ## Foundational Node Playbook
 * [Setting up your node](https://harmony.one/fn-setup)
