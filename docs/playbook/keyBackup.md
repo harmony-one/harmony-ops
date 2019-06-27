@@ -27,15 +27,18 @@ Gives the wallet keys e.g.
 where your wallet key is 
 UTC--2019-06-12T19-19-44.548607000Z--56151cda1f9574543d0f5f0b2c33384dbfdf0fb7
 
-** Download the keys to your local machine
 
+**Using SCP**
 * Here we will use `scp -i` which has the format `scp -i <pem> <from> <to>` where 
   * <pem> is the pem file used to connect to AWS
   * <from> is the file your copying from
   * <to> is the file your copying to
+
   e.g. `scp -i oregon-key-benchmark.pem ec2-user@54.190.19.255:/home/ec2-user/UT* ./keybackup/`
+
   or `scp -i  oregon-key-benchmark.pem ec2-user@ec2-34-222-17-175.us-west-2.compute.amazonaws.com;/home/ec2-user/UT* ./keybackup/`
 
+** Download the keys to your local machine**
 * Create a directory where you would like to keep your downloaded keys
 * Move your `.pem` file to that machine so you can access your AWS instance
 * Get your AWS connection information this can be retrieved by going to you AWS Console, selecting the EC2 instance and pressing connect
