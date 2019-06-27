@@ -18,4 +18,5 @@
 * [Harmony Monitoring Overview](./playbook/overview.md)
 * [Upgrading your node](./playbook/readme.MD)
 * [Troubleshooting](./playbook/troubleshooting.md)
+* [Backing up your keys](./playbook/keyBackup.md)
 * [Frequently Asked Questions](https://harmony.one/fn-faq)
