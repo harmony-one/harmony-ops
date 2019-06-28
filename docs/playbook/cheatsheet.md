@@ -1,8 +1,4 @@
-# harmony-ops
-
-Harmony Ops Master Repository.
-
-# Cheat Sheet
+# Upgrading your node cheat sheet
 
 **Setup**
 

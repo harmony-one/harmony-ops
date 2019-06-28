@@ -1,5 +1,8 @@
 **Reporting and Monitoring Tools**
 
+* Monitoring
+  * [Harmony Explorer](https://explorer.harmony.one/)
+
 * Status Overview
   * [status.harmony.one](https://status.harmony.one/)
   * [Harmony Shard Status - Blockchain Height](https://harmony.one/status)
