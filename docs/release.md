@@ -1,9 +1,6 @@
-# Harmony Foundational Node Success Guide
-This provides information for Harmony Foundational Nodes to be sucessful.
+#### HARMONY RELEASE STATUS PAGE
 
-## Harmony Mainnet Release
-
-#### Current Release
+#### CURRENT RELEASE
 
 **Release Date -** Tuesday June 25th 19:00 Pacific Time
 
@@ -14,13 +11,12 @@ This provides information for Harmony Foundational Nodes to be sucessful.
 **Release Detail -** Harmony (C) 2018. harmony, version v3768-r3_20190626-0-g12bb1d44 (jenkins@ 2019-06-26T02:45:49+0000)
 
 
-#### Action Required
+#### ACTION REQUIRED
 **Auto Upgrade -** None
 
 **Manual Upgrade -**  Manually restart node.sh
 
 #### PLANNED RELEASES
-
 
 #### PREVIOUS RELEASES
 
