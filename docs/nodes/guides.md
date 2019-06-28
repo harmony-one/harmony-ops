@@ -1,5 +1,7 @@
 # Foundational Nodes information and guides
 
+![Harmony Image](../img/warModeOn.jpg)
+
 * [Setting up your node](https://harmony.one/fn-setup)
 * [Node setup cheat sheet](https://docs.google.com/document/d/14OcaR9ACjfUANrFvyMuKkuCXkdMC9-nK3wA7PnhhYTk/edit?usp=sharing)
 * [Harmony Foundational Nodes key management guide](https://drive.google.com/open?id=1xTEeiCqwrGXF6drweyq4EVIR-BqRgoHD3lOaw0XGHb4)

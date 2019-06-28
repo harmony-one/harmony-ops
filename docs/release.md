@@ -1,6 +1,8 @@
 #### HARMONY RELEASE STATUS PAGE
 
-#### CURRENT RELEASE
+![Phases Image](./img/mainnetPhases.png)
+
+#### CURRENT RELEASE - Day ONE Mainnet
 
 **Release Date -** Friday June 28th 08:43 Pacific Time
 
@@ -16,6 +18,10 @@
 **Manual Upgrade -**  [Manually restart node.sh](./playbook/cheatsheet.md)
 
 #### PLANNED RELEASES
+
+**Mainnet Phase 2**
+
+**Mainnet Phase 3**
 
 #### PREVIOUS RELEASES
 

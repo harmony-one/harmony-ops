@@ -2,7 +2,7 @@
 
 
 
-![Welcome Image](./docs/img/harmony10Billion.png)
+![Welcome Image](./docs/img/dayONEmainnet.png)
 
 **This provides information for Harmony Foundational Nodes to be sucessful.**
 
@@ -20,7 +20,7 @@ Similar to the way that Google vertically integrates its search infrastructure, 
 
 Harmony's technical architecture implements a full & secure sharding scheme, efficient consensus, and scalable networking infrastructure.
 
-Harmony relies on a secure sharding process, where validators are distributed into shards based on a randomness that is both unpredictable and unbiasable. Harmony is a Proof-of-Stake blockchain, where validators shall be punished if they behave maliciously. Harmony integrates an efficient consensus protocol that combines POS with practical Byzantine fault tolerance (PBFT). With the adoption of networking technology including RaptorQ fountain code and Kademlia routing, Harmony is able to achieve cross-shard transactions that scale sub linearly by the number of shards. 
+Harmony relies on a secure sharding process, where validators are distributed into shards based on a randomness that is both unpredictable and unbiasable. Harmony is a Proof-of-Stake blockchain, where validators needs to stake a certain amount of tokens to be eligible for block validation. Harmony integrates an efficient consensus protocol called FBFT that combines BLS multi-signature and view change protocol to achieve high robustness and low latency. With the adoption of networking technology including RaptorQ fountain code and Kademlia routing, Harmony is able to achieve cross-shard transactions that scale sub linearly by the number of shards. 
 
 By innovating on each layer, Harmony aims to provide a scalable, secure, and decentralized system that supports economic activities, including data marketplaces, gaming, and financial transactions, for billions of people.
 

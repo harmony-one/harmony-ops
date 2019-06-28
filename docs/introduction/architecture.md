@@ -1,3 +1,7 @@
+# Harmony Architecture
+
+![Harmony Architecture](../img/viewChangeProtocol.jpg)
+
 ## Secure Sharding
 
 Harmony adopts a Proof-Of-Stake (PoS) based sharding scheme that’s both secure and flexible. Harmony contains a beacon chain and multiple shard chains. The beacon chain serves as the random beacon and identity register, while the shard chains store separate blockchain states and process transactions concurrently. Harmony proposes an efficient algorithm for randomness generation by combining Verifiable Random Function (VRF) and Verifiable Delay Function (VDF). 
