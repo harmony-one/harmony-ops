@@ -17,10 +17,10 @@ ls UTC*
 Gives the key name e.g. 
 
 `UTC--2019-06-12T19-22-43.157337000Z--bls_19101de3d0578c3146a1904f25a3344a998dcb0a18433dc5cc977d05f378676b0652b4a64fa8dff6c819cfd52dc94c14`
-* 
+
 * Locate your wallet key - this should be stored in `.hmy/keystore/`
 ```
-ls ./hmy/keystore/*
+ls .hmy/keystore/*
 ```
 Gives the wallet keys e.g.
 ```
