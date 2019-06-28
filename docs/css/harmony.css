@@ -1,0 +1,36 @@
+.wy-side-nav-search {
+    z-index: 200;
+    background-color: rgb(0, 0, 0);
+    text-align: center;
+    display: block;
+    color: rgb(252, 252, 252);
+    margin-bottom: 0.809em;
+    padding: 0.809em;
+}
+
+.wy-nav-side {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 300px;
+    overflow: hidden;
+    min-height: 100%;
+    background: #00AEE9;
+    z-index: 200;
+}
+
+.wy-menu-vertical li.current a {
+    color: #1B295E;
+    border-right: solid 1px #c9c9c9;
+    padding: 0.4045em 2.427em;
+}
+
+.wy-menu-vertical a {
+    display: inline-block;
+    line-height: 18px;
+    padding: 0.4045em 1.618em;
+    display: block;
+    position: relative;
+    font-size: 90%;
+    color: white;
+}

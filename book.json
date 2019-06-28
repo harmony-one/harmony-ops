@@ -1,0 +1,6 @@
+{ 
+    "title": "Harmony Nodes",
+    "styles": {
+        "website": "./docs/css/harmony.css"
+    }
+}
