@@ -1,5 +1,7 @@
 # Harmony Community 
 
+![Harmony Team Image](../img/harmonyTeam.jpeg)
+
 * [WeChat](https://harmony.one/wechat)
 * [Telegram](https://harmony.one/telegram)
 * [Discord](https:harmony.one/discord)

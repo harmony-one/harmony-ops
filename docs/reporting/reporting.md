@@ -1,5 +1,8 @@
 **Reporting and Monitoring Tools**
 
+
+![Node Announcement Image](../img/foundationNodeAnnouncement.jpg)
+
 * Monitoring
   * [Harmony Explorer](https://explorer.harmony.one/)
 
