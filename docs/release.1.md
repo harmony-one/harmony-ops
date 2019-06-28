@@ -2,9 +2,9 @@
 
 #### CURRENT RELEASE
 
-**Release Date -** Tuesday June 25th 19:00 Pacific Time
+**Release Date -** Friday June 28th 08:00 Pacific Time
 
-**Release Type -** Rolling Upgrade
+**Release Type -** [Manual restart](./docs/playbook/cheatsheet.md)
 
 **Release Version -** v3768-r3_20190626-0-g12bb1d44
 
@@ -19,4 +19,6 @@
 #### PLANNED RELEASES
 
 #### PREVIOUS RELEASES
+
+* Tuesday June 25th - AutoUpdate - v3768-r3_20190626-0-g12bb1d44
 

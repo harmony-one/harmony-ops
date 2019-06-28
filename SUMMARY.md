@@ -6,15 +6,18 @@
 
 ## Foundational Node Playbook
 
-  * [Setting up your node](https://harmony.one/fn-setup)
-  * [Upgrading your node](./docs/playbook/readme.md)
-  * [Troubleshooting](./docs/playbook/troubleshooting.md)
+  * [Upgrading your node cheat sheet](./docs/playbook/cheatsheet.md)
   * [Backing up your keys](./docs/playbook/keyBackup.md)
-  * [Frequently Asked Questions](https://harmony.one/fn-faq)
-  * [Harmony Monitoring Overview](./docs/playbook/overview.md)
+  * [Additional information and guides](./docs/playbook/additional.md)
 
 ## Monitoring and Reporting Tools
   
   * [Monitoring and Reporting Tools](./docs/reporting/reporting.md)
+
+## Community
+  * [Community](./docs/community/community.md)
+
+## Additional Information
+  * [Reference Material](./docs/additional/reference.md)
 
 
