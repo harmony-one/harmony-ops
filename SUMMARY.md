@@ -1,14 +1,19 @@
 # Summary
 
+## Harmony Overview
+* [Architecture](./docs/introduction/architecture.md)
+* [Future Work](./docs/introduction/futureWork.md)
+
 ## Harmony Status
 
 * [Release Status](./docs/release.md)
 
 ## Foundational Node Playbook
 
-  * [Upgrading your node cheat sheet](./docs/playbook/cheatsheet.md)
-  * [Backing up your keys](./docs/playbook/keyBackup.md)
-  * [Additional information and guides](./docs/playbook/additional.md)
+  * [Foundational Node guides](./docs/nodes/guides.md)
+  * [Upgrading your node cheat sheet](./docs/nodes/cheatsheet.md)
+  * [Backing up your keys](./docs/nodes/keyBackup.md)
+
 
 ## Monitoring and Reporting Tools
   
