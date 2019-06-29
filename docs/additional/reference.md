@@ -7,4 +7,4 @@
 
 ### Harmony Overview
 
-![Welcome Image](../img/harmonyOnePage.jpg)
+![Harmony fact sheet](../img/harmonyOnePage.jpg)

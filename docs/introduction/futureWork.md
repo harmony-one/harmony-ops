@@ -1,6 +1,6 @@
 # Future Work
 
-![Harmony Image](../img/harmony10Billion.png)
+![Harmony Open Consensus for 10 Billion](../img/harmony10Billion.png)
 
 ## Availability
 
