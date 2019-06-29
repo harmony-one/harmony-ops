@@ -2,7 +2,7 @@
 
 
 
-![Welcome Image](./docs/img/dayONEmainnet.png)
+![Welcome Image](./docs/img/mainnetDayONE.png)
 
 **This provides information for Harmony Foundational Nodes to be sucessful.**
 
