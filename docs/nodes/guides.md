@@ -1,6 +1,6 @@
 # Foundational Nodes information and guides
 
-![Harmony Image](../img/foundationalNodes.jpeg)
+![Harmony foundational nodes our strategic partners](../img/foundationalNodes.jpeg)
 
 * [Setting up your node](https://harmony.one/fn-setup)
 * [Node setup cheat sheet](https://docs.google.com/document/d/14OcaR9ACjfUANrFvyMuKkuCXkdMC9-nK3wA7PnhhYTk/edit?usp=sharing)

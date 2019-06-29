@@ -1,6 +1,6 @@
 #### HARMONY RELEASE STATUS PAGE
 
-![Phases Image](./img/mainnetPhases.png)
+![Harmony Mainnet Release Phases](./img/mainnetPhases.png)
 
 #### CURRENT RELEASE - Day ONE Mainnet
 

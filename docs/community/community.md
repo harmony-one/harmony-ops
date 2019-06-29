@@ -1,6 +1,6 @@
 # Harmony Community 
 
-![Harmony Team Image](../img/harmonyTeam.jpeg)
+![Harmony Team](../img/harmonyTeamMainnet.jpeg)
 
 * [Telegram](https://t.me/harmony_one)
 * [Telegram Announcement](https://t.me/harmony_announcements)
