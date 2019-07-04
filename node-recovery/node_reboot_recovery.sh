@@ -5,6 +5,8 @@ systemd_harmony () {
 	
 	set -eu
 
+	mkdir /home/ec2-user/$(date +%Y%m%d_%H%M%S)
+
 	pushd /home/ec2-user
 
 	harmony_service=/etc/systemd/system/harmony.service
