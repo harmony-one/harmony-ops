@@ -1,4 +1,4 @@
-# Upgrading your node cheat sheet
+# Upgrading your node quick reference
 
 **Setup**
 

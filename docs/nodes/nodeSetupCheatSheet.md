@@ -1,4 +1,4 @@
-# This guide will act as a cheat sheet for those who need to reconnect to your node and/or check statuses
+# This guide will act as a quick reference for those who need to reconnect to your node and/or check statuses
 
 **First time running/setting up your node:**
 

@@ -1,4 +1,4 @@
-# Harmony FN Key Management Guide
+# Harmony Foundational Node Key Management Guide
   
 **Welcome node operators!**
   
