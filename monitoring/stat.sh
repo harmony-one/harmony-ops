@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # stat.sh - Check foundational node status/statistics (requires 'bc' installed)
 
@@ -89,7 +89,7 @@ timestamp=$(printf "%02d:%02d:%02d" $hrs $min $sec)
 
 # Show address and balances
 echo "$balances" |grep -i "address"
-for (( b=0; i < ${#bal[@]}; b++ ))
+for (( b=0; b < ${#bal[@]}; b++ ))
 do
     if [[ ${bal[$b]} != "  0." ]]
         then
