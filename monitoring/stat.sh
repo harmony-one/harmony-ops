@@ -1,11 +1,11 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # stat.sh - Check foundational node status/statistics (requires 'bc' installed)
 
 # Get timestamps
-created=$(grep -i -m 1 allocated latest/*.log |cut -f 7-9 -d ":" |\
+created=$(grep -ai -m 1 allocated latest/*.log |cut -f 7-9 -d ":" |\
           cut -f 1 -d "." |cut -c 2- |tr T \ )
-bingolist=$(grep -i bingo latest/*.log)
+bingolist=$(grep -ai bingo latest/*.log)
 lastbingo=$(echo "$bingolist" |tail -n 1 |cut -f 2 -d 'r' |\
             cut -c 16-34 |tr T \ )
 latest=$(echo "$bingolist" |tail -n 1 |cut -f 2 -d 'T' |cut -c 1-14)
