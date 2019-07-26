@@ -1,0 +1,12 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": null,
+    "title": "Harmony Nodes Monitoring - SHARD0",
+    "tags": [ "templated" ],
+    "timezone": "browser",
+    "schemaVersion": 6,
+    "version": 0
+  },
+  "overwrite": false
+}
