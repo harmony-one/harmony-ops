@@ -1,4 +1,4 @@
-#!/bin/usr/env bash
+#!/usr/bin/env bash
 
 # upload.sh - Generates and uploads all the files to the harmony.one website
 
