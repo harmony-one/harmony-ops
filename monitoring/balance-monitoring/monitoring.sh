@@ -104,7 +104,7 @@ function gencsv {
 
     # Print offline addresses to csvfile
     grep -f $OFFLINE <(echo "$result") |\
-    awk '{print $1, $2, $3,"false"}' | sed 's/\ /,/' >> $csvfile
+    awk '{print $1, $2, $3,"false"}' | sed 's/\ /,/g' >> $csvfile
 }
 
 ### Generate jsonfile

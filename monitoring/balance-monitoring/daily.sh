@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Generates hourly report
-prefix=generated/day/day
+prefix=generated/24h/24h
 textfile=$prefix.txt
 csvfile=$prefix.csv
 jsonfile=$prefix.json
