@@ -82,14 +82,14 @@ function gentxt {
     printf "\nONLINE\n==========\n\n" >> $textfile
 
     # Sort online addresses by balances
-    data=$(grep -v -f $OFFLINE <(echo "$result") | sort -r -k 3,3)
+    data=$(grep -v -f $OFFLINE <(echo "$result") | sort -nr -k 3,3)
     none="None..."
     print_txt
 
     printf "\nOFFLINE\n==========\n\n" >> $textfile
 
     # Sort offline addresses by balances
-    data=$(grep -f $OFFLINE <(echo "$result") | sort -r -k 3,3)
+    data=$(grep -f $OFFLINE <(echo "$result") | sort -nr -k 3,3)
     none="None!"
     print_txt
 }
@@ -104,7 +104,7 @@ function gencsv {
 
     # Print offline addresses to csvfile
     grep -f $OFFLINE <(echo "$result") |\
-    awk '{print $1, $2, $3,"false"}' | sed 's/\ /,/' >> $csvfile
+    awk '{print $1, $2, $3,"false"}' | sed 's/\ /,/g' >> $csvfile
 }
 
 ### Generate jsonfile
