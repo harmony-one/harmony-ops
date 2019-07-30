@@ -28,7 +28,7 @@ function header {
 ### Format offline nodes
 function print_txt {
     ### Find shard 0
-    printf "\e[4mShard 0\e[0m\n" >> $textfile
+    printf "Shard 0\n--------\n" >> $textfile
     # Get only shard 0 addresses
     zero=$(echo "$data" | awk -F " " '$2 == 0' | awk '{print $1, $3}' |\
            sed 's/\ /:\ /')
@@ -40,7 +40,7 @@ function print_txt {
     fi
 
     ### Find shard 1
-    printf "\e[4mShard 1\e[0m\n" >> $textfile
+    printf "Shard 1\n--------\n" >> $textfile
     # Get only shard 1 addresses
     one=$(echo "$data" | awk -F " " '$2 == 1' | awk '{print $1, $3}' |\
           sed 's/\ /:\ /')
@@ -52,7 +52,7 @@ function print_txt {
     fi
 
     ### Find shard 2
-    printf "\e[4mShard 2\e[0m\n" >> $textfile
+    printf "Shard 2\n--------\n" >> $textfile
     # Get only shard 2 addresses
     two=$(echo "$data" | awk -F " " '$2 == 2' | awk '{print $1, $3}' |\
           sed 's/\ /:\ /')
@@ -64,7 +64,7 @@ function print_txt {
     fi
 
     ### Find shard 3 
-    printf "\e[4mShard 3\e[0m\n" >> $textfile
+    printf "Shard 3\n--------\n" >> $textfile
     # Get only shard 3 addresses
     three=$(echo "$data" | awk -F " " '$2 == 3' | awk '{print $1, $3}' |\
             sed 's/\ /:\ /')
@@ -80,7 +80,7 @@ function print_txt {
 function gentxt {
     ### Online portion
     header
-    printf "\n\e[1mONLINE\n===============\e[0m\n" >> $textfile
+    printf "\nONLINE\n===============\n" >> $textfile
 
     # Sort online addresses by balances
     data=$(grep -v -f $OFFLINE <(echo "$result") | sort -nr -k 3,3)
@@ -88,7 +88,7 @@ function gentxt {
     print_txt
 
     ### Offline portion
-    printf "\n\e[1mOFFLINE\n===============\e[0m\n" >> $textfile
+    printf "\nOFFLINE\n===============\n" >> $textfile
 
     # Sort offline addresses by balances
     data=$(grep -f $OFFLINE <(echo "$result") | sort -nr -k 3,3)
@@ -96,7 +96,7 @@ function gentxt {
     print_txt
 
     ### Newly added portion
-    printf "\n\e[1mNEWLY ADDED\n===============\e[0m\n" >> $textfile
+    printf "\nNEWLY ADDED\n===============\n" >> $textfile
     new=$(echo "$data" | awk -F " " '$2 == -1' | awk '{print $1}')
     # If there are none, print "None"
     if [[ $(printf "$new" | wc -c) = 0 ]]; then
