@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-# Generates hourly report
+# hourly.sh - Generates hourly report of balances
+
+# Specific interval constants
 prefix=generated/1h/1h
 textfile=$prefix.txt
 csvfile=$prefix.csv
@@ -21,8 +23,10 @@ else
 fi
 
 ### Combine balance data from both files and subtract both
-previous=$(sort captures/$prevhr/$minute/$FILE | cut -d " " -f 3)
-result=$(paste <(echo "$current") <(echo "$previous") | awk '{print $1, $2, $3 - $4}')
+previous=$(sort captures/$prevhr/$minute/$FILE | sort -nr -k 2,2 |\
+           cut -d " " -f 3)
+result=$(paste <(echo "$current") <(echo "$previous") |\
+         awk '{print $1, $2, $3 - $4}')
 
 # Run generation scripts
 gentxt
