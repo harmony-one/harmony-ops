@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-# Generates hourly report
+# totally.sh - Generates report of all balances
+
+# Specific interval constants
 prefix=generated/balances/balances
 textfile=$prefix.txt
 csvfile=$prefix.csv
@@ -11,7 +13,7 @@ jsonextra="totalBalance"
 # Get functions and constants
 source monitoring.sh
 
-### Combine balance data from both files and subtract both
+# Just grab total balances
 result=$current
 
 # Run generation scripts

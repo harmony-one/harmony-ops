@@ -25,7 +25,8 @@ else
 fi
 
 ### Combine balance data from both files and find difference
-previous=$(sort captures/$prevhr/$prevmin/$FILE | cut -d " " -f 3)
+previous=$(sort captures/$prevhr/$prevmin/$FILE | sort -nr -k 2,2 |\
+           cut -d " " -f 3)
 result=$(paste <(echo "$current") <(echo "$previous") |\
 	     awk '{print $1, $2, $3 - $4}')
 
