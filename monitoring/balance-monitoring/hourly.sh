@@ -2,7 +2,7 @@
 
 # hourly.sh - Generates hourly report of balances
 
-# Specific interval constantVs
+# Specific interval constants
 prefix=generated/1h/1h
 textfile=$prefix.txt
 csvfile=$prefix.csv

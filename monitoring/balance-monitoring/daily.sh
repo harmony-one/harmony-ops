@@ -2,7 +2,7 @@
 
 # daily.sh - Generates daily report of balances
 
-# Specific interval constantVs
+# Specific interval constants
 prefix=generated/24h/24h
 textfile=$prefix.txt
 csvfile=$prefix.csv
