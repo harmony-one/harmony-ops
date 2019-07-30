@@ -17,7 +17,7 @@ fi
 function header {
     # Calculate validating
     echo "[$date]" > $textfile
-    total=$(echo $current | wc -l)
+    total=$(echo "$current" | wc -l)
     num_off=$(wc -l < $OFFLINE)
     num_on=$((total - num_off))
     percent=$(echo "$num_on/$total * 100" | bc -l)
@@ -80,7 +80,7 @@ function print_txt {
 function gentxt {
     ### Online portion
     header
-    printf "\n\e[1mONLINE\n===============\e[0m\n\n" >> $textfile
+    printf "\n\e[1mONLINE\n===============\e[0m\n" >> $textfile
 
     # Sort online addresses by balances
     data=$(grep -v -f $OFFLINE <(echo "$result") | sort -nr -k 3,3)
@@ -88,7 +88,7 @@ function gentxt {
     print_txt
 
     ### Offline portion
-    printf "\n\e[1mOFFLINE\n===============\e[0m\n\n" >> $textfile
+    printf "\n\e[1mOFFLINE\n===============\e[0m\n" >> $textfile
 
     # Sort offline addresses by balances
     data=$(grep -f $OFFLINE <(echo "$result") | sort -nr -k 3,3)
