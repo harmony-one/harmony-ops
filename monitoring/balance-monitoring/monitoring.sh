@@ -3,7 +3,6 @@
 # monitoring.sh - Contains date checking constants and printing functions
 
 FILE=balances.txt
-ADDRESSES=generated/addresses.txt
 OFFLINE=generated/offline.txt
 
 # Get current time
@@ -18,7 +17,7 @@ fi
 function header {
     # Calculate validating
     echo "[$date]" > $textfile
-    total=$(wc -l < $ADDRESSES)
+    total=$(wc -l < $current)
     num_off=$(wc -l < $OFFLINE)
     num_on=$((total - num_off))
     percent=$(echo "$num_on/$total * 100" | bc -l)
@@ -117,7 +116,7 @@ function gencsv {
     awk '{print $1, $2, $3,"true"}' | sed 's/\ /,/g' >> $csvfile
 
     # Print offline addresses
-    grep -f $OFFLINE <(echo "$result") | grep -v "-1" |\
+    grep -f $OFFLINE <(echo "$result") | grep -v -e "-1" |\
     awk '{print $1, $2, $3,"false"}' | sed 's/\ /,/g' >> $csvfile
 }
 
@@ -156,7 +155,7 @@ function genjson {
     ### Offline nodes
     printf "\"offlineNodes\": [\n    " >> $jsonfile
     firsttime=true
-    data=$(grep -f $OFFLINE <(echo "$result") | grep -v "-1")
+    data=$(grep -f $OFFLINE <(echo "$result") | grep -v -e "-1")
     # Loop through all data
     while read -r line; do
         if [[ $firsttime = true ]]; then
@@ -175,12 +174,12 @@ function genjson {
     done <<< "$data"
     # Closing lines
     printf "\n  " >> $jsonfile
-    printf "],\n" >> $jsonfile
+    printf "],\n  " >> $jsonfile
 
     ### Newly added nodes
     printf "\"newlyAddedNodes\": [\n    " >> $jsonfile
     firsttime=true
-    data=$(grep "-1" <(echo "$result"))
+    data=$(grep -e "-1" <(echo "$result"))
     # Loop through all data
     while read -r line; do
         if [[ $firsttime = true ]]; then

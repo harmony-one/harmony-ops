@@ -2,7 +2,7 @@
 
 ### Get addresses from file 
 addresses=$(curl -sL https://harmony.one/fn-keys |\
-            grep Address | cut -d '"' -f 4)
+            grep Address | cut -d '"' -f 4 | sort -u)
 
 # Get functions and constants
 source monitoring.sh
