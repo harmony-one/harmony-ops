@@ -139,7 +139,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 	./wallet.sh -d
 	```
 
-12. Create a new key pair with the following command and input your passphrase:
+12. Create a new ECDSA account address with the following command and input your passphrase.
 	```
 	./wallet.sh new
 	```
@@ -153,12 +153,10 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
   
 ![Harmony key-step13](../img/key-step13.png)
 
-14. Step 12 should create an account address starting with “one”. Send this account address to genesis@harmony.one, together with your discord handle with #number suffix, i.e.“@Eugene Kim | Harmony#9608”, also include your BLS public key from step 13. Please Use the subject line “mainnet v0 key”.
+14. Step 12 should create an ECDSA account address starting with “one”. Send this account address to genesis@harmony.one, together with your discord handle with #number suffix, i.e.“@Eugene Kim | Harmony#9608”, also include your BLS public key from step 13. Please Use the subject line “mainnet”.
 ![Harmony key-step14](../img/key-step14.png)
-
-15. We will reply to your email with a 9 digit code. Simply reply to that email and copy that 9 digit code. This will ensure that your email address is legitimate and not spoofed.
-
-16. Almost there! Now that we have your public key, we will include you as a validator in our genesis block. To verify if your account address is included in the genesis block check the following link. Be patient as this will take time before it is updated. https://raw.githubusercontent.com/harmony-one/harmony/master/internal/genesis/foundational.go.
+  
+15. Almost there! Now that we have your public key, we will include you as a validator in our genesis block. To verify if your account address is included in the genesis block check the following link. Be patient as this will take time before it is updated. https://raw.githubusercontent.com/harmony-one/harmony/master/internal/genesis/foundational.go.
 
 **Connecting your node to Harmony network**
 
