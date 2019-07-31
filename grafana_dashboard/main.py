@@ -24,15 +24,13 @@ import boto3
 import json
 import copy
 from pprint import pprint
-
-
+from CREDENTIAL import SECRET_API_KEY
 
 bucket_host = r"harmony-benchmark"
 files_array = ['logs/2019/06/28/153354/validator/shard0.txt', 'logs/2019/06/28/153354/validator/shard1.txt', 'logs/2019/06/28/153354/validator/shard2.txt', 'logs/2019/06/28/153354/validator/shard3.txt']
 
 # TO-DO
 leader_array = ['', '', '', '']
-
 
 def download_host():
 
@@ -196,7 +194,7 @@ def main():
 
 
     # Attn: NEED TO MOVE THIS INTO A FILE, AND PUT IT INTO .GITIGNORE
-    API_KEY = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+    API_KEY = SECRET_API_KEY
 
 
     # POST/CREATE a dashboard
@@ -225,13 +223,12 @@ def main():
     response3 = requests.post(URL_update_db, data=open('db_shard3.json', 'rb'), headers=headers)
 
 
-    print("SHARD-2")
+    print("STATUS CODES")
+    pprint(response0.status_code)
+    pprint(response1.status_code)
     pprint(response2.status_code)
-    pprint(response2.text)
-
-    print("SHARD-3")
     pprint(response3.status_code)
-    pprint(response3.text)
+    # pprint(response0.text)
 
 
 if __name__ == '__main__':

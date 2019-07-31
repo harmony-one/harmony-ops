@@ -1,2 +1,4 @@
 .idea/
 CREDENTIAL.py
+shard*.txt
+__pycache__/
