@@ -1,0 +1,5 @@
+.idea/
+CREDENTIAL.py
+shard*.txt
+shard3.txt
+__pycache__/
