@@ -19,13 +19,13 @@ function getdiff {
     ccount=$(echo "$current" | grep -v -e "-1" | wc -l)
     pcount=$(echo "$previous" | grep -v -e "-1" | wc -l)
 if [[ $ccount > $pcount ]]; then
-    caddrs=$(echo "$current" | cut -d " " -f 3)
-    paddrs=$(echo "$previous" | cut -d " " -f 3)
-    newaddrs=$(grep -v -f <(echo "$paddrs") -e <(echo "$caddrs"))
-    extra=$(grep -f <(echo "$newaddrs") -e <(echo "$current"))
-    current=$(grep -v -f <(echo "$newaddrs") -e <(echo "$current"))
-    result=$(paste <(echo "$current") <(echo "$previous") |\
-             awk '{print $1, $2, $3 - $6}' && <(echo "\n$extra"))
+    caddrs=$(echo "$current" | cut -d " " -f 1)
+    paddrs=$(echo "$previous" | cut -d " " -f 1)
+    newaddrs=$(grep -v -f <(echo "$paddrs") <(echo "$caddrs"))
+    extra=$(grep -f <(echo "$newaddrs") <(echo "$current"))
+    curr=$(grep -v -f <(echo "$newaddrs") <(echo "$current"))
+    result=$(paste <(echo "$curr") <(echo "$previous") |\
+             awk '{print $1, $2, $3 - $6}' && <(echo "$extra"))
 else
     result=$(paste <(echo "$current") <(echo "$previous") |\
              awk '{print $1, $2, $3 - $6}')
@@ -135,7 +135,7 @@ function gencsv {
     awk '{print $1, $2, $3,"true"}' | sed 's/\ /,/g' >> $csvfile
 
     # Print offline addresses
-    grep -f $OFFLINE <(echo "$result") | grep -v -e "-1" |\
+    grep -f $OFFLINE <(echo "$result") |\
     awk '{print $1, $2, $3,"false"}' | sed 's/\ /,/g' >> $csvfile
 }
 

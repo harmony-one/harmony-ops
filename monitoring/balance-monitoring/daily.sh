@@ -14,7 +14,7 @@ jsonextra="ONEsPerDay"
 source monitoring.sh
 
 ### Set constants for previous then get the diff
-file="temp.txt"
+FILE="temp.txt"
 prevhr=$hour
 prevmin=$minute
 getdiff
@@ -25,4 +25,4 @@ gencsv
 genjson
 
 # Remove temp file
-rm captures/$hour/$minute/temp.txt
+rm captures/$hour/$minute/$FILE
