@@ -10,10 +10,10 @@ jsonfile=$prefix.json
 csvextra="ONEs Per Hour"
 jsonextra="ONEsPerHour"
 
-# Get functions and constants
+### Get functions and constants
 source monitoring.sh
 
-# Get 1 hour before current time
+### Get 1 hour before current time
 if [[ $hour = 00 ]]; then
     prevhr="23"
 elif [[ $hour < 11 ]]; then
@@ -22,13 +22,11 @@ else
     prevhr=$((hour - 1))
 fi
 
-### Combine balance data from both files and subtract both
-previous=$(sort captures/$prevhr/$minute/$FILE | sort -nr -k 2,2 |\
-           cut -d " " -f 3)
-result=$(paste <(echo "$current") <(echo "$previous") |\
-         awk '{print $1, $2, $3 - $4}')
+### Set constants for previous then get the diff
+prevmin=$minute
+getdiff
 
-# Run generation scripts
+### Run generation scripts
 gentxt
 gencsv
 genjson

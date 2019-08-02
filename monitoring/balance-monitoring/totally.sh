@@ -10,13 +10,13 @@ jsonfile=$prefix.json
 csvextra="Total Balance"
 jsonextra="totalBalance"
 
-# Get functions and constants
+### Get functions and constants
 source monitoring.sh
 
-# Just grab total balances
+### Just grab total balances
 result=$current
 
-# Run generation scripts
+### Run generation scripts
 gentxt
 gencsv
 genjson

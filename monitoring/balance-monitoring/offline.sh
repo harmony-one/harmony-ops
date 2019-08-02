@@ -2,10 +2,10 @@
 
 # offline.sh - Generates offline addresses file
 
-# Get file constants/date variables
+### Get functions and constants
 source monitoring.sh
 
-# Get 15 minutes before current time
+### Get 15 minutes before current time
 if [[ $minute = 00 ]]; then
     prevmin="45"
     if [[ $hour = 00 ]]; then
@@ -24,11 +24,8 @@ else
     prevhr="$hour"
 fi
 
-### Combine balance data from both files and find difference
-previous=$(sort captures/$prevhr/$prevmin/$FILE | sort -nr -k 2,2 |\
-           cut -d " " -f 3)
-result=$(paste <(echo "$current") <(echo "$previous") |\
-	     awk '{print $1, $2, $3 - $4}')
+### Set constants for previous then get the diff
+getdiff
 
-# Find offline addresses
+### Find offline addresses and print to file
 echo "$result" | awk -F " " '$3 == 0' | cut -d " " -f 1 > $OFFLINE

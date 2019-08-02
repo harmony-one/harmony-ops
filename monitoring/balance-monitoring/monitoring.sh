@@ -10,8 +10,27 @@ hour=$(date +%H)
 minute=$(date +%M)
 if [[ "$0" != "./check.sh" ]]; then
     date=$(date +"%a %b %d $hour:$minute:00 UTC %Y")
-    current=$(sort captures/$hour/$minute/$FILE | sort -nr -k 2,2)
+    current=$(sort captures/$hour/$minute/$FILE)
 fi
+
+### Get difference
+function getdiff {
+    previous=$(sort captures/$prevhr/$prevmin/$FILE)
+    ccount=$(echo "$current" | grep -v -e "-1" | wc -l)
+    pcount=$(echo "$previous" | grep -v -e "-1" | wc -l)
+if [[ $ccount > $pcount ]]; then
+    caddrs=$(echo "$current" | cut -d " " -f 3)
+    paddrs=$(echo "$previous" | cut -d " " -f 3)
+    newaddrs=$(grep -v -f <(echo "$paddrs") -e <(echo "$caddrs"))
+    extra=$(grep -f <(echo "$newaddrs") -e <(echo "$current"))
+    current=$(grep -v -f <(echo "$newaddrs") -e <(echo "$current"))
+    result=$(paste <(echo "$current") <(echo "$previous") |\
+             awk '{print $1, $2, $3 - $6}' && <(echo "\n$extra"))
+else
+    result=$(paste <(echo "$current") <(echo "$previous") |\
+             awk '{print $1, $2, $3 - $6}')
+fi
+}
 
 ### Create header
 function header {

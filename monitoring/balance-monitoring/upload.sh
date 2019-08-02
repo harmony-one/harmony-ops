@@ -2,7 +2,7 @@
 
 # upload.sh - Generates and uploads all the files to the harmony.one website
 
-# Run generation scripts
+### Run generation scripts
 ./check.sh
 ./offline.sh
 ./hourly.sh

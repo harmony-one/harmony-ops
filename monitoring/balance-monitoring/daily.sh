@@ -10,16 +10,19 @@ jsonfile=$prefix.json
 csvextra="ONEs Per Day"
 jsonextra="ONEsPerDay"
 
-# Get functions and constants
+### Get functions and constants
 source monitoring.sh
 
-### Combine balance data from both files and subtract both
-previous=$(sort captures/temp/balances.txt | sort -nr -k 2,2 |\
-           cut -d " " -f 3)
-result=$(paste <(echo "$current") <(echo "$previous") |\
-         awk '{print $1, $2, $3 - $4}')
+### Set constants for previous then get the diff
+file="temp.txt"
+prevhr=$hour
+prevmin=$minute
+getdiff
 
-# Run generation scripts
+### Run generation scripts
 gentxt
 gencsv
 genjson
+
+# Remove temp file
+rm captures/$hour/$minute/temp.txt

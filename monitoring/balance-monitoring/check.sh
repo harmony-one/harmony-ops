@@ -17,7 +17,6 @@ balances=$(echo "$raw" | awk '{if ($3) print $0; else print $1, "-1", "0";}')
 # Place balances file in dated directory
 mkdir -p captures/$hour/$minute
 if [[ -f "captures/$hour/$minute/$FILE" ]]; then
-    mkdir -p captures/temp
-    mv -f captures/$hour/$minute/$FILE captures/temp/$FILE
+    mv -f captures/$hour/$minute/$FILE captures/$hour/$minute/temp.txt
 fi
 echo "$balances" > captures/$hour/$minute/$FILE
