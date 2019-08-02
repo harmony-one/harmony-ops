@@ -143,7 +143,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 	```
 	./wallet.sh new
 	```
-  
+
 ![Harmony key-step12](../img/key-step12.png)
 
 13. Create a BLS key pair with the following command (private key hidden in image):
@@ -166,14 +166,14 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 	```
 	sudo yum install -y tmux
 	```
-  
+
 ![Harmony network-step2](../img/network-step2.png)
 
 3. Create a virtual terminal session in tmux. This will hide all of your past entries to the command line.
 	```
 	tmux new-session -s node
 	```
-  
+
 ![Harmony network-step3](../img/network-step3.png)
 
 4. Fetch the node script from our Github:
@@ -190,7 +190,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 	```
 	sudo ./node.sh
 	```
-  
+
 ![Harmony network-step61](../img/network-step61.png)
 ![Harmony network-step62](../img/network-step62.png)
 
@@ -201,7 +201,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 			- Pressing Ctrl+b allows you to enter some of tmux’s commands. (Command+b for mac)
 		Then hit "d"
 			- d is the tmux command for detach, returning you to the terminal before starting tmux. Press d after releasing ctrl+b, not at the same time.
-  
+
 ![Harmony network-step8](../img/network-step8.png)
 
 9. In the case you need to go back to the previous exited session, using the following command:
@@ -213,14 +213,14 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 	``` grep BINGO latest/validator*.log
 	```
 	These take time to generate, repeat this command to see how times your node helped to reach consensus.
-  
+
 ![Harmony network-step10](../img/network-step10.png)
 
 11. Now let’s check the balance of your account to make sure you are receiving block rewards. Enter the following command with your “one” address:
 	```
 	./wallet.sh balances --address ACCOUNT_ADDRESS
 	```
-  
+
 ![Harmony network-step11](../img/network-step11.png)
 
 # Tips/FAQ/Troubleshooting
@@ -263,7 +263,7 @@ This is a question that we are currently answering. This question also brings in
 	```
 	chmod 400 /Users/myself/Documents/MyAccessKey1.pem
 	```
-  
+
 ![Harmony faq10](../img/faq10.png)
   Change the directory to be that of your saved .pem file. This changes the access to this file so it is more private and can be securely used as a key.
 
