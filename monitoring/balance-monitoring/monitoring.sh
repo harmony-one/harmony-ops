@@ -13,6 +13,21 @@ if [[ "$0" != "./check.sh" ]]; then
     current=$(sort captures/$hour/$minute/$FILE | sort -nr -k 2,2)
 fi
 
+### Get difference
+function getdiff {
+    ccount=$(echo "$current" | grep -v -e "-1" | wc -l)
+    pcount=$(echo "$previous" | grep -v -e "-1" | wc -l)
+if [[ $ccount > $pcount ]]; then
+    caddrs=$(echo "$current" | cut -d " " -f 3)
+    paddrs=$(echo "$previous" | cut -d " " -f 3)
+    newaddrs=$(grep -v -f <(echo "$paddrs") -e <(echo "$caddrs"))
+    extra=$(grep -f <(echo "$newaddrs") -e <(echo "$current"))
+    current=$(grep -v -f <(echo "$newaddrs") -e <(echo "$current"))
+
+result=$(paste <(echo "$current") <(echo "$previous") |\
+         awk '{print $1, $2, $3 - $6}')
+}
+
 ### Create header
 function header {
     # Calculate validating
