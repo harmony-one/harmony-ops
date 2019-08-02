@@ -45,7 +45,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 ![Harmony AWS-step5](../img/AWS-step5.png)
 
 6. Choose instance type “m5.large” (you will have to scroll down to see it)
-  
+
 ![Harmony AWS-step6](../img/AWS-step6.png)
 
 7. Click “Next: Configure Instance Details” at the bottom right of the page
@@ -53,13 +53,13 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 8. Nothing to change here, so click “Next: Add Storage”
 
 9. Change the “Size (GiB)” category to 30
-  
+
 ![Harmony AWS-step9](../img/AWS-step9.png)
 
 10. Click “Next: Add Tags
 
 11. In the “Key” input box put “Name” in “Value” put “harmony-fn”
-  
+
 ![Harmony AWS-step11](../img/AWS-step11.png)
 
 12. Click “Next: Configure Security Group”
@@ -67,7 +67,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 13. On the default SSH with port 22, change the “Source” option to “Anywhere”
 
 14. Now you will need to add the following 4 ports: 6000, 9000, 14555 and 9999. To add each of them, click “Add Rule”, under type select “Custom TCP Rule”, under “Port Range” put the port number, for “Source” select “Anywhere”. Repeat the process until you’ve added all the ports.
-  
+
 ![Harmony AWS-step14](../img/AWS-step14.png)
 
 15. Click “Review and Launch”
@@ -77,7 +77,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 17. Click “Launch”, See Troubleshooting below if you are getting an error.
 
 18. In the pop-up window you will need to create a new key pair. Select “Create a new key pair” and then enter a name that you like, for example “harmony-fn”
-  
+
 ![Harmony AWS-step18](../img/AWS-step18.png)
 
 19. Click “Download Key Pair”
@@ -85,7 +85,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 20. Click “Launch Instances”
 
 21. Click “View Instances”. Your new instance should be initializing. Wait a few moments for it to get started.
-  
+
 ![Harmony AWS-step21](../img/AWS-step21.jpeg)
 
 22. Keep this window open for future reference
@@ -98,11 +98,11 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 	If you are on windows, download Putty or Git Bash to allow your computer to SSH into the AWS instance. For instructions on connecting to an EC2 instance using Putty follow the following resource from Amazon : https://docs.aws.amazon.com/quickstarts/latest/vmlaunch/step-2-connect-to-instance.html
 
 2. Once Terminal is open, use the “cd” command to change your directory to where the key pair file (harmony-fn.pem) that you generated is. Hint it may be in your “Downloads” folder.
-  
+
 ![Harmony key-step2](../img/key-step2.jpeg)
 
 3. Enter the command “chmod 400 harmony-fn.pem” (this makes your key not publicly viewable).
-  
+
 ![Harmony key-step3](../img/key-step3.png)
 
 4. Go back to your AWS window where you are viewing your instances, select your new instance (it should be named “harmony-fn”) and click “Connect” on the top bar
@@ -115,7 +115,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 ![Harmony key-step5](../img/key-step5.png)
 
 6. Now connect to your instance by running the sample command you copied from the “Connect” page in your terminal window.
-  
+
 ![Harmony key-step6](../img/key-step6.png)
 
 7. It may ask you whether or not you want to continue connecting. Type in “yes” and hit enter.
@@ -138,7 +138,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 	chmod u+x wallet.sh
 	./wallet.sh -d
 	```
-  
+
 12. Create a new ECDSA account address with the following command and input your passphrase.
 	```
 	./wallet.sh new
@@ -157,7 +157,7 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 ![Harmony key-step14](../img/key-step14.png)
   
 15. Almost there! Now that we have your public key, we will include you as a validator in our genesis block. To verify if your account address is included in the genesis block check the following link. Be patient as this will take time before it is updated. https://raw.githubusercontent.com/harmony-one/harmony/master/internal/genesis/foundational.go.
-  
+
 **Connecting your node to Harmony network**
 
 1. Once you’ve submitted your keys to the Harmony Team and they have been input into this file, wait for the network to be restarted and then you will be able to connect your node. Otherwise you will not have permission to participate since your address won’t be recognized.
@@ -234,11 +234,12 @@ This will walk you through the steps to launch your cloud instance on AWS. Then 
 	```
 	ssh -i "harmomy-fn.pem.txt" ec2-user@ec2-18-139-83-3.ap-southeast-1.compute.amazonaws.com
 	```
-  
+
+
 5. Generation of BLS keys is independent of your harmony “one” address
 
 6. If you are receiving an error message after attempting to launch the EC2 instance, it may be because your account is new. If this is the case, wait for a couple of minutes for Amazon to verify your account and try again. EX:
-  
+
 ![Harmony faq6](../img/faq6.png)
 
 7. Can I run multiple nodes on the same VM (EC2 instance)?
