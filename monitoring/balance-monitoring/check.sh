@@ -2,7 +2,8 @@
 
 ### Get addresses from file 
 addresses=$(curl -sL https://harmony.one/fn-keys |\
-            grep Address | cut -d '"' -f 4 | sort -u)
+            tac | sed -e '/var/q' | tac |\
+            grep Address | cut -d '"' -f 4)
 
 # Get functions and constants
 source monitoring.sh

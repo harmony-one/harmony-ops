@@ -16,16 +16,15 @@ fi
 ### Get difference
 function getdiff {
     previous=$(sort captures/$prevhr/$prevmin/$FILE)
-    ccount=$(echo "$current" | grep -v -e "-1" | wc -l)
-    pcount=$(echo "$previous" | grep -v -e "-1" | wc -l)
-if [[ $ccount > $pcount ]]; then
     caddrs=$(echo "$current" | cut -d " " -f 1)
     paddrs=$(echo "$previous" | cut -d " " -f 1)
+if [[ $(diff <(echo "$paddrs") <(echo "$caddrs")) != "" ]]; then
     newaddrs=$(grep -v -f <(echo "$paddrs") <(echo "$caddrs"))
     extra=$(grep -f <(echo "$newaddrs") <(echo "$current"))
     curr=$(grep -v -f <(echo "$newaddrs") <(echo "$current"))
-    result=$(paste <(echo "$curr") <(echo "$previous") |\
-             awk '{print $1, $2, $3 - $6}' && <(echo "$extra"))
+    prev=$(grep -f <(echo "$caddrs") <(echo "$previous"))
+    result=$(paste <(echo "$curr") <(echo "$prev") |\
+             awk '{print $1, $2, $3 - $6}' && echo "$extra")
 else
     result=$(paste <(echo "$current") <(echo "$previous") |\
              awk '{print $1, $2, $3 - $6}')
@@ -34,14 +33,24 @@ fi
 
 ### Create header
 function header {
-    # Calculate validating
     echo "[$date]" > $textfile
+
+    # Calculate validating w/ new
     total=$(echo "$current" | wc -l)
     num_off=$(wc -l < $OFFLINE)
     num_on=$((total - num_off))
     percent=$(echo "$num_on/$total * 100" | bc -l)
-    echo "Nodes validating: $num_on/$total = $(printf "%.2f%%\n" $percent)"\
-        >> $textfile
+    pctfmt=$(printf "%.2f%%\n" $percent)
+    echo "Nodes validating w/ new: $num_on/$total = $pctfmt" >> $textfile
+
+    # Calculate validating w/o new
+    new=$(echo "$current" | grep -c -e "-1")
+    total=$((total - new))
+    num_off=$(wc -l < $OFFLINE)
+    num_on=$((total - num_off + new))
+    percent=$(echo "$num_on/$total * 100" | bc -l)
+    pctfmt=$(printf "%.2f%%\n" $percent)
+    echo "Nodes validating w/o new: $num_on/$total = $pctfmt" >> $textfile
 }
 
 ### Format offline nodes
