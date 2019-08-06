@@ -16,17 +16,17 @@ fi
 ### Get difference
 function getdiff {
     previous=$(sort captures/$prevhr/$prevmin/$FILE)
-    caddrs=$(echo "$current" | cut -d " " -f 1)
-    paddrs=$(echo "$previous" | cut -d " " -f 1)
-if [[ $(diff <(echo "$paddrs") <(echo "$caddrs")) != "" ]]; then
-    newaddrs=$(grep -v -f <(echo "$paddrs") <(echo "$caddrs"))
-    extra=$(grep -f <(echo "$newaddrs") <(echo "$current"))
-    curr=$(grep -v -f <(echo "$newaddrs") <(echo "$current"))
-    prev=$(grep -f <(echo "$caddrs") <(echo "$previous"))
-    result=$(paste <(echo "$curr") <(echo "$prev") |\
-             awk '{print $1, $2, $3 - $6}' && echo "$extra")
+    caddrs=$(printf "$current" | cut -d " " -f 1)
+    paddrs=$(printf "$previous" | cut -d " " -f 1)
+if [[ $(diff <(printf "$paddrs") <(printf "$caddrs")) != "" ]]; then
+    newaddrs=$(grep -v -f <(printf "$paddrs") <(printf "$caddrs"))
+    extra=$(grep -f <(printf "$newaddrs") <(printf "$current"))
+    curr=$(grep -v -f <(printf "$newaddrs") <(printf "$current"))
+    prev=$(grep -f <(printf "$caddrs") <(printf "$previous"))
+    result=$(paste <(printf "$curr") <(printf "$prev") |\
+             awk '{print $1, $2, $3 - $6}' && printf "$extra")
 else
-    result=$(paste <(echo "$current") <(echo "$previous") |\
+    result=$(paste <(printf "$current") <(printf "$previous") |\
              awk '{print $1, $2, $3 - $6}')
 fi
 }
