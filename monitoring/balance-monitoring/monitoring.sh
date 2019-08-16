@@ -6,8 +6,8 @@ FILE=balances.txt
 OFFLINE=generated/offline.txt
 
 # Get current time
-hour=$(date +%H)
-minute=$(date +%M)
+hour=$(< generated/hour.txt)
+minute=$(< generated/minute.txt)
 if [[ "$0" != "./check.sh" ]]; then
     date=$(date +"%a %b %d $hour:$minute:00 UTC %Y")
     current=$(sort captures/$hour/$minute/$FILE)

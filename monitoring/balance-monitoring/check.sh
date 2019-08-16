@@ -5,6 +5,10 @@ addresses=$(curl -sL https://harmony.one/fn-keys |\
             tac | sed -e '/var /q' | tac |\
             grep Address | cut -d '"' -f 4)
 
+### Save hour/minute
+date +%H > generated/hour.txt
+date +%M > generated/minute.txt
+
 # Get functions and constants
 source monitoring.sh
 
