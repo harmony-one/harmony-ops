@@ -2,7 +2,7 @@
 
 NODES=500
 mkdir -p keypairs
-rm -f nodes.csv foundational.go
+rm -f nodes.csv keys.go
 rm -rf generated
 WalletPublicKey=""
 BlsPublicKey=""
