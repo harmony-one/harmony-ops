@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # this script is used to manage uptime robot monitors
+#
+# get the uptime monitor
+# find the monitor id based on ip
+# update the uptime monitor
 
 ME=`basename $0`
 
@@ -49,6 +53,7 @@ OPTIONS:
    -t tag                     specify the tag in the name of the monitor (default: $TAG)
 
 COMMANDS:
+   batchnew [shard] [file]    new uptime robot monitors, loading ip from [file]
    new [ip] [shard]           new uptime robot monitor
    get [shard]                get all uptime robot monitors from [shard]
    update [name] [ip] [shard] update the uptime robot monitor [name] using new ip/shard
@@ -68,6 +73,20 @@ function _get_monitor_name()
    local ip=$(echo $2 | cksum | awk ' { print $1 } ')
 
    echo "s-$shard-$TAG-$ip"
+}
+
+function new_monitors()
+{
+   local shard=$1
+   local file=$2
+
+   if [ ! -e $file ]; then
+      errexit $file does not exist
+   fi
+
+   while read ip; do
+      new_monitor $shard $ip
+   done<$file
 }
 
 function new_monitor ()
@@ -190,6 +209,9 @@ _init
 
 ###############################################################################
 case $CMD in
+	batchnew)
+		new_monitors $*
+		;;
 	new)
 		new_monitor $*
 		;;
