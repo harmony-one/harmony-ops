@@ -30,5 +30,5 @@ process_common_opts() {
 
 default_common_opts() {
 	: ${profile="${default_profile}"}
-	: ${logdir="logs/${profile}"}
+	: ${logdir="${progdir}/logs/${profile}"}
 }

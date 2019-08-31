@@ -6,7 +6,7 @@ unset -v progname progdir
 progname="${0##*/}"
 case "${0}" in
 */*) progdir="${0%/*}";;
-*) progdir=".";;
+*) progdir="extras";;
 esac
 
 . "${progdir}/msg.sh"
