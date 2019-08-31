@@ -25,4 +25,6 @@ gencsv
 genjson
 
 # Remove temp file
-rm captures/$hour/$minute/$FILE
+if [[ $(($(date +%M) % 15)) = 10 ]]; then
+    rm captures/$hour/$minute/$FILE
+fi

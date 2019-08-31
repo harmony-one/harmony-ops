@@ -20,3 +20,6 @@ result=$current
 gentxt
 gencsv
 genjson
+
+### Remove shard status
+rm -f generated/leader.txt

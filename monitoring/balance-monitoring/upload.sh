@@ -3,8 +3,10 @@
 # upload.sh - Generates and uploads all the files to the harmony.one website
 
 ### Run generation scripts
-./check.sh
-./offline.sh
+if [[ $(($(date +%M) % 15)) = 0 ]]; then
+    ./check.sh
+    ./offline.sh
+fi
 ./hourly.sh
 ./quadly.sh
 ./daily.sh
