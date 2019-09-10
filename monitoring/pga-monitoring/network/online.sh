@@ -10,7 +10,8 @@ capture_loc="captures/$month/$day/$hour/$minute"
 textfile="generated/network.txt"
 csvfile="generated/network.csv"
 jsonfile="generated/network.json"
-sectionhead="==================================================================="
+titlehead="=================================================================="
+head="---------------"
 leaders=( 3.18.213.133 54.229.185.178 54.244.174.138 18.207.224.141 )
 addresses=$(curl -sL https://bit.ly/pga-keys | grep Address)
 internal=$(curl -sL https://bit.ly/pge-keys | grep Address | cut -d '"' -f 6)
@@ -18,12 +19,18 @@ onlinetxt="generated/online-"
 offlinetxt="generated/offline-"
 
 function check_online () {
-    log=$(./extras/node_ssh.sh -p pangaea ${leaders[$1]} tail -n 1250 ../tmp_log/*/zerolog*.log)
-    online=$(echo "$log" | grep Prepare | grep -oE "\"validatorPubKey\":\"[a-zA-Z0-9]*\"" | cut -d '"' -f 4 | sort -u)
+    log=$(./extras/node_ssh.sh -p pangaea ${leaders[$1]} \
+          tail -n 1250 ../tmp_log/*/zerolog*.log)
+    online=$(echo "$log" | grep Prepare | \
+             grep -oE "\"validatorPubKey\":\"[a-zA-Z0-9]*\"" | \
+             cut -d '"' -f 4 | sort -u)
     #echo "$online" > test-online-$1.txt
-    overlap=$(echo "$log" | grep Prepare | grep Already | grep -oE "\"validatorPubKey\":\"[a-zA-Z0-9]*\"" | cut -d '"' -f 4 | sort -u)
+    overlap=$(echo "$log" | grep Prepare | grep Already | \
+              grep -oE "\"validatorPubKey\":\"[a-zA-Z0-9]*\"" | \
+              cut -d '"' -f 4 | sort -u)
     #echo "$overlap" > test-overlap-$1.txt
-    bls=$(./extras/run_on_shard.sh -T $1 'ls *.key' | grep -oE "^[a-zA-Z0-9]{96}" | grep -v -f <(echo "$internal"))
+    bls=$(./extras/run_on_shard.sh -T $1 'ls *.key' | \
+          grep -oE "^[a-zA-Z0-9]{96}" | grep -v -f <(echo "$internal"))
     #echo "$bls" > test-bls-$1.txt
     external=$(printf "$online" | grep -v -f <(echo "$bls") | sort -u)
     #echo "$external" > test-external-$1.txt
@@ -31,7 +38,8 @@ function check_online () {
         printf "" > $onlinetxt$1.txt
         sleep 5
     else
-        grep -f <(printf "$external\n$overlap") <(echo "$addresses") | cut -d '"' -f 6 > $onlinetxt$1.txt
+        grep -f <(printf "$external\n$overlap") <(echo "$addresses") | \
+        cut -d '"' -f 6 > $onlinetxt$1.txt
     fi
 }
 
@@ -41,7 +49,7 @@ function print_txt {
         data=$(grep -f $prefix$num.txt extras/pangaea.go |\
                grep -oE "one[0-9a-zA-Z]*" | sort)
         numAddresses=$(echo "$data" | wc -l)
-        printf "\nShard $num: $numAddresses nodes\n---------------\n" >> $textfile
+        printf "\nShard $num: $numAddresses nodes\n$head\n" >> $textfile
         # If there are none, print "None"
         if [[ $(printf "$data" | wc -c) = 0 ]]; then
             printf "$none\n" >> $textfile
@@ -54,18 +62,18 @@ function print_txt {
 function gentxt {
     printf "[$date]\n" > $textfile
 
-    printf "\nSHARD STATUS\n$sectionhead\n" >> $textfile
+    printf "\nSHARD STATUS\n$titlehead\n" >> $textfile
     echo "$leader_data" >> $textfile
 
     none="None..."
     prefix="$onlinetxt"
-    printf "\nONLINE: $(cat $prefix* | wc -l) total\n$sectionhead" >> $textfile
+    printf "\nONLINE: $(cat $prefix* | wc -l) total\n$titlehead" >> $textfile
     print_txt
 
     ### Offline portion
     none="None!"
     prefix="$offlinetxt"
-    printf "\nOFFLINE: $(cat $prefix* | wc -l) total\n$sectionhead" >> $textfile
+    printf "\nOFFLINE: $(cat $prefix* | wc -l) total\n$titlehead" >> $textfile
     print_txt
 
     mkdir -p $capture_loc
@@ -150,10 +158,14 @@ function check_leader_status
 {
     s=0
     for ip in ${leaders[@]}; do
-        block=$(./extras/node_ssh.sh -p pangaea ec2-user@$ip 'tac /home/tmp_log/*/zerolog-validator-*.log | grep -m 1 -F HOORAY | jq .blockNum')
-        time=$(./extras/node_ssh.sh -p pangaea ec2-user@$ip 'tac /home/tmp_log/*/zerolog-validator-*.log | grep -m 1 -F HOORAY | jq .time' | sed 's/Z//' | tr T \ | tr \" \ )
+        block=$(./extras/node_ssh.sh -p pangaea ec2-user@$ip \
+        'tac /home/tmp_log/*/zerolog*.log ~/latest/zerolog*.log 2> /dev/null |
+        grep -m 1 -F HOORAY | jq .blockNum')
+        time=$(./extras/node_ssh.sh -p pangaea ec2-user@$ip \
+        'tac /home/tmp_log/*/zerolog*.log ~/latest/zerolog*.log 2> /dev/null |
+        grep -m 1 -F HOORAY | jq .time' | sed 's/Z//' | tr T \ | tr \" \ )
         if [[ -z $block ]]; then
-            block=0
+            block="N/A"
         fi
         printf "Shard $s leader is on Block $block. Status is: "
         time1=$(date -d "$time" +%s)

@@ -4,8 +4,9 @@
 
 FILE=balances.txt
 OFFLINE=generated/offline.txt
-sectionhead="==================================================================="
-leaders=( 52.77.216.144 54.190.25.207 34.221.150.79 13.228.72.14 )
+titlehead="=================================================================="
+head="$head"
+leaders=( 3.112.219.248 54.210.110.167 34.221.150.79 54.249.98.66 )
 
 # Get current time
 hour=$(< generated/hour.txt)
@@ -41,12 +42,15 @@ function check_leader_status
     s=0
     for ip in ${leaders[@]}; do
         block=$(./extras/node_ssh.sh ec2-user@$ip \
-        'tac /home/tmp_log/*/zerolog-validator-*.log | grep -m 1 -F HOORAY |
-        jq .blockNum')
+        'tac /home/tmp_log/*/zerolog*.log ~/latest/zerolog*.log 2> /dev/null |
+        grep -m 1 -F HOORAY | jq .blockNum')
         time=$(./extras/node_ssh.sh ec2-user@$ip \
-        'tac /home/tmp_log/*/zerolog-validator-*.log | grep -m 1 -F HOORAY |
-        jq .time' | sed 's/Z//' | tr T \ | tr \" \ )
-        printf "Shard $s is on Block $block. Status is: "
+        'tac /home/tmp_log/*/zerolog*.log ~/latest/zerolog*.log 2> /dev/null | 
+        grep -m 1 -F HOORAY | jq .time' | sed 's/Z//' | tr T \ | tr \" \ )
+        if [[ -z $block ]]; then
+            block="N/A"
+        fi
+        printf "Shard $s leader is on Block $block. Status is: "
         time1=$(date -d "$time" +%s)
         rawtime=$(date +%s)
         time2=$(($rawtime - 60))
@@ -86,7 +90,7 @@ function header {
         echo "Total ONEs in FN network: $network_total" >> $textfile
     fi
 
-    printf "\nSHARD STATUS\n$sectionhead\n" >> $textfile
+    printf "\nSHARD STATUS (updates every 5 mins)\n$titlehead\n" >> $textfile
     if [[ ! -f generated/leader.txt ]]; then
         check_leader_status >> generated/leader.txt
     fi
@@ -96,7 +100,7 @@ function header {
 ### Format offline nodes
 function print_txt {
     ### Find shard 0
-    printf "Shard 0\n--------\n" >> $textfile
+    printf "Shard 0\n$head\n" >> $textfile
     # Get only shard 0 addresses
     zero=$(echo "$data" | awk -F " " '$2 == 0' | awk '{print $1, $3}' |\
            sed 's/\ /:\ /')
@@ -108,7 +112,7 @@ function print_txt {
     fi
 
     ### Find shard 1
-    printf "Shard 1\n--------\n" >> $textfile
+    printf "Shard 1\n$head\n" >> $textfile
     # Get only shard 1 addresses
     one=$(echo "$data" | awk -F " " '$2 == 1' | awk '{print $1, $3}' |\
           sed 's/\ /:\ /')
@@ -120,7 +124,7 @@ function print_txt {
     fi
 
     ### Find shard 2
-    printf "Shard 2\n--------\n" >> $textfile
+    printf "Shard 2\n$head\n" >> $textfile
     # Get only shard 2 addresses
     two=$(echo "$data" | awk -F " " '$2 == 2' | awk '{print $1, $3}' |\
           sed 's/\ /:\ /')
@@ -132,7 +136,7 @@ function print_txt {
     fi
 
     ### Find shard 3 
-    printf "Shard 3\n--------\n" >> $textfile
+    printf "Shard 3\n$head\n" >> $textfile
     # Get only shard 3 addresses
     three=$(echo "$data" | awk -F " " '$2 == 3' | awk '{print $1, $3}' |\
             sed 's/\ /:\ /')
@@ -148,15 +152,15 @@ function print_txt {
 function gentxt {
     ### Online portion
     header
-    printf "\nONLINE (updates every 15 minutes)\n$sectionhead\n" >> $textfile
+    printf "\nEARNING (updates every 15 mins)\n$titlehead\n" >> $textfile
 
     # Sort online addresses by balances
     data=$(grep -v -f $OFFLINE <(echo "$result") | sort -nr -k 3,3)
     none="None..."
     print_txt
 
-    ### Offline portion
-    printf "\nOFFLINE\n$sectionhead\n" >> $textfile
+    ### Offline portio
+    printf "\nNOT EARNING\n$titlehead\n" >> $textfile
 
     # Sort offline addresses by balances
     data=$(grep -f $OFFLINE <(echo "$result") | sort -nr -k 3,3)
@@ -164,7 +168,7 @@ function gentxt {
     print_txt
 
     ### Newly added portion
-    printf "\nNEWLY ADDED\n$sectionhead\n" >> $textfile
+    printf "\nNEWLY ADDED\n$titlehead\n" >> $textfile
     new=$(echo "$data" | awk -F " " '$2 == -1' | awk '{print $1}')
     # If there are none, print "None"
     if [[ $(printf "$new" | wc -c) = 0 ]]; then
