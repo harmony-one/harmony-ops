@@ -51,6 +51,7 @@ OPTIONS:
    -K keyfile                 specify the file holding the uptime robot api key
    -D dbdir                   specify the directory for the db
    -t tag                     specify the tag in the name of the monitor (default: $TAG)
+   -N network                 specify the network type (mainnet,betanet; default: $NETWORK)
 
 COMMANDS:
    batchnew [shard] [file]    new uptime robot monitors, loading ip from [file]
@@ -99,7 +100,7 @@ function new_monitor ()
    $DRYRUN curl -X POST \
         -H "Cache-Control: no-cache" \
 		  -H "Content-Type: application/x-www-form-urlencoded" \
-        -d 'api_key='${api_key}'&format=json&type=4&sub_type=99&url='${ip}"&port=6000&friendly_name=${name}&alert_contacts=0754344_0_0-2840345_0_0-2840345_0_0-2842973_0_0" \
+        -d 'api_key='${api_key}'&format=json&type=4&sub_type=99&url='${ip}"&port=6000&friendly_name=${name}&alert_contacts=$CONTACT" \
         "https://api.uptimerobot.com/v2/newMonitor"
 }
 
@@ -184,14 +185,16 @@ DBDIR=db
 KEY=uptimerobot_api_key.txt
 JQ='jq -M -r'
 TAG=node
+NETWORK=mainnet
 
-while getopts "hvGK:D:t:" option; do
+while getopts "hvGK:D:t:N:" option; do
    case $option in
       v) VERBOSE=-v ;;
       G) unset DRYRUN ;;
-		K) KEY=$OPTARG ;;
+      K) KEY=$OPTARG ;;
       D) DBDIR=$OPTARG ;;
       t) TAG=$OPTARG ;;
+      N) NETWORK=$OPTARG ;;
       h|?|*) usage ;;
    esac
 done
@@ -204,6 +207,18 @@ shift
 if [ -z "$CMD" ]; then
    usage
 fi
+
+case $NETWORK in
+   mainnet)
+      CONTACT=0754344_0_0-2840345_0_0-2840345_0_0-2842973_0_0
+      ;;
+   betanet)
+      CONTACT=2873364_2_0
+      TAG=beta
+      ;;
+   *)
+      usage ;;
+esac
 
 _init
 
