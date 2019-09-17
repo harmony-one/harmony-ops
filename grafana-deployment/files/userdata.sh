@@ -69,14 +69,9 @@ sudo systemctl start prometheus
 # download grafana v6.3.3
 sudo yum install -y https://dl.grafana.com/oss/release/grafana-6.3.3-1.x86_64.rpm
 
+# start the Grafana server
+systemctl daemon-reload
+systemctl start grafana-server
 
-
-
-
-
-
-
-
-
-
-
+# enable the systemd service to start at boot
+sudo systemctl enable grafana-server.service
