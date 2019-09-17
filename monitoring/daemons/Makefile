@@ -16,3 +16,8 @@ all: watchdog
 watchdog:
 	@ $(env) go build -ldflags="$(ldflags)" \
 -o $(watchdog) harmony-monitor/node-metadata-watcher/*
+
+.PHONY:clean
+
+clean:
+	rm -f ${watchdog}

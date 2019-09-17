@@ -3,9 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path"
-
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -16,15 +13,8 @@ var (
 )
 
 func main() {
-	RootCmd.AddCommand(&cobra.Command{
-		Use:   "version",
-		Short: "Show version",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(os.Stderr,
-				"Harmony (C) 2019. %v, version %v-%v (%v %v)\n",
-				path.Base(os.Args[0]), version, commit, builtBy, builtAt)
-			os.Exit(0)
-		},
-	})
-	RootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
 }
