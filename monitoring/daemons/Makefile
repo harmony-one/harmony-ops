@@ -7,6 +7,7 @@ flags := -gcflags="all=-N -l -c 2"
 ldflags := -X main.version=v${version} -X main.commit=${commit}
 ldflags += -X main.builtAt=${built_at} -X main.builtBy=${built_by}
 watchdog := harmony-watchdog
+watchdog_src := $(wildcard harmony-monitor/node-metadata-watcher/*.go)
 
 env := GO111MODULE=on
 
@@ -15,7 +16,7 @@ all: watchdog
 
 watchdog:
 	@ $(env) go build -ldflags="$(ldflags)" \
--o $(watchdog) harmony-monitor/node-metadata-watcher/*
+-o $(watchdog) ${watchdog_src}
 
 .PHONY:clean
 

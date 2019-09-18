@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -69,8 +71,6 @@ func (service *Service) Manage() error {
 			return errors.New("daemon was killed")
 		}
 	}
-
-	// never happen, but need to complete code
 	return nil
 }
 
@@ -92,7 +92,14 @@ func handleClient(client net.Conn) {
 		if numbytes == 0 || err != nil {
 			return
 		}
-		client.Write(buf[:numbytes])
+		cmd := strings.TrimSpace(string(bytes.Trim(buf, "\x00")))
+		fmt.Println(cmd)
+		switch cmd {
+		case "work":
+			client.Write(baseRequest("http://localhost:9500"))
+		default:
+			client.Write(buf[:numbytes])
+		}
 	}
 }
 
@@ -126,7 +133,6 @@ func init() {
 
 		},
 	})
-
 }
 
 var (
