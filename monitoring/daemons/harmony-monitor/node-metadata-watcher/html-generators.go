@@ -89,13 +89,14 @@ body {font-family: "Open Sans", sans-serif;}
 .report-wrapper {padding:17px;padding-bottom:30px;background-color:aliceblue;}
 .report-table {width:100%%;}
 .report-descr {display:flex; justify-content:space-between; padding-bottom: 15px;}
-header { padding: 10px;}
+header { padding: 10px; display:flex; justify-content:space-between;}
 </style>
   </head>
   <body>
   <header>
-{{.Title}}
-  <p>Assumption of %d blocks per epoch</p>
+{{range .Title}}
+  <span>{{.}}</span>
+{{end}}
 </header>
 
 <section class="report-wrapper">
@@ -117,5 +118,5 @@ header { padding: 10px;}
 
   </body>
 </html>
-`, blocksPerEpoch, blockHeaderReport, blockHeaderTable(), nodeMetadataReport, nodeMetadataTable())
+`, blockHeaderReport, blockHeaderTable(), nodeMetadataReport, nodeMetadataTable())
 }
