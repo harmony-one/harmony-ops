@@ -18,6 +18,9 @@ watchdog:
 	@ $(env) go build -ldflags="$(ldflags)" \
 -o $(watchdog) ${watchdog_src}
 
+iterate:all
+	./$(watchdog) monitor --watch ./monitor-testnet.yaml
+
 .PHONY:clean
 
 clean:
