@@ -11,9 +11,12 @@ import (
 	"reflect"
 	"strconv"
 	"time"
+
+	"github.com/ahmetb/go-linq"
 )
 
 const (
+	bad                = "BAD_VERSION_STRING"
 	versionJSONRPC     = "2.0"
 	blocksPerEpoch     = 16384
 	blockTime          = time.Second * 15 // Come back to this
@@ -43,11 +46,36 @@ type headerInformation struct {
 	LastCommitBitmap string `json:"lastCommitBitmap"`
 }
 
+type summary map[string]map[string]int
+
 var (
 	queryID                    = 0
 	nodeMetadataCSVHeader      []string
 	headerInformationCSVHeader []string
 )
+
+func counters(meta []metadataRPCResult, headers []headerInfoRPCResult) summary {
+	sum := summary{"metadata": map[string]int{}, "node-header": map[string]int{}}
+	metaS := linq.From(meta).GroupByT(
+		func(node metadataRPCResult) string {
+			p, e := parseVersionS(node.Payload.Version)
+			if e != nil {
+				return bad
+			}
+			return p
+		},
+		func(node metadataRPCResult) string { return node.Payload.Version },
+	).OrderByDescendingT(func(g linq.Group) int {
+		return len(g.Group)
+	})
+
+	for _, value := range metaS.Results() {
+		g := value.(linq.Group)
+		sum["metadata"][g.Key.(string)] = len(g.Group)
+	}
+
+	return sum
+}
 
 func init() {
 	h := reflect.TypeOf((*headerInformation)(nil)).Elem()
@@ -67,8 +95,9 @@ func request(node, rpcMethod string) ([]byte, error) {
 		"method":  rpcMethod,
 		"params":  []interface{}{},
 	})
-	resp, err := http.Post(node, "application/json", bytes.NewBuffer(requestBody))
-	fmt.Printf("URL: <%s>, Request Body: %s\n\n", node, string(requestBody))
+	const cT = "application/json"
+	resp, err := http.Post(node, cT, bytes.NewBuffer(requestBody))
+	// fmt.Printf("URL: <%s>, Request Body: %s\n\n", node, string(requestBody))
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -79,7 +108,7 @@ func request(node, rpcMethod string) ([]byte, error) {
 		return nil, err
 	}
 	queryID++
-	fmt.Printf("URL: %s, Response Body: %s\n\n", node, string(body))
+	// fmt.Printf("URL: %s, Response Body: %s\n\n", node, string(body))
 	return body, nil
 }
 
@@ -95,6 +124,9 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		shorted := n.Payload.LastCommitSig[:5] + "..." + n.Payload.LastCommitSig[len(n.Payload.LastCommitSig)-5:]
 		m.BlockHeaderSnapshot.Nodes[i].Payload.LastCommitSig = shorted
 	}
+
+	highLevelSum := counters(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	fmt.Println(highLevelSum)
 
 	t.Execute(w, v{
 		Title:         []string{m.chain, time.Now().Format(time.RFC3339), versionS()},
@@ -166,9 +198,12 @@ func (m *monitor) update(rpc string, every int, nodeList []string) {
 		oops      error
 	}
 	for now := range time.Tick(time.Duration(every) * time.Second) {
-		// Reset
-		m.MetadataSnapshot.Nodes = []metadataRPCResult{}
-		m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
+		switch rpc {
+		case metadataRPC:
+			m.MetadataSnapshot.Nodes = []metadataRPCResult{}
+		case blockHeaderRPC:
+			m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
+		}
 		go func(n time.Time) {
 			payloadChan := make(chan t, len(nodeList))
 			for _, nodeIP := range nodeList {
@@ -218,7 +253,7 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	go m.update(metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.networkNodes)
-	go m.update(blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.networkNodes)
+	// go m.update(blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.networkNodes)
 
 	http.HandleFunc("/report-table", m.renderReport)
 	http.HandleFunc("/report-download", m.produceCSV)
