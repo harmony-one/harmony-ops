@@ -7,6 +7,7 @@ func blockHeaderTable() string {
     <table class="sortable-theme-bootstrap report-table" data-sortable>
       <thead>
 	<tr>
+	  <th>IP</th>
 	  <th>Block Hash</th>
 	  <th>Block Number</th>
 	  <th>ShardID</th>
@@ -22,16 +23,17 @@ func blockHeaderTable() string {
       <tbody>
 {{range .NodesHeader}}
 <tr>
-  <td>{{.BlockHash}} </td>
-  <td>{{.BlockNumber}} </td>
-  <td>{{.ShardID}} </td>
-  <td>{{.Leader}} </td>
-  <td>{{.ViewID}} </td>
-  <td>{{.Epoch}} </td>
-  <td>{{.Timestamp}} </td>
-  <td>{{.UnixTime}} </td>
-  <td>{{.LastCommitSig}} </td>
-  <td>{{.LastCommitBitmap}} </td>
+  <td>{{.IP}} </td>
+  <td>{{.Payload.BlockHash}} </td>
+  <td>{{.Payload.BlockNumber}} </td>
+  <td>{{.Payload.ShardID}} </td>
+  <td>{{.Payload.Leader}} </td>
+  <td>{{.Payload.ViewID}} </td>
+  <td>{{.Payload.Epoch}} </td>
+  <td>{{.Payload.Timestamp}} </td>
+  <td>{{.Payload.UnixTime}} </td>
+  <td>{{.Payload.LastCommitSig}} </td>
+  <td>{{.Payload.LastCommitBitmap}} </td>
 </tr>
 {{end}}
       </tbody>
@@ -44,6 +46,7 @@ func nodeMetadataTable() string {
     <table class="sortable-theme-bootstrap report-table" data-sortable>
       <thead>
 	<tr>
+	  <th>IP</th>
 	  <th>BLS Key</th>
 	  <th>Version</th>
 	  <th>Network Type</th>
@@ -53,10 +56,11 @@ func nodeMetadataTable() string {
       <tbody>
 {{range .NodesMetadata}}
 <tr>
-  <td>{{.BLSPublicKey}} </td>
-  <td>{{.Version}} </td>
-  <td>{{.NetworkType}} </td>
-  <td>{{.ChainID}} </td>
+  <td>{{.IP}} </td>
+  <td>{{.Payload.BLSPublicKey}} </td>
+  <td>{{.Payload.Version}} </td>
+  <td>{{.Payload.NetworkType}} </td>
+  <td>{{.Payload.ChainID}} </td>
 </tr>
 {{end}}
       </tbody>
@@ -89,17 +93,20 @@ body {font-family: "Open Sans", sans-serif;}
 .report-wrapper {padding:17px;padding-bottom:30px;background-color:aliceblue;}
 .report-table {width:100%%;}
 .report-descr {display:flex; justify-content:space-between; padding-bottom: 15px;}
-header { padding: 10px; display:flex; justify-content:space-between;}
+.build-stat { padding: 10px; display:flex; justify-content:space-between;}
 </style>
   </head>
   <body>
   <header>
+<div class="build-stat">
 {{range .Title}}
   <span>{{.}}</span>
 {{end}}
+</div>
+<a href="#metadata-table">Node Metadata</a>
 </header>
 
-<section class="report-wrapper">
+<section class="report-wrapper" id="block-header-table">
 <div class="report-descr">
 <h3>Block Header</h3>
 <a href="/report-download?report=%s">Download CSV</a>
@@ -107,7 +114,7 @@ header { padding: 10px; display:flex; justify-content:space-between;}
 %s
 </section>
 
-<section class="report-wrapper">
+<section class="report-wrapper" id="metadata-table">
 <div class="report-descr">
 <h3>Node metadata</h3>
 <a href="/report-download?report=%s">Download CSV</a>
