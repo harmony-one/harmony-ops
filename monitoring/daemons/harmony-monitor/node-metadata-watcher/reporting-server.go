@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	bad                = "BAD_VERSION_STRING"
+	badVersionString   = "BAD_VERSION_STRING"
 	versionJSONRPC     = "2.0"
 	blocksPerEpoch     = 16384
 	blockTime          = time.Second * 15 // Come back to this
@@ -54,24 +54,32 @@ var (
 	headerInformationCSVHeader []string
 )
 
-func counters(meta []metadataRPCResult, headers []headerInfoRPCResult) summary {
-	sum := summary{"metadata": map[string]int{}, "node-header": map[string]int{}}
-	metaS := linq.From(meta).GroupByT(
-		func(node metadataRPCResult) string {
-			p, e := parseVersionS(node.Payload.Version)
-			if e != nil {
-				return bad
-			}
-			return p
-		},
+// Be careful, usage of interface{} can make things explode in the goroutine with bad cast
+func counters(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
+	const (
+		metaSumry   = "node-metadata"
+		headerSumry = "block-header"
+	)
+	sum := summary{metaSumry: map[string]int{}, headerSumry: map[string]int{}}
+	linq.From(metas).GroupByT(
+		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) },
 		func(node metadataRPCResult) string { return node.Payload.Version },
-	).OrderByDescendingT(func(g linq.Group) int {
-		return len(g.Group)
+	).ForEach(func(value interface{}) {
+		g := value.(linq.Group)
+		sum[metaSumry][g.Key.(string)] = len(g.Group)
 	})
 
-	for _, value := range metaS.Results() {
+	// Different Shards will have their own block height!
+	headerS := linq.From(headers).GroupByT(
+		// Group records by this value
+		func(node headerInfoRPCResult) uint64 { return node.Payload.BlockNumber },
+		// And collate the grouped values with this value
+		func(node headerInfoRPCResult) string { return node.IP },
+	).OrderByDescendingT(func(g linq.Group) int { return len(g.Group) })
+
+	for _, value := range headerS.Results() {
 		g := value.(linq.Group)
-		sum["metadata"][g.Key.(string)] = len(g.Group)
+		sum[headerSumry][strconv.FormatUint(g.Key.(uint64), 10)] = len(g.Group)
 	}
 
 	return sum
@@ -114,7 +122,11 @@ func request(node, rpcMethod string) ([]byte, error) {
 
 func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	t, e := template.New("report").Parse(reportPage())
-	fmt.Println(t, e)
+	if e != nil {
+		fmt.Println(e)
+		http.Error(w, "could not generate page:"+e.Error(), http.StatusInternalServerError)
+		return
+	}
 	type v struct {
 		Title         []string
 		NodesMetadata []metadataRPCResult
@@ -253,7 +265,7 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	go m.update(metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.networkNodes)
-	// go m.update(blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.networkNodes)
+	go m.update(blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.networkNodes)
 
 	http.HandleFunc("/report-table", m.renderReport)
 	http.HandleFunc("/report-download", m.produceCSV)
