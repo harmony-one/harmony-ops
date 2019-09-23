@@ -80,6 +80,7 @@ func reportPage() string {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sortable/0.8.0/js/sortable.min.js"
         integrity="sha256-gCtdA1cLK2EhQZCMhhvGzUsWM/fsxtJ2IImUJ+4UOP8="
         crossorigin="anonymous"></script>
+<script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=blissfuljs"></script>
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/sortable/0.8.0/css/sortable-theme-bootstrap.min.css"
       integrity="sha256-S9t86HqhPL8nNR85dIjDQCJMPd9RULmRAub6xBksk9M="
@@ -87,13 +88,19 @@ func reportPage() string {
 <link href="https://fonts.googleapis.com/css?family=Open+Sans"
       rel="stylesheet"
       crossorigin="anonymous" />
+
 <style>
 * {margin:0;padding:0;}
 body {font-family: "Open Sans", sans-serif;}
 .report-wrapper {padding:17px;padding-bottom:30px;background-color:aliceblue;}
 .report-table {width:100%%;}
 .report-descr {display:flex; justify-content:space-between; padding-bottom: 15px;}
-.build-stat { padding: 10px; display:flex; justify-content:space-between;}
+.build-stat { 
+background-color:yellow;
+padding: 10px; display:flex; justify-content:space-between;
+position: -webkit-sticky;
+position: sticky;
+}
 </style>
   </head>
   <body>
@@ -104,6 +111,13 @@ body {font-family: "Open Sans", sans-serif;}
 {{end}}
 </div>
 <a href="#metadata-table">Node Metadata</a>
+
+{{range $key, $value := .Summary}}
+  <p>{{$key}} : {{$value}} </p>
+{{end}}
+
+
+
 </header>
 
 <section class="report-wrapper" id="block-header-table">

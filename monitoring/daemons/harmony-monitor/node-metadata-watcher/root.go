@@ -22,11 +22,12 @@ const (
 	name        = "harmony-watchdog"
 	description = "Monitor the Harmony blockchain"
 	port        = ":9977"
+	spaceSep    = " "
 )
 
 var (
 	sep       = []byte("\n")
-	recordSep = []byte(" ")
+	recordSep = []byte(spaceSep)
 	rootCmd   = &cobra.Command{
 		Use:          "harmony-watchdog",
 		SilenceUsage: true,
@@ -183,6 +184,16 @@ func versionS() string {
 		"Harmony (C) 2019. %v, version %v-%v (%v %v)",
 		path.Base(os.Args[0]), version, commit, builtBy, builtAt,
 	)
+}
+
+func parseVersionS(v string) string {
+	const versionSpot = 5
+	const versionSep = "-"
+	chopped := strings.Split(v, spaceSep)
+	if len(chopped) < versionSpot {
+		return badVersionString
+	}
+	return chopped[versionSpot]
 }
 
 func init() {

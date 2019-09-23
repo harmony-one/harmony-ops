@@ -46,44 +46,20 @@ type headerInformation struct {
 	LastCommitBitmap string `json:"lastCommitBitmap"`
 }
 
-type summary map[string]map[string]int
-
 var (
 	queryID                    = 0
 	nodeMetadataCSVHeader      []string
 	headerInformationCSVHeader []string
 )
 
-// Be careful, usage of interface{} can make things explode in the goroutine with bad cast
-func counters(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
-	const (
-		metaSumry   = "node-metadata"
-		headerSumry = "block-header"
-	)
-	sum := summary{metaSumry: map[string]int{}, headerSumry: map[string]int{}}
-	linq.From(metas).GroupByT(
-		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) },
-		func(node metadataRPCResult) string { return node.Payload.Version },
-	).ForEach(func(value interface{}) {
-		g := value.(linq.Group)
-		sum[metaSumry][g.Key.(string)] = len(g.Group)
-	})
-
-	// Different Shards will have their own block height!
-	headerS := linq.From(headers).GroupByT(
-		// Group records by this value
-		func(node headerInfoRPCResult) uint64 { return node.Payload.BlockNumber },
-		// And collate the grouped values with this value
-		func(node headerInfoRPCResult) string { return node.IP },
-	).OrderByDescendingT(func(g linq.Group) int { return len(g.Group) })
-
-	for _, value := range headerS.Results() {
-		g := value.(linq.Group)
-		sum[headerSumry][strconv.FormatUint(g.Key.(uint64), 10)] = len(g.Group)
-	}
-
-	return sum
+func identity(x interface{}) interface{} {
+	return x
 }
+
+const (
+	metaSumry   = "node-metadata"
+	headerSumry = "block-header"
+)
 
 func init() {
 	h := reflect.TypeOf((*headerInformation)(nil)).Elem()
@@ -94,6 +70,37 @@ func init() {
 	for i := 0; i < n.NumField(); i++ {
 		nodeMetadataCSVHeader = append(nodeMetadataCSVHeader, n.Field(i).Name)
 	}
+}
+
+type summary map[string]map[string]interface{}
+
+// Be careful, usage of interface{} can make things explode in the goroutine with bad cast
+func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
+	sum := summary{metaSumry: map[string]interface{}{}, headerSumry: map[string]interface{}{}}
+	linq.From(metas).GroupByT(
+		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) },
+		func(node metadataRPCResult) string { return node.Payload.Version },
+	).ForEach(func(value interface{}) {
+		g := value.(linq.Group)
+		sum[metaSumry][g.Key.(string)] = len(g.Group)
+	})
+
+	// Care about blockhash, blocknumber, leader, viewID
+	linq.From(headers).GroupBy(
+		// Group by ShardID
+		func(node interface{}) interface{} { return node.(headerInfoRPCResult).Payload.ShardID },
+		identity,
+	).ForEach(func(value interface{}) {
+		shardID := strconv.FormatUint(uint64(value.(linq.Group).Key.(uint32)), 10)
+		linq.From(value.(linq.Group).Group).GroupBy(
+			func(nodeInS interface{}) interface{} { return nodeInS.(headerInfoRPCResult).Payload.BlockNumber },
+			identity,
+		).ForEach(func(value interface{}) {
+			sum[headerSumry][shardID] = value.(linq.Group).Group
+		})
+	})
+
+	return sum
 }
 
 func request(node, rpcMethod string) ([]byte, error) {
@@ -131,19 +138,22 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		Title         []string
 		NodesMetadata []metadataRPCResult
 		NodesHeader   []headerInfoRPCResult
+		Summary       interface{}
 	}
 	for i, n := range m.BlockHeaderSnapshot.Nodes {
 		shorted := n.Payload.LastCommitSig[:5] + "..." + n.Payload.LastCommitSig[len(n.Payload.LastCommitSig)-5:]
 		m.BlockHeaderSnapshot.Nodes[i].Payload.LastCommitSig = shorted
 	}
 
-	highLevelSum := counters(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
-	fmt.Println(highLevelSum)
+	highLevel := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	fmt.Printf("%+v\n", highLevel[headerSumry]["1"])
+	// fmt.Println(highLevel)
 
 	t.Execute(w, v{
 		Title:         []string{m.chain, time.Now().Format(time.RFC3339), versionS()},
 		NodesMetadata: m.MetadataSnapshot.Nodes,
 		NodesHeader:   m.BlockHeaderSnapshot.Nodes,
+		Summary:       highLevel,
 	})
 }
 
@@ -228,7 +238,7 @@ func (m *monitor) update(rpc string, every int, nodeList []string) {
 			for range nodeList {
 				it := <-payloadChan
 				if it.oops != nil {
-					fmt.Println("Some log of oops", it.oops)
+					fmt.Println("Some log of oops\n\n", it.oops)
 					continue
 				}
 				m.bytesToNodeMetadata(rpc, it.addr, it.rpcResult)
