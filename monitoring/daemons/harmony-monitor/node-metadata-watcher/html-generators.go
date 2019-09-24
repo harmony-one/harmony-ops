@@ -24,22 +24,30 @@ func reportPage() string {
 <style>
 * {margin:0;padding:0;}
 body {font-family: "Open Sans", sans-serif;}
-.report-wrapper {padding:17px;padding-bottom:30px;background-color:aliceblue;}
+.report-wrapper {padding:17px;padding-bottom:30px;background-color:#344E4F;}
 .report-table {width:100%%; table-layout:fixed;word-break:break-all;}
 .report-descr {display:flex; justify-content:space-between; padding-bottom: 15px;}
 .flex-col {display:flex;flex-direction:column;}
 .flex-row {display:flex;justify-content:space-between;}
 .build-stat {
-  background-color:yellow;
+  background-color:#E0EFC7;
   padding: 10px; display:flex; justify-content:space-between;
 }
 
 .summary-details {
-  background-color:darkorange;
+  background-color:#7F9A95;
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
   position: -webkit-sticky;
   position: sticky;
   top:20px;
   padding: 10px;
+}
+
+th {
+  background: #c9d1ac;
+  position: sticky;
+  top: 88px;
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
 }
 
 </style>
@@ -86,6 +94,7 @@ body {font-family: "Open Sans", sans-serif;}
 	    <th>Block Number</th>
 	    <th>Leader</th>
 	    <th>ViewID</th>
+	    <th>Timestamp</th>
 	    <th>Unixtime</th>
 	    <th>Last Commit Sig</th>
 	    <th>Last Commit Bitmap</th>
