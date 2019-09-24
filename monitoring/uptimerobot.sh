@@ -44,6 +44,11 @@ function usage
    cat<<EOF
 Usage: $ME [Options] Command
 
+NOTE:
+This script is used to manage uptimerobot monitors.
+Please make sure you have API key file.
+Also, please tryn "get" at first to create a local db of all monitors.
+
 OPTIONS:
    -h                         print this help message
    -v                         verbose mode
@@ -51,12 +56,13 @@ OPTIONS:
    -K keyfile                 specify the file holding the uptime robot api key
    -D dbdir                   specify the directory for the db
    -t tag                     specify the tag in the name of the monitor (default: $TAG)
+   -i index                   specify the index number of the monitor
    -N network                 specify the network type (mainnet,betanet; default: $NETWORK)
 
 COMMANDS:
    batchnew [shard] [file]    new uptime robot monitors, loading ip from [file]
-   new [ip] [shard]           new uptime robot monitor
-   get [shard]                get all uptime robot monitors from [shard]
+   new [shard] [ip]           new uptime robot monitor
+   get                        get all uptime robot monitors and save in local db
    update [name] [ip] [shard] update the uptime robot monitor [name] using new ip/shard
    find [name]                find the details of monitor with [name]
 
@@ -71,9 +77,12 @@ EOF
 function _get_monitor_name()
 {
    local shard=$1
-   local ip=$(echo $2 | cksum | awk ' { print $1 } ')
-
-   echo "s-$shard-$TAG-$ip"
+   if [ -n "$INDEX" ]; then
+      echo "s$shard-$TAG-$INDEX"
+   else
+      local ip=$(echo $2 | cksum | awk ' { print $1 } ')
+      echo "s$shard-$TAG-$ip"
+   fi
 }
 
 function new_monitors()
@@ -115,7 +124,7 @@ function get_monitors()
         -d "api_key=${api_key}&format=json&logs=1&limit=$LIMIT" "https://api.uptimerobot.com/v2/getMonitors" -o $DBDIR/uptime-0.json
    [ -n "$DRYRUN" ] && return
    total=$($JQ ".pagination.total" $DBDIR/uptime-0.json)
-   pages=$(( $total / $LIMIT - 1 ))
+   pages=$(( $total / $LIMIT ))
    for page in $(seq 1 $pages); do
       offset=$(( $LIMIT * page ))
       $DRYRUN curl -X POST \
@@ -185,15 +194,17 @@ DBDIR=db
 KEY=uptimerobot_api_key.txt
 JQ='jq -M -r'
 TAG=node
+INDEX=
 NETWORK=mainnet
 
-while getopts "hvGK:D:t:N:" option; do
+while getopts "hvGK:D:t:N:i:" option; do
    case $option in
       v) VERBOSE=-v ;;
       G) unset DRYRUN ;;
       K) KEY=$OPTARG ;;
       D) DBDIR=$OPTARG ;;
       t) TAG=$OPTARG ;;
+      i) INDEX=$OPTARG ;;
       N) NETWORK=$OPTARG ;;
       h|?|*) usage ;;
    esac
