@@ -77,6 +77,10 @@ type summary map[string]map[string]interface{}
 // Be careful, usage of interface{} can make things explode in the goroutine with bad cast
 func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
 	sum := summary{metaSumry: map[string]interface{}{}, headerSumry: map[string]interface{}{}}
+	for i, n := range headers {
+		shorted := n.Payload.LastCommitSig[:5] + "..." + n.Payload.LastCommitSig[len(n.Payload.LastCommitSig)-5:]
+		headers[i].Payload.LastCommitSig = shorted
+	}
 	linq.From(metas).GroupByT(
 		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) },
 		func(node metadataRPCResult) string { return node.Payload.Version },
@@ -92,12 +96,19 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		identity,
 	).ForEach(func(value interface{}) {
 		shardID := strconv.FormatUint(uint64(value.(linq.Group).Key.(uint32)), 10)
-		linq.From(value.(linq.Group).Group).GroupBy(
-			func(nodeInS interface{}) interface{} { return nodeInS.(headerInfoRPCResult).Payload.BlockNumber },
-			identity,
-		).ForEach(func(value interface{}) {
-			sum[headerSumry][shardID] = value.(linq.Group).Group
+		block := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
+			return c.(headerInfoRPCResult).Payload.BlockNumber
 		})
+		epoch := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
+			return c.(headerInfoRPCResult).Payload.Epoch
+		})
+		sum[headerSumry][shardID] = map[string]interface{}{
+			"block-min": block.Min(),
+			"block-max": block.Max(),
+			"epoch-min": epoch.Min(),
+			"epoch-max": epoch.Max(),
+			"records":   value.(linq.Group).Group,
+		}
 	})
 
 	return sum
@@ -135,25 +146,17 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	type v struct {
-		Title         []string
-		NodesMetadata []metadataRPCResult
-		NodesHeader   []headerInfoRPCResult
-		Summary       interface{}
+		Title   []string
+		Summary interface{}
 	}
-	for i, n := range m.BlockHeaderSnapshot.Nodes {
-		shorted := n.Payload.LastCommitSig[:5] + "..." + n.Payload.LastCommitSig[len(n.Payload.LastCommitSig)-5:]
-		m.BlockHeaderSnapshot.Nodes[i].Payload.LastCommitSig = shorted
+	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+
+	for key, value := range sum {
+		fmt.Println(key, value)
 	}
-
-	highLevel := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
-	fmt.Printf("%+v\n", highLevel[headerSumry]["1"])
-	// fmt.Println(highLevel)
-
 	t.Execute(w, v{
-		Title:         []string{m.chain, time.Now().Format(time.RFC3339), versionS()},
-		NodesMetadata: m.MetadataSnapshot.Nodes,
-		NodesHeader:   m.BlockHeaderSnapshot.Nodes,
-		Summary:       highLevel,
+		Title:   []string{m.chain, time.Now().Format(time.RFC3339), versionS()},
+		Summary: sum,
 	})
 }
 
