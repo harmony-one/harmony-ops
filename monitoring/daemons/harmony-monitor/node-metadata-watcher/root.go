@@ -36,11 +36,15 @@ var (
 			cmd.Help()
 		},
 	}
+	w               *cobraSrvWrapper = &cobraSrvWrapper{nil}
 	monitorNodeYAML string
 	stdlog          *log.Logger
 	errlog          *log.Logger
-	//    dependencies that are NOT required by the service, but might be used
-	dependencies = []string{"dummy.service"}
+	// Add services here that we might want to depend on, see all services on
+	// the machine with systemctl list-unit-files
+	dependencies    = []string{}
+	errSysIntrpt    = errors.New("daemon was interruped by system signal")
+	errDaemonKilled = errors.New("daemon was killed")
 )
 
 // Service has embedded daemon
@@ -51,25 +55,7 @@ type Service struct {
 }
 
 // Manage by daemon commands or run the daemon
-func (service *Service) Manage() error {
-	a, installE := service.Install()
-	if installE != nil {
-		return installE
-	}
-	// service.Remove()
-
-	c, startE := service.Start()
-	if startE != nil {
-		return startE
-	}
-
-	fmt.Println(a, c)
-	// service.Stop()
-	// service.Status()
-	// Do something, call your goroutines, etc
-	// Set up channel on which to send signal notifications.
-	// We must use a buffered channel or risk missing the signal
-	// if we're not ready to receive when the signal is sent.
+func (service *Service) doMonitor() error {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 	// Set up listener for defined host and port
@@ -85,16 +71,14 @@ func (service *Service) Manage() error {
 	// by system signal
 	for {
 		select {
-		case conn := <-listen:
-			go handleClient(conn, service.instruction.Auth.PagerDuty.EventServiceKey)
 		case killSignal := <-interrupt:
 			stdlog.Println("Got signal:", killSignal)
 			stdlog.Println("Stoping listening on ", listener.Addr())
 			listener.Close()
 			if killSignal == os.Interrupt {
-				return errors.New("daemon was interruped by system signal")
+				return errSysIntrpt
 			}
-			return errors.New("daemon was killed")
+			return errDaemonKilled
 		}
 	}
 	return nil
@@ -205,6 +189,24 @@ func parseVersionS(v string) string {
 	return chopped[versionSpot]
 }
 
+func (cw *cobraSrvWrapper) preRunInit(cmd *cobra.Command, args []string) error {
+	srv, err := daemon.New(name, description, dependencies...)
+	if err != nil {
+		return err
+	}
+	cw.Service = &Service{srv, nil, nil}
+	return nil
+}
+
+func (cw *cobraSrvWrapper) start(cmd *cobra.Command, args []string) error {
+	r, err := cw.Start()
+	if err != nil {
+		return err
+	}
+	fmt.Println(r)
+	return nil
+}
+
 func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
@@ -216,10 +218,19 @@ func init() {
 			os.Exit(0)
 		},
 	})
-
-	monitor := &cobra.Command{
-		Use:   "monitor",
-		Short: "watch the blockchain for problems",
+	daemonCmd := &cobra.Command{
+		Use:               "service",
+		Short:             "Control the daemon functionality of harmony-watchdog",
+		PersistentPreRunE: w.preRunInit,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+		},
+	}
+	daemonCmd.AddCommand(daemonCmds()...)
+	rootCmd.AddCommand(daemonCmd)
+	monitorCmd := &cobra.Command{
+		Use:   mCmd,
+		Short: "start watching the blockchain for problems",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			instr, err := newInstructions(monitorNodeYAML)
 			if err != nil {
@@ -231,17 +242,14 @@ func init() {
 			}
 			m := &monitor{chain: instr.TargetChain}
 			service := &Service{srv, m, instr}
-			err = service.Manage()
+			err = service.doMonitor()
 			if err != nil {
 				return err
 			}
 			return nil
 		},
 	}
-
-	rootCmd.AddCommand(monitor)
-	descr := "yaml detailing what to watch"
-	monitor.Flags().StringVar(&monitorNodeYAML, "watch", "", descr)
-	monitor.MarkFlagRequired("watch")
-
+	monitorCmd.Flags().StringVar(&monitorNodeYAML, mFlag, "", mDescr)
+	monitorCmd.MarkFlagRequired(mFlag)
+	rootCmd.AddCommand(monitorCmd)
 }
