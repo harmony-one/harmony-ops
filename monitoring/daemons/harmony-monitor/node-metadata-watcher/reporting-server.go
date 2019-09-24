@@ -78,18 +78,20 @@ type summary map[string]map[string]interface{}
 func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
 	sum := summary{metaSumry: map[string]interface{}{}, headerSumry: map[string]interface{}{}}
 	for i, n := range headers {
-		shorted := n.Payload.LastCommitSig[:5] + "..." + n.Payload.LastCommitSig[len(n.Payload.LastCommitSig)-5:]
+		s := n.Payload.LastCommitSig
+		shorted := s[:5] + "..." + s[len(s)-5:]
 		headers[i].Payload.LastCommitSig = shorted
 	}
 	linq.From(metas).GroupByT(
 		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) },
-		func(node metadataRPCResult) string { return node.Payload.Version },
+		identity,
 	).ForEach(func(value interface{}) {
-		g := value.(linq.Group)
-		sum[metaSumry][g.Key.(string)] = len(g.Group)
+		vrs := value.(linq.Group).Key.(string)
+		sum[metaSumry][vrs] = map[string]interface{}{
+			"records": value.(linq.Group).Group,
+		}
 	})
 
-	// Care about blockhash, blocknumber, leader, viewID
 	linq.From(headers).GroupBy(
 		// Group by ShardID
 		func(node interface{}) interface{} { return node.(headerInfoRPCResult).Payload.ShardID },
@@ -150,10 +152,6 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		Summary interface{}
 	}
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
-
-	for key, value := range sum {
-		fmt.Println(key, value)
-	}
 	t.Execute(w, v{
 		Title:   []string{m.chain, time.Now().Format(time.RFC3339), versionS()},
 		Summary: sum,
