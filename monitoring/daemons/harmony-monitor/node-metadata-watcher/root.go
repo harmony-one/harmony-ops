@@ -52,9 +52,18 @@ type Service struct {
 
 // Manage by daemon commands or run the daemon
 func (service *Service) Manage() error {
-	// service.Install()
+	a, installE := service.Install()
+	if installE != nil {
+		return installE
+	}
 	// service.Remove()
-	// service.Start()
+
+	c, startE := service.Start()
+	if startE != nil {
+		return startE
+	}
+
+	fmt.Println(a, c)
 	// service.Stop()
 	// service.Status()
 	// Do something, call your goroutines, etc
