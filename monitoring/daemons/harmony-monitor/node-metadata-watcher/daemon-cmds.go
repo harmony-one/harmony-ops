@@ -13,8 +13,8 @@ const (
 	stopD    = "stop the harmony-watchdog service"
 	statusD  = "check status of the harmony-watchdog service"
 	mCmd     = "monitor"
-	mFlag    = "monitor-config"
-	mDescr   = "yaml detailing what to watch"
+	mFlag    = "yaml-config"
+	mDescr   = "yaml detailing what to watch [required]"
 )
 
 type cobraSrvWrapper struct {

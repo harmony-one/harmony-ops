@@ -95,26 +95,6 @@ func acceptConnection(listener net.Listener, listen chan<- net.Conn) {
 	}
 }
 
-func handleClient(client net.Conn, serviceKey string) {
-	for {
-		buf := make([]byte, 4096)
-		numbytes, err := client.Read(buf)
-		if numbytes == 0 || err != nil {
-			return
-		}
-		cmd := strings.TrimSpace(string(bytes.Trim(buf, "\x00")))
-		fmt.Println(cmd)
-		switch cmd {
-		case "work":
-			// client.Write(baseRequest("http://localhost:9500"))
-		case "pager":
-			notifyTeam(serviceKey)
-		default:
-			client.Write(buf[:numbytes])
-		}
-	}
-}
-
 type watchParams struct {
 	Auth struct {
 		PagerDuty struct {
@@ -135,8 +115,7 @@ type watchParams struct {
 		NodeThreshold  int `yaml:"threshold"`
 	} `yaml:"report-when"`
 	DistributionFiles struct {
-		ConfigTxt string `yaml:"config-txt"`
-		RawIPTxt  string `yaml:"raw-ip-txt"`
+		MachineIPList string `yaml:"machine-ip-list"`
 	} `yaml:"node-distribution"`
 }
 
@@ -155,7 +134,7 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodesRecord, err2 := ioutil.ReadFile(t.DistributionFiles.ConfigTxt)
+	nodesRecord, err2 := ioutil.ReadFile(t.DistributionFiles.MachineIPList)
 	if err2 != nil {
 		return nil, err2
 	}

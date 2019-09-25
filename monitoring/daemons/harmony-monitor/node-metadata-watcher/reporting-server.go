@@ -78,9 +78,10 @@ type summary map[string]map[string]interface{}
 func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
 	sum := summary{metaSumry: map[string]interface{}{}, headerSumry: map[string]interface{}{}}
 	for i, n := range headers {
-		s := n.Payload.LastCommitSig
-		shorted := s[:5] + "..." + s[len(s)-5:]
-		headers[i].Payload.LastCommitSig = shorted
+		if s := n.Payload.LastCommitSig; len(s) > 0 {
+			shorted := s[:5] + "..." + s[len(s)-5:]
+			headers[i].Payload.LastCommitSig = shorted
+		}
 	}
 	linq.From(metas).GroupByT(
 		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) },
@@ -104,12 +105,19 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		epoch := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
 			return c.(headerInfoRPCResult).Payload.Epoch
 		})
+		var uniqEpochs []uint64 = []uint64{}
+		var uniqBlockNums []uint64 = []uint64{}
+		epoch.Distinct().ToSlice(&uniqEpochs)
+		block.Distinct().ToSlice(&uniqBlockNums)
+
 		sum[headerSumry][shardID] = map[string]interface{}{
-			"block-min": block.Min(),
-			"block-max": block.Max(),
-			"epoch-min": epoch.Min(),
-			"epoch-max": epoch.Max(),
-			"records":   value.(linq.Group).Group,
+			"block-min":   block.Min(),
+			"block-max":   block.Max(),
+			"epoch-min":   epoch.Min(),
+			"epoch-max":   epoch.Max(),
+			"uniq-epochs": uniqEpochs,
+			"uniq-blocks": uniqBlockNums,
+			"records":     value.(linq.Group).Group,
 		}
 	})
 
@@ -140,6 +148,19 @@ func request(node, rpcMethod string) ([]byte, error) {
 	return body, nil
 }
 
+// TODO Make this be separate template parsed, not sure how to get it right
+const shardJumpRow = `
+{{define "shard-jump-row"}}
+<div>
+  {{ with (index .Summary "block-header") }}
+  {{range $key, $value := .}}
+    <a href=shard-{{$key}}> {{$key}} </a>
+  {{end}}
+  {{end}}
+</div>
+{{end}}
+`
+
 func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	t, e := template.New("report").Parse(reportPage())
 	if e != nil {
@@ -152,7 +173,7 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		Summary interface{}
 	}
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
-	t.Execute(w, v{
+	t.ExecuteTemplate(w, "report", v{
 		Title:   []string{m.chain, time.Now().Format(time.RFC3339), versionS()},
 		Summary: sum,
 	})

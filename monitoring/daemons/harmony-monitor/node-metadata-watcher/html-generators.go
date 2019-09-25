@@ -33,20 +33,21 @@ body {font-family: "Open Sans", sans-serif;}
   background-color:#E0EFC7;
   padding: 10px; display:flex; justify-content:space-between;
 }
-
+.build-stat-values {font-size: 20px; font-weight: bolder;}
 .summary-details {
   background-color:#7F9A95;
   box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
   position: -webkit-sticky;
   position: sticky;
-  top:20px;
+  top:0px;
   padding: 10px;
+  height:95px;
 }
 
 th {
   background: #c9d1ac;
   position: sticky;
-  top: 88px;
+  top: 91px;
   box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
 }
 
@@ -56,7 +57,7 @@ th {
     <header>
       <div class="build-stat">
         {{range .Title}}
-        <span>{{.}}</span>
+        <span class="build-stat-values">{{.}}</span>
         {{end}}
       </div>
     </header>
@@ -81,6 +82,11 @@ th {
             <p> min block: {{index $value "block-min"}}</p>
             <p> max epoch: {{index $value "epoch-max"}}</p>
             <p> min epoch: {{index $value "epoch-min"}}</p>
+          </div>
+
+          <div class="flex-row">
+            <p> unique block: {{index $value "uniq-blocks"}}</p>
+            <p> unique epochs: {{index $value "uniq-epochs"}}</p>
           </div>
 
         </div>
