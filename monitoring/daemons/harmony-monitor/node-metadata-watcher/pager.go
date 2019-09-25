@@ -6,12 +6,12 @@ import (
 	pd "github.com/PagerDuty/go-pagerduty"
 )
 
-func notifyTeam(serviceKey string) {
-	e := pd.Event{
+func notify(serviceKey, msg string) error {
+	resp, err := pd.CreateEvent(pd.Event{
 		Type:        "trigger",
 		ServiceKey:  serviceKey,
-		Description: "Example event -- Edgar testing",
-	}
-	resp, err := pd.CreateEvent(e)
+		Description: msg,
+	})
 	fmt.Println(resp, err)
+	return err
 }

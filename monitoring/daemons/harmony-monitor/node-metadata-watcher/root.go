@@ -110,10 +110,12 @@ type watchParams struct {
 	HTTPReporter struct {
 		Port int `yaml:"port"`
 	} `yaml:"http-reporter"`
-	ReportWhen struct {
-		BlockDeviation int `yaml:"block-deviation"`
-		NodeThreshold  int `yaml:"threshold"`
-	} `yaml:"report-when"`
+	ShardHealthReporting struct {
+		Consensus struct {
+			Warning int `yaml:"warning"`
+			Redline int `yaml:"redline"`
+		} `yaml:"consensus"`
+	} `yaml:"shard-health-reporting"`
 	DistributionFiles struct {
 		MachineIPList string `yaml:"machine-ip-list"`
 	} `yaml:"node-distribution"`

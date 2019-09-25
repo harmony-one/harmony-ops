@@ -46,6 +46,8 @@ type headerInformation struct {
 	LastCommitBitmap string `json:"lastCommitBitmap"`
 }
 
+type any map[string]interface{}
+
 var (
 	queryID                    = 0
 	nodeMetadataCSVHeader      []string
@@ -59,6 +61,7 @@ func identity(x interface{}) interface{} {
 const (
 	metaSumry   = "node-metadata"
 	headerSumry = "block-header"
+	blockMax    = "block-max"
 )
 
 func init() {
@@ -72,27 +75,11 @@ func init() {
 	}
 }
 
-type summary map[string]map[string]interface{}
-
-// Be careful, usage of interface{} can make things explode in the goroutine with bad cast
-func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
-	sum := summary{metaSumry: map[string]interface{}{}, headerSumry: map[string]interface{}{}}
-	for i, n := range headers {
-		if s := n.Payload.LastCommitSig; len(s) > 0 {
-			shorted := s[:5] + "..." + s[len(s)-5:]
-			headers[i].Payload.LastCommitSig = shorted
-		}
-	}
-	linq.From(metas).GroupByT(
-		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) },
-		identity,
-	).ForEach(func(value interface{}) {
-		vrs := value.(linq.Group).Key.(string)
-		sum[metaSumry][vrs] = map[string]interface{}{
-			"records": value.(linq.Group).Group,
-		}
-	})
-
+func blockHeaderSummary(
+	headers []headerInfoRPCResult,
+	includeRecords bool,
+	sum map[string]interface{},
+) {
 	linq.From(headers).GroupBy(
 		// Group by ShardID
 		func(node interface{}) interface{} { return node.(headerInfoRPCResult).Payload.ShardID },
@@ -109,18 +96,38 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		var uniqBlockNums []uint64 = []uint64{}
 		epoch.Distinct().ToSlice(&uniqEpochs)
 		block.Distinct().ToSlice(&uniqBlockNums)
-
-		sum[headerSumry][shardID] = map[string]interface{}{
+		sum[shardID] = any{
 			"block-min":   block.Min(),
-			"block-max":   block.Max(),
+			blockMax:      block.Max(),
 			"epoch-min":   epoch.Min(),
 			"epoch-max":   epoch.Max(),
 			"uniq-epochs": uniqEpochs,
 			"uniq-blocks": uniqBlockNums,
-			"records":     value.(linq.Group).Group,
+		}
+		if includeRecords {
+			sum[shardID].(any)["records"] = value.(linq.Group).Group
 		}
 	})
+}
 
+type summary map[string]map[string]interface{}
+
+// WARN Be careful, usage of interface{} can make things explode in the goroutine with bad cast
+func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
+	sum := summary{metaSumry: map[string]interface{}{}, headerSumry: map[string]interface{}{}}
+	for i, n := range headers {
+		if s := n.Payload.LastCommitSig; len(s) > 0 {
+			shorted := s[:5] + "..." + s[len(s)-5:]
+			headers[i].Payload.LastCommitSig = shorted
+		}
+	}
+	linq.From(metas).GroupByT(
+		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) }, identity,
+	).ForEach(func(value interface{}) {
+		vrs := value.(linq.Group).Key.(string)
+		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
+	})
+	blockHeaderSummary(headers, true, sum[headerSumry])
 	return sum
 }
 
@@ -135,7 +142,6 @@ func request(node, rpcMethod string) ([]byte, error) {
 	resp, err := http.Post(node, cT, bytes.NewBuffer(requestBody))
 	// fmt.Printf("URL: <%s>, Request Body: %s\n\n", node, string(requestBody))
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -196,8 +202,8 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "report not chosen in query param", http.StatusBadRequest)
 		return
 	}
-	fmt.Println(req.URL.Query())
-	fmt.Println(records)
+	// fmt.Println(req.URL.Query())
+	// fmt.Println(records)
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment;filename="+filename)
 	wr := csv.NewWriter(w)
@@ -260,7 +266,7 @@ func (m *monitor) update(rpc string, every int, nodeList []string) {
 			for range nodeList {
 				it := <-payloadChan
 				if it.oops != nil {
-					fmt.Println("Some log of oops\n\n", it.oops)
+					// fmt.Println("Some log of oops\n\n", it.oops)
 					continue
 				}
 				m.bytesToNodeMetadata(rpc, it.addr, it.rpcResult)
@@ -295,9 +301,56 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	}
 }
 
+func (m *monitor) watchShardHealth(pdServiceKey string, warning, redline int) {
+	sumCopy := func(prevS, newS any) {
+		for key, value := range newS {
+			prevS[key] = value
+		}
+	}
+	liviness := func(message string, interval int) {
+		previousSummary := any{}
+		currentSummary := any{}
+		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, previousSummary)
+		for range time.Tick(time.Duration(interval) * time.Second) {
+			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, currentSummary)
+			for shard, details := range currentSummary {
+				if latestCount, ok := details.(any)[blockMax]; ok {
+					if prevCount, ok := previousSummary[shard].(any)[blockMax]; ok {
+						nowC := latestCount.(uint64)
+						prevC := prevCount.(uint64)
+						if !(nowC > prevC) {
+							notify(pdServiceKey,
+								fmt.Sprintf(`
+%s: Liviness problem on shard %s
+
+It has been %d seconds since last checking of block heights, 
+previous height %d
+current height %d
+`, message, shard, interval, prevC, nowC))
+						}
+					}
+				}
+
+			}
+			sumCopy(previousSummary, currentSummary)
+		}
+
+	}
+
+	go liviness("Warning", warning)
+	// go liviness("Redline", redline)
+
+}
+
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	go m.update(metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.networkNodes)
 	go m.update(blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.networkNodes)
+
+	m.watchShardHealth(
+		instrs.Auth.PagerDuty.EventServiceKey,
+		instrs.ShardHealthReporting.Consensus.Warning,
+		instrs.ShardHealthReporting.Consensus.Redline,
+	)
 
 	http.HandleFunc("/report-"+instrs.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download", m.produceCSV)
