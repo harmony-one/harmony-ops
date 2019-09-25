@@ -11,7 +11,7 @@ curl -LO $URL_node_exporter_linux
 echo "unzipping the file ..."
 tar -xvf node_exporter-*.tar.gz
 echo "moving node_exporter to the proper place ..."
-mv -f node_exporter-*-amd64/node_exporter /usr/local/bin/
+sudo mv -f node_exporter-*-amd64/node_exporter /usr/local/bin/
 echo "cleaning up ..."
 rm node_exporter-*.tar.gz
 rm -r node_exporter-*-amd64/
@@ -21,7 +21,7 @@ echo "adding user node_exporter ..."
 id -u node_exporter &>/dev/null || sudo useradd -rs /bin/false node_exporter
 
 # create a node_exporter service file under systemd
-node_exporter_service=/etc/systemd/system/node_exporter.service
+node_exporter_service=/home/ec2-user/node_exporter.service
 echo "creating node exporter service file ..."
 echo "[Unit]
    Description=Node Exporter
@@ -34,6 +34,7 @@ echo "[Unit]
    [Install]
    WantedBy=multi-user.target" >$node_exporter_service
 
+sudo mv /home/ec2-user/node_exporter.service /etc/systemd/system/node_exporter.service
 sudo systemctl daemon-reload
 sudo systemctl start node_exporter
 
