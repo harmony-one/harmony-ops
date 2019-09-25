@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -221,7 +222,12 @@ func init() {
 			if err != nil {
 				return err
 			}
-			m := &monitor{chain: instr.TargetChain}
+			lock := &sync.Mutex{}
+			m := &monitor{
+				chain: instr.TargetChain,
+				lock:  lock,
+				cond:  sync.NewCond(lock),
+			}
 			service := &Service{srv, m, instr}
 			err = service.doMonitor()
 			if err != nil {

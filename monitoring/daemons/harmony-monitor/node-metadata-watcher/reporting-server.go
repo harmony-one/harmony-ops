@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ahmetb/go-linq"
@@ -202,8 +203,6 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "report not chosen in query param", http.StatusBadRequest)
 		return
 	}
-	// fmt.Println(req.URL.Query())
-	// fmt.Println(records)
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment;filename="+filename)
 	wr := csv.NewWriter(w)
@@ -239,6 +238,8 @@ type monitor struct {
 		TS    time.Time
 		Nodes []headerInfoRPCResult
 	}
+	lock *sync.Mutex
+	cond *sync.Cond
 }
 
 func (m *monitor) update(rpc string, every int, nodeList []string) {
@@ -252,6 +253,7 @@ func (m *monitor) update(rpc string, every int, nodeList []string) {
 		case metadataRPC:
 			m.MetadataSnapshot.Nodes = []metadataRPCResult{}
 		case blockHeaderRPC:
+			m.lock.Lock()
 			m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
 		}
 		go func(n time.Time) {
@@ -270,6 +272,13 @@ func (m *monitor) update(rpc string, every int, nodeList []string) {
 					continue
 				}
 				m.bytesToNodeMetadata(rpc, it.addr, it.rpcResult)
+			}
+			switch rpc {
+			case blockHeaderRPC:
+				m.lock.Unlock()
+				if len(m.BlockHeaderSnapshot.Nodes) > 0 {
+					m.cond.Broadcast()
+				}
 			}
 			m.MetadataSnapshot.TS = n
 		}(now)
@@ -301,18 +310,25 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	}
 }
 
-func (m *monitor) watchShardHealth(pdServiceKey string, warning, redline int) {
+func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline int) {
 	sumCopy := func(prevS, newS any) {
 		for key, value := range newS {
 			prevS[key] = value
 		}
 	}
+	// WARN Pay attention to the work here
 	liviness := func(message string, interval int) {
 		previousSummary := any{}
 		currentSummary := any{}
+		m.lock.Lock()
+		m.cond.Wait()
 		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, previousSummary)
+		m.lock.Unlock()
 		for range time.Tick(time.Duration(interval) * time.Second) {
+			m.lock.Lock()
+			m.cond.Wait()
 			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, currentSummary)
+			m.lock.Unlock()
 			for shard, details := range currentSummary {
 				if latestCount, ok := details.(any)[blockMax]; ok {
 					if prevCount, ok := previousSummary[shard].(any)[blockMax]; ok {
@@ -323,35 +339,33 @@ func (m *monitor) watchShardHealth(pdServiceKey string, warning, redline int) {
 								fmt.Sprintf(`
 %s: Liviness problem on shard %s
 
-It has been %d seconds since last checking of block heights, 
 previous height %d
 current height %d
-`, message, shard, interval, prevC, nowC))
+
+See: http://watchdog.hmny.io/report-%s
+
+--%s
+`, message, shard, prevC, nowC, chain, name))
 						}
 					}
 				}
-
 			}
 			sumCopy(previousSummary, currentSummary)
 		}
-
 	}
-
 	go liviness("Warning", warning)
 	// go liviness("Redline", redline)
-
 }
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	go m.update(metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.networkNodes)
 	go m.update(blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.networkNodes)
-
-	m.watchShardHealth(
+	go m.watchShardHealth(
 		instrs.Auth.PagerDuty.EventServiceKey,
+		instrs.TargetChain,
 		instrs.ShardHealthReporting.Consensus.Warning,
 		instrs.ShardHealthReporting.Consensus.Redline,
 	)
-
 	http.HandleFunc("/report-"+instrs.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download", m.produceCSV)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
