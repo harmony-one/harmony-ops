@@ -299,7 +299,7 @@ func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	go m.update(metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.networkNodes)
 	go m.update(blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.networkNodes)
 
-	http.HandleFunc("/report-table", m.renderReport)
+	http.HandleFunc("/report-"+instrs.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download", m.produceCSV)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
 }
