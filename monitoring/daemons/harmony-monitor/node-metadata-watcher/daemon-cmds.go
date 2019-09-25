@@ -23,7 +23,7 @@ type cobraSrvWrapper struct {
 
 func (cw *cobraSrvWrapper) install(cmd *cobra.Command, args []string) error {
 	// Check that file exists
-	r, err := cw.Install(mCmd, mFlag, monitorNodeYAML)
+	r, err := cw.Install(mCmd, "--"+mFlag, monitorNodeYAML)
 	if err != nil {
 		return err
 	}
