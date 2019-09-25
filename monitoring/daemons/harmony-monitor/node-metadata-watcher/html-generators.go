@@ -176,6 +176,9 @@ th {
     {{end}}
     {{end}}
     </main>
+<script>
+setInterval(() => window.location.reload(true),  1000 * 120);
+</script>
   </body>
 </html>
 `, blockHeaderReport, nodeMetadataReport)
