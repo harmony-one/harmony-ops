@@ -54,10 +54,17 @@ th {
 </style>
   </head>
   <body>
-    <header>
+    <header id="top-of-page">
       <div class="build-stat">
         {{range .Title}}
         <span class="build-stat-values">{{.}}</span>
+        {{end}}
+      </div>
+      <div class="build-stat">
+        {{ with (index .Summary "block-header") }}
+        {{range $key, $value := .}}
+          <a href="#shard-{{$key}}">Shard-{{$key}} </a>
+        {{end}}
         {{end}}
       </div>
     </header>
@@ -68,7 +75,9 @@ th {
       <div class="summary-details">
         <div class="flex-col">
           <div class="flex-row">
-            <h3>Down machines</h3>
+            <h3>
+              Down machines <span><a href="#top-of-page">(Top)</a></span>
+            </h3>
           </div>
           <div class="flex-row">
             <p> node count: {{ len .NoReply }} </p>
@@ -98,11 +107,13 @@ th {
 
     {{ with (index .Summary "block-header") }}
     {{range $key, $value := .}}
-    <section class="report-wrapper">
+    <section class="report-wrapper" id="shard-{{$key}}">
       <div class="summary-details">
         <div class="flex-col">
           <div class="flex-row">
-            <h3>Block Header</h3>
+            <h3>
+              Block Header <span><a href="#top-of-page">(Top)</a></span>
+            </h3>
             <a href="/report-download?report=%s">Download CSV</a>
           </div>
           <div class="flex-row">
@@ -164,7 +175,9 @@ th {
       <div class="summary-details">
         <div class="flex-col">
           <div class="flex-row">
-            <h3>Node Metadata</h3>
+            <h3>
+              Node Metadata <span><a href="#top-of-page">(Top)</a></span>
+           </h3>
             <a href="/report-download?report=%s">Download CSV</a>
           </div>
           <div class="flex-row">
