@@ -1,12 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"net"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ahmetb/go-linq"
+	"github.com/valyala/fasthttp"
 )
 
 const (
@@ -53,8 +53,12 @@ var (
 	queryID                    = 0
 	nodeMetadataCSVHeader      []string
 	headerInformationCSVHeader []string
-	client                     = http.Client{
-		Timeout: time.Duration(2 * time.Second),
+	post                       = []byte("POST")
+	client                     = &fasthttp.Client{
+		Dial: func(addr string) (net.Conn, error) {
+			return fasthttp.DialTimeout(addr, time.Second*15)
+		},
+		MaxConnsPerHost: 2048,
 	}
 )
 
@@ -136,17 +140,26 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 }
 
 func request(node, rpcMethod string, requestBody []byte) ([]byte, []byte, error) {
-	const cT = "application/json"
-	resp, err := client.Post(node, cT, bytes.NewBuffer(requestBody))
-	if err != nil {
+	const contentType = "application/json"
+	req := fasthttp.AcquireRequest()
+	req.SetBody(requestBody)
+	req.Header.SetMethodBytes(post)
+	req.Header.SetContentType(contentType)
+	req.SetRequestURIBytes([]byte(node))
+	res := fasthttp.AcquireResponse()
+	if err := client.Do(req, res); err != nil {
 		return nil, requestBody, err
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, requestBody, err
+	c := res.StatusCode()
+	if c != 200 {
+		return nil, requestBody, fmt.Errorf("http status code not 200, received: %d", c)
 	}
-	return body, nil, nil
+	fasthttp.ReleaseRequest(req)
+	body := res.Body()
+	result := make([]byte, len(body))
+	copy(result, body)
+	fasthttp.ReleaseResponse(res)
+	return result, nil, nil
 }
 
 // TODO Make this be separate template parsed, not sure how to get it right
@@ -170,15 +183,20 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	type v struct {
-		Title   []string
-		Summary interface{}
-		NoReply []noReply
+		Title            []string
+		Summary          interface{}
+		NoReply          []noReply
+		DownMachineCount int
 	}
+
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
 	t.ExecuteTemplate(w, "report", v{
 		Title:   []string{m.chain, time.Now().Format(time.RFC3339), versionS()},
 		Summary: sum,
 		NoReply: m.NoReplyMachines,
+		DownMachineCount: linq.From(m.NoReplyMachines).Select(
+			func(c interface{}) interface{} { return c.(noReply).IP },
+		).Distinct().Count(),
 	})
 }
 

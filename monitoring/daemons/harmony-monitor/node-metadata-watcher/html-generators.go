@@ -80,7 +80,7 @@ th {
             </h3>
           </div>
           <div class="flex-row">
-            <p> node count: {{ len .NoReply }} </p>
+            <p> distinct down machine count: {{ .DownMachineCount }} </p>
           </div>
         </div>
       </div>
