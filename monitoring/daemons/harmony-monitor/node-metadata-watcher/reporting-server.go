@@ -42,7 +42,7 @@ type headerInformation struct {
 	ViewID           uint64 `json:"viewID"`
 	Epoch            uint64 `json:"epoch"`
 	Timestamp        string `json:"timestamp"`
-	UnixTime         uint64 `json:"unixtime"`
+	UnixTime         int64  `json:"unixtime"`
 	LastCommitSig    string `json:"lastCommitSig"`
 	LastCommitBitmap string `json:"lastCommitBitmap"`
 }
@@ -70,6 +70,7 @@ const (
 	metaSumry   = "node-metadata"
 	headerSumry = "block-header"
 	blockMax    = "block-max"
+	timestamp   = "timestamp"
 )
 
 func init() {
@@ -85,7 +86,7 @@ func init() {
 
 func blockHeaderSummary(
 	headers []headerInfoRPCResult,
-	includeRecords bool,
+	includeRecords, includeTS bool,
 	sum map[string]interface{},
 ) {
 	linq.From(headers).GroupBy(
@@ -100,8 +101,8 @@ func blockHeaderSummary(
 		epoch := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
 			return c.(headerInfoRPCResult).Payload.Epoch
 		})
-		var uniqEpochs []uint64 = []uint64{}
-		var uniqBlockNums []uint64 = []uint64{}
+		uniqEpochs := []uint64{}
+		uniqBlockNums := []uint64{}
 		epoch.Distinct().ToSlice(&uniqEpochs)
 		block.Distinct().ToSlice(&uniqBlockNums)
 		sum[shardID] = any{
@@ -114,6 +115,13 @@ func blockHeaderSummary(
 		}
 		if includeRecords {
 			sum[shardID].(any)["records"] = value.(linq.Group).Group
+		}
+		if includeTS {
+			sum[shardID].(any)[timestamp] = time.Unix(linq.From(value.(linq.Group).Group).Select(
+				func(c interface{}) interface{} {
+					return c.(headerInfoRPCResult).Payload.UnixTime
+				}).Distinct().Max().(int64),
+				0)
 		}
 	})
 }
@@ -135,7 +143,7 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
 	})
-	blockHeaderSummary(headers, true, sum[headerSumry])
+	blockHeaderSummary(headers, true, false, sum[headerSumry])
 	return sum
 }
 
@@ -359,18 +367,22 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 		currentSummary := any{}
 		m.lock.Lock()
 		m.cond.Wait()
-		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, previousSummary)
+		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, previousSummary)
 		m.lock.Unlock()
 		for range time.Tick(time.Duration(interval) * time.Second) {
 			m.lock.Lock()
 			m.cond.Wait()
-			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, currentSummary)
+			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary)
 			m.lock.Unlock()
-			for shard, details := range currentSummary {
-				dets, asrtOk := details.(any)
-				if asrtOk {
-					if latestCount, ok := dets[blockMax]; ok {
-						if prevCount, ok := previousSummary[shard].(any)[blockMax]; ok {
+			for shard, currentDetails := range currentSummary {
+				nowDets, asrtOk1 := currentDetails.(any)
+				thenDets, asrtOk2 := previousSummary[shard].(any)
+				if asrtOk1 && asrtOk2 {
+					if latestCount, ok := nowDets[blockMax]; ok {
+						if prevCount, ok := thenDets[blockMax]; ok {
+							thenTS := thenDets[timestamp].(time.Time)
+							nowTS := nowDets[timestamp].(time.Time)
+							elapsed := int64(nowTS.Sub(thenTS).Seconds())
 							nowC := latestCount.(uint64)
 							prevC := prevCount.(uint64)
 							if !(nowC > prevC) {
@@ -378,13 +390,15 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 									fmt.Sprintf(`
 %s: Liviness problem on shard %s
 
-previous height %d
-current height %d
+previous height %d at %s
+current height %d at %s
+
+Difference in seconds: %d
 
 See: http://watchdog.hmny.io/report-%s
 
 --%s
-`, message, shard, prevC, nowC, chain, name))
+`, message, shard, prevC, thenTS, nowC, nowTS, elapsed, chain, name))
 							}
 						}
 					}
