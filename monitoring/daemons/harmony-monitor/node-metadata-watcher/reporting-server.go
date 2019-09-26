@@ -54,7 +54,7 @@ var (
 	nodeMetadataCSVHeader      []string
 	headerInformationCSVHeader []string
 	client                     = http.Client{
-		Timeout: time.Duration(1 * time.Second),
+		Timeout: time.Duration(2 * time.Second),
 	}
 )
 
@@ -349,13 +349,15 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, currentSummary)
 			m.lock.Unlock()
 			for shard, details := range currentSummary {
-				if latestCount, ok := details.(any)[blockMax]; ok {
-					if prevCount, ok := previousSummary[shard].(any)[blockMax]; ok {
-						nowC := latestCount.(uint64)
-						prevC := prevCount.(uint64)
-						if !(nowC > prevC) {
-							notify(pdServiceKey,
-								fmt.Sprintf(`
+				dets, asrtOk := details.(any)
+				if asrtOk {
+					if latestCount, ok := dets[blockMax]; ok {
+						if prevCount, ok := previousSummary[shard].(any)[blockMax]; ok {
+							nowC := latestCount.(uint64)
+							prevC := prevCount.(uint64)
+							if !(nowC > prevC) {
+								notify(pdServiceKey,
+									fmt.Sprintf(`
 %s: Liviness problem on shard %s
 
 previous height %d
@@ -365,6 +367,7 @@ See: http://watchdog.hmny.io/report-%s
 
 --%s
 `, message, shard, prevC, nowC, chain, name))
+							}
 						}
 					}
 				}
