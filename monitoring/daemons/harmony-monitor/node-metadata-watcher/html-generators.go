@@ -43,7 +43,7 @@ body {font-family: "Open Sans", sans-serif;}
   padding: 10px;
   height:95px;
 }
-
+.center { align-items: center; }
 th {
   background: #c9d1ac;
   position: sticky;
@@ -63,14 +63,20 @@ th {
       <div class="build-stat">
         {{ with (index .Summary "block-header") }}
         {{range $key, $value := .}}
-          <a href="#shard-{{$key}}">Shard-{{$key}}</a>
+          <div class="flex-col center">
+            <a href="#shard-{{$key}}">Shard-{{$key}}</a>
+            <p>count:{{ len (index $value "records") }}</p>
+          </div>
         {{end}}
         {{end}}
       </div>
       <div class="build-stat">
         {{ with (index .Summary "node-metadata") }}
         {{range $key, $value := .}}
-          <a href="#version-{{$key}}">Version-{{$key}}</a>
+          <div class="flex-col center">
+            <a href="#version-{{$key}}">Version-{{$key}}</a>
+            <p>count:{{ len (index $value "records") }}</p>
+          </div>
         {{end}}
         {{end}}
       </div>
