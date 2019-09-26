@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -21,7 +22,6 @@ import (
 const (
 	nameFMT     = "harmony-watchdog@%s"
 	description = "Monitor the Harmony blockchain -- `%i`"
-	port        = ":9977"
 	spaceSep    = " "
 )
 
@@ -64,7 +64,10 @@ func (service *Service) monitorNetwork() error {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 	// Set up listener for defined host and port
-	listener, err := net.Listen("tcp", port)
+	listener, err := net.Listen(
+		"tcp",
+		":"+strconv.Itoa(service.instruction.HTTPReporter.Port+1),
+	)
 	if err != nil {
 		return err
 	}
