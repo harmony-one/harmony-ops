@@ -63,7 +63,14 @@ th {
       <div class="build-stat">
         {{ with (index .Summary "block-header") }}
         {{range $key, $value := .}}
-          <a href="#shard-{{$key}}">Shard-{{$key}} </a>
+          <a href="#shard-{{$key}}">Shard-{{$key}}</a>
+        {{end}}
+        {{end}}
+      </div>
+      <div class="build-stat">
+        {{ with (index .Summary "node-metadata") }}
+        {{range $key, $value := .}}
+          <a href="#version-{{$key}}">Version-{{$key}}</a>
         {{end}}
         {{end}}
       </div>
@@ -171,7 +178,7 @@ th {
 
     {{ with (index .Summary "node-metadata") }}
     {{range $key, $value := .}}
-    <section class="report-wrapper">
+    <section class="report-wrapper" id="version-{{$key}}">
       <div class="summary-details">
         <div class="flex-col">
           <div class="flex-row">
