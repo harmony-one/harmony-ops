@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"path"
 	"strings"
-	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -20,8 +19,8 @@ import (
 )
 
 const (
-	name        = "harmony-watchdog"
-	description = "Monitor the Harmony blockchain"
+	nameFMT     = "harmony-watchdog@%s"
+	description = "Monitor the Harmony blockchain -- `%i`"
 	port        = ":9977"
 	spaceSep    = " "
 )
@@ -48,6 +47,11 @@ var (
 	errDaemonKilled = errors.New("daemon was killed")
 )
 
+// Indirection for cobra
+type cobraSrvWrapper struct {
+	*Service
+}
+
 // Service has embedded daemon
 type Service struct {
 	daemon.Daemon
@@ -56,7 +60,7 @@ type Service struct {
 }
 
 // Manage by daemon commands or run the daemon
-func (service *Service) doMonitor() error {
+func (service *Service) monitorNetwork() error {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 	// Set up listener for defined host and port
@@ -171,24 +175,6 @@ func parseVersionS(v string) string {
 	return chopped[versionSpot]
 }
 
-func (cw *cobraSrvWrapper) preRunInit(cmd *cobra.Command, args []string) error {
-	srv, err := daemon.New(name, description, dependencies...)
-	if err != nil {
-		return err
-	}
-	cw.Service = &Service{srv, nil, nil}
-	return nil
-}
-
-func (cw *cobraSrvWrapper) start(cmd *cobra.Command, args []string) error {
-	r, err := cw.Start()
-	if err != nil {
-		return err
-	}
-	fmt.Println(r)
-	return nil
-}
-
 func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
@@ -200,43 +186,6 @@ func init() {
 			os.Exit(0)
 		},
 	})
-	daemonCmd := &cobra.Command{
-		Use:               "service",
-		Short:             "Control the daemon functionality of harmony-watchdog",
-		PersistentPreRunE: w.preRunInit,
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
-		},
-	}
-	daemonCmd.AddCommand(daemonCmds()...)
-	rootCmd.AddCommand(daemonCmd)
-	monitorCmd := &cobra.Command{
-		Use:   mCmd,
-		Short: "start watching the blockchain for problems",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			instr, err := newInstructions(monitorNodeYAML)
-			if err != nil {
-				return err
-			}
-			srv, err := daemon.New(name, description, dependencies...)
-			if err != nil {
-				return err
-			}
-			lock := &sync.Mutex{}
-			m := &monitor{
-				chain: instr.TargetChain,
-				lock:  lock,
-				cond:  sync.NewCond(lock),
-			}
-			service := &Service{srv, m, instr}
-			err = service.doMonitor()
-			if err != nil {
-				return err
-			}
-			return nil
-		},
-	}
-	monitorCmd.Flags().StringVar(&monitorNodeYAML, mFlag, "", mDescr)
-	monitorCmd.MarkFlagRequired(mFlag)
-	rootCmd.AddCommand(monitorCmd)
+	rootCmd.AddCommand(serviceCmd())
+	rootCmd.AddCommand(monitorCmd())
 }

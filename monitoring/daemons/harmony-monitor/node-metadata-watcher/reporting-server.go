@@ -386,6 +386,7 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 							nowC := latestCount.(uint64)
 							prevC := prevCount.(uint64)
 							if !(nowC > prevC) {
+								name := fmt.Sprintf(nameFMT, chain)
 								notify(pdServiceKey,
 									fmt.Sprintf(`
 %s: Liviness problem on shard %s
