@@ -63,18 +63,48 @@ th {
     </header>
     <main>
 
+    {{ if ne (len .NoReply) 0 }}
+    <section class="report-wrapper">
+      <div class="summary-details">
+        <div class="flex-col">
+          <div class="flex-row">
+            <h3>Down machines</h3>
+          </div>
+          <div class="flex-row">
+            <p> node count: {{ len .NoReply }} </p>
+          </div>
+        </div>
+      </div>
+      <table class="sortable-theme-bootstrap report-table" data-sortable>
+        <thead>
+          <tr>
+            <th>IP</th>
+            <th>RPC Payload</th>
+            <th>Failure Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+        {{range .NoReply}}
+          <tr>
+            <td>{{.IP}}</td>
+            <td>{{.RPCPayload}}</td>
+            <td>{{.FailureReason}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </section>
+    {{end}}
+
     {{ with (index .Summary "block-header") }}
     {{range $key, $value := .}}
     <section class="report-wrapper">
-
       <div class="summary-details">
-
         <div class="flex-col">
           <div class="flex-row">
             <h3>Block Header</h3>
             <a href="/report-download?report=%s">Download CSV</a>
           </div>
-
           <div class="flex-row">
             <p> shard: {{ $key }} </p>
             <p> node count: {{ len (index $value "records") }} </p>
@@ -83,12 +113,10 @@ th {
             <p> max epoch: {{index $value "epoch-max"}}</p>
             <p> min epoch: {{index $value "epoch-min"}}</p>
           </div>
-
           <div class="flex-row">
             <p> unique block: {{index $value "uniq-blocks"}}</p>
             <p> unique epochs: {{index $value "uniq-epochs"}}</p>
           </div>
-
         </div>
       </div>
       <table class="sortable-theme-bootstrap report-table" data-sortable>
@@ -134,18 +162,15 @@ th {
     {{range $key, $value := .}}
     <section class="report-wrapper">
       <div class="summary-details">
-
         <div class="flex-col">
           <div class="flex-row">
             <h3>Node Metadata</h3>
             <a href="/report-download?report=%s">Download CSV</a>
           </div>
-
           <div class="flex-row">
             <p> build version: {{ $key }} </p>
             <p> node count: {{ len (index $value "records") }} </p>
           </div>
-
         </div>
       </div>
       <table class="sortable-theme-bootstrap report-table" data-sortable>

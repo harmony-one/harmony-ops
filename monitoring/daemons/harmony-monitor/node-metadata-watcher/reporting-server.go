@@ -53,6 +53,9 @@ var (
 	queryID                    = 0
 	nodeMetadataCSVHeader      []string
 	headerInformationCSVHeader []string
+	client                     = http.Client{
+		Timeout: time.Duration(1 * time.Second),
+	}
 )
 
 func identity(x interface{}) interface{} {
@@ -132,27 +135,18 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 	return sum
 }
 
-func request(node, rpcMethod string) ([]byte, error) {
-	requestBody, _ := json.Marshal(map[string]interface{}{
-		"jsonrpc": versionJSONRPC,
-		"id":      strconv.Itoa(queryID),
-		"method":  rpcMethod,
-		"params":  []interface{}{},
-	})
+func request(node, rpcMethod string, requestBody []byte) ([]byte, []byte, error) {
 	const cT = "application/json"
-	resp, err := http.Post(node, cT, bytes.NewBuffer(requestBody))
-	// fmt.Printf("URL: <%s>, Request Body: %s\n\n", node, string(requestBody))
+	resp, err := client.Post(node, cT, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return nil, err
+		return nil, requestBody, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, requestBody, err
 	}
-	queryID++
-	// fmt.Printf("URL: %s, Response Body: %s\n\n", node, string(body))
-	return body, nil
+	return body, nil, nil
 }
 
 // TODO Make this be separate template parsed, not sure how to get it right
@@ -178,11 +172,13 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	type v struct {
 		Title   []string
 		Summary interface{}
+		NoReply []noReply
 	}
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
 	t.ExecuteTemplate(w, "report", v{
 		Title:   []string{m.chain, time.Now().Format(time.RFC3339), versionS()},
 		Summary: sum,
+		NoReply: m.NoReplyMachines,
 	})
 }
 
@@ -227,6 +223,11 @@ type headerInfoRPCResult struct {
 	Payload headerInformation
 	IP      string
 }
+type noReply struct {
+	IP            string
+	FailureReason string
+	RPCPayload    string
+}
 
 type monitor struct {
 	chain            string
@@ -238,17 +239,20 @@ type monitor struct {
 		TS    time.Time
 		Nodes []headerInfoRPCResult
 	}
-	lock *sync.Mutex
-	cond *sync.Cond
+	NoReplyMachines []noReply
+	lock            *sync.Mutex
+	cond            *sync.Cond
 }
 
 func (m *monitor) update(rpc string, every int, nodeList []string) {
 	type t struct {
-		addr      string
-		rpcResult []byte
-		oops      error
+		addr       string
+		rpcPayload []byte
+		rpcResult  []byte
+		oops       error
 	}
 	for now := range time.Tick(time.Duration(every) * time.Second) {
+		m.NoReplyMachines = []noReply{}
 		switch rpc {
 		case metadataRPC:
 			m.MetadataSnapshot.Nodes = []metadataRPCResult{}
@@ -256,19 +260,33 @@ func (m *monitor) update(rpc string, every int, nodeList []string) {
 			m.lock.Lock()
 			m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
 		}
+		requestBody, _ := json.Marshal(map[string]interface{}{
+			"jsonrpc": versionJSONRPC,
+			"id":      strconv.Itoa(queryID),
+			"method":  rpc,
+			"params":  []interface{}{},
+		})
+
 		go func(n time.Time) {
 			payloadChan := make(chan t, len(nodeList))
 			for _, nodeIP := range nodeList {
 				go func(addr string) {
 					result := t{addr: addr}
-					result.rpcResult, result.oops = request("http://"+addr, rpc)
+					result.rpcResult, result.rpcPayload, result.oops = request(
+						"http://"+addr,
+						rpc,
+						requestBody,
+					)
 					payloadChan <- result
 				}(nodeIP)
 			}
 			for range nodeList {
 				it := <-payloadChan
 				if it.oops != nil {
-					// fmt.Println("Some log of oops\n\n", it.oops)
+					m.NoReplyMachines = append(
+						m.NoReplyMachines,
+						noReply{it.addr, it.oops.Error(), string(it.rpcPayload)},
+					)
 					continue
 				}
 				m.bytesToNodeMetadata(rpc, it.addr, it.rpcResult)
@@ -282,6 +300,7 @@ func (m *monitor) update(rpc string, every int, nodeList []string) {
 			}
 			m.MetadataSnapshot.TS = n
 		}(now)
+		queryID++
 	}
 }
 
