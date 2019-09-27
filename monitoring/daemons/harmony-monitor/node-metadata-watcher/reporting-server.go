@@ -32,6 +32,7 @@ type nodeMetadata struct {
 	Version      string `json:"version"`
 	NetworkType  string `json:"network"`
 	ChainID      string `json:"chainid"`
+	IsLeader     bool   `json:"is-leader"`
 }
 
 type headerInformation struct {

@@ -43,6 +43,7 @@ body {font-family: "Open Sans", sans-serif;}
   padding: 10px;
   height:95px;
 }
+.is-leader { background-color: #c4b8b178; }
 .center { align-items: center; }
 .stat-box { box-shadow: 0 2px 2px 0px rgba(0, 0, 0, 0.9); padding: 10px; background-color:#7F9A95;}
 th {
@@ -213,7 +214,7 @@ th {
         <tbody>
           {{ with (index $value "records") }}
           {{range .}}
-          <tr>
+          <tr class="{{if .IsLeader}}is-leader{{else}}{{end}}">
             <td>{{.IP}} </td>
             <td>{{.Payload.BLSPublicKey}} </td>
             <td>{{.Payload.Version}} </td>
