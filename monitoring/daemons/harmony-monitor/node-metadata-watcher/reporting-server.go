@@ -385,7 +385,7 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 							elapsed := int64(nowTS.Sub(thenTS).Seconds())
 							nowC := latestCount.(uint64)
 							prevC := prevCount.(uint64)
-							if !(nowC > prevC) && (elapsed > 0) {
+							if !(nowC > prevC) && int(elapsed) >= interval {
 								name := fmt.Sprintf(nameFMT, chain)
 								notify(pdServiceKey,
 									fmt.Sprintf(`
