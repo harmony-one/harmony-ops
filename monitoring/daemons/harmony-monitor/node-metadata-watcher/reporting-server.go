@@ -51,6 +51,7 @@ type headerInformation struct {
 type any map[string]interface{}
 
 var (
+	buildVersion               = versionS()
 	queryID                    = 0
 	nodeMetadataCSVHeader      []string
 	headerInformationCSVHeader []string
@@ -192,17 +193,18 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	type v struct {
-		Title            []string
-		Summary          interface{}
-		NoReply          []noReply
-		DownMachineCount int
+		LeftTitle, RightTitle []interface{}
+		Summary               interface{}
+		NoReply               []noReply
+		DownMachineCount      int
 	}
-
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	cnsMsg := fmt.Sprintf("Consensus making progress: %t", m.isConsensusMakingProgress)
 	t.ExecuteTemplate(w, "report", v{
-		Title:   []string{m.chain, time.Now().Format(time.RFC3339), versionS()},
-		Summary: sum,
-		NoReply: m.NoReplyMachines,
+		LeftTitle:  []interface{}{m.chain, cnsMsg},
+		RightTitle: []interface{}{buildVersion, time.Now().Format(time.RFC3339)},
+		Summary:    sum,
+		NoReply:    m.NoReplyMachines,
 		DownMachineCount: linq.From(m.NoReplyMachines).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
@@ -266,9 +268,10 @@ type monitor struct {
 		TS    time.Time
 		Nodes []headerInfoRPCResult
 	}
-	NoReplyMachines []noReply
-	lock            *sync.Mutex
-	cond            *sync.Cond
+	NoReplyMachines           []noReply
+	lock                      *sync.Mutex
+	cond                      *sync.Cond
+	isConsensusMakingProgress bool
 }
 
 func (m *monitor) update(rpc string, every int, nodeList []string) {
@@ -401,6 +404,9 @@ See: http://watchdog.hmny.io/report-%s
 
 --%s
 `, message, shard, prevC, thenTS, nowC, nowTS, elapsed, chain, name))
+								m.isConsensusMakingProgress = false
+							} else {
+								m.isConsensusMakingProgress = true
 							}
 						}
 					}

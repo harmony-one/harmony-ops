@@ -43,6 +43,8 @@ body {font-family: "Open Sans", sans-serif;}
   padding: 10px;
   height:95px;
 }
+.align-right { text-align: right; }
+.space-between { justify-content:space-between; width: 100%% }
 .is-leader { background-color: #c4b8b178; }
 .center { align-items: center; }
 .stat-box { box-shadow: 0 2px 2px 0px rgba(0, 0, 0, 0.9); padding: 10px; background-color:#7F9A95;}
@@ -52,16 +54,42 @@ th {
   top: 91px;
   box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
 }
-
+hr{
+  overflow: visible; /* For IE */
+  padding: 0;
+  border: none;
+  border-top: medium double #333;
+  color: #333;
+  text-align: center;
+  height: 0px;
+}
+hr:after {
+  content: "§";
+  display: inline-block;
+  position: relative;
+  top: -0.7em;
+  font-size: 1.5em;
+  padding: 0 0.25em;
+}
 </style>
   </head>
   <body>
     <header id="top-of-page">
       <div class="build-stat">
-        {{range .Title}}
-        <span class="build-stat-values">{{.}}</span>
-        {{end}}
+        <div class="flex-row space-between">
+          <div class="flex-col">
+          {{range .LeftTitle}}
+            <span class="build-stat-values">{{.}}</span>
+          {{end}}
+          </div>
+          <div class="flex-col">
+          {{range .RightTitle}}
+            <span class="build-stat-values align-right">{{.}}</span>
+          {{end}}
+          </div>
+        </div>
       </div>
+      <hr/>
       <div class="build-stat">
         {{ with (index .Summary "block-header") }}
         {{range $key, $value := .}}
@@ -214,7 +242,7 @@ th {
         <tbody>
           {{ with (index $value "records") }}
           {{range .}}
-          <tr class="{{if .IsLeader}}is-leader{{else}}{{end}}">
+          <tr class="{{if .Payload.IsLeader}}is-leader{{end}}">
             <td>{{.IP}} </td>
             <td>{{.Payload.BLSPublicKey}} </td>
             <td>{{.Payload.Version}} </td>

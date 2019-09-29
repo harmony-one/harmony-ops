@@ -86,9 +86,10 @@ func (cw *cobraSrvWrapper) start(cmd *cobra.Command, args []string) error {
 func (cw *cobraSrvWrapper) doMonitor(cmd *cobra.Command, args []string) error {
 	lock := &sync.Mutex{}
 	cw.monitor = &monitor{
-		chain: cw.TargetChain,
-		lock:  lock,
-		cond:  sync.NewCond(lock),
+		chain:                     cw.TargetChain,
+		lock:                      lock,
+		cond:                      sync.NewCond(lock),
+		isConsensusMakingProgress: true,
 	}
 	err := cw.monitorNetwork()
 	if err != nil {
