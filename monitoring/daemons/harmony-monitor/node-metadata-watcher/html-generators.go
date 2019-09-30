@@ -117,10 +117,14 @@ hr:after {
     <section class="report-wrapper">
       <div class="summary-details">
         <div class="flex-col">
-          <div class="flex-row">
+          <div class="flex-row space-between">
             <h3>
               Down machines <span><a href="#top-of-page">(Top)</a></span>
             </h3>
+            <p style="width: 375px;">
+             Note: "dialing to the given TCP address timed out" failure could 
+             just mean that the HTTP RPC did not complete fast enough.
+            </p>
           </div>
           <div class="flex-row">
             <p> distinct down machine count: {{ .DownMachineCount }} </p>
