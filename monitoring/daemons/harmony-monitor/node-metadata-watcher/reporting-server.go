@@ -199,7 +199,11 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		DownMachineCount      int
 	}
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
-	cnsMsg := fmt.Sprintf("Consensus making progress: %t", m.isConsensusMakingProgress)
+	cnsMsg := "Consensus Progress not known yet"
+	if len(m.consensusProgress) != 0 {
+		cM, _ := json.Marshal(m.consensusProgress)
+		cnsMsg = fmt.Sprintf("Consensus Progress: %s", cM)
+	}
 	t.ExecuteTemplate(w, "report", v{
 		LeftTitle:  []interface{}{m.chain, cnsMsg},
 		RightTitle: []interface{}{buildVersion, time.Now().Format(time.RFC3339)},
@@ -268,10 +272,10 @@ type monitor struct {
 		TS    time.Time
 		Nodes []headerInfoRPCResult
 	}
-	NoReplyMachines           []noReply
-	lock                      *sync.Mutex
-	cond                      *sync.Cond
-	isConsensusMakingProgress bool
+	NoReplyMachines   []noReply
+	lock              *sync.Mutex
+	cond              *sync.Cond
+	consensusProgress map[string]bool
 }
 
 func (m *monitor) update(rpc string, every int, nodeList []string) {
@@ -379,6 +383,7 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary)
 			m.lock.Unlock()
 			for shard, currentDetails := range currentSummary {
+				sName := fmt.Sprintf("shard-%s", shard)
 				nowDets, asrtOk1 := currentDetails.(any)
 				thenDets, asrtOk2 := previousSummary[shard].(any)
 				if asrtOk1 && asrtOk2 {
@@ -404,9 +409,9 @@ See: http://watchdog.hmny.io/report-%s
 
 --%s
 `, message, shard, prevC, thenTS, nowC, nowTS, elapsed, chain, name))
-								m.isConsensusMakingProgress = false
+								m.consensusProgress[sName] = false
 							} else {
-								m.isConsensusMakingProgress = true
+								m.consensusProgress[sName] = true
 							}
 						}
 					}
