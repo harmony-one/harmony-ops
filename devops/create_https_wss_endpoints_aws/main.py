@@ -3,6 +3,7 @@
 import sys
 import os
 import boto3
+from time import sleep
 '''
 PURPOSE
 
@@ -47,7 +48,16 @@ vpc_array = ['vpc-88c9c2f3',
              'vpc-94246aff',
              'vpc-80166ce6']
 
+group_name_alb = 'wide-open'
+sg_alb_array = []
+
 dict_subnetid = {}
+
+dict_alb_name = {}
+
+dict_alb_arn = {}
+
+dict_domainname_networks = {}
 
 def create_region_array(network_id):
     # mainnet
@@ -87,9 +97,13 @@ def create_subnet_array(vpc_array, region_array):
 def create_load_balancer(region_array, shard_array, subnetid_dict):
     for region in region_array:
         client = boto3.client(service_name = 'elbv2', region_name = region)
+
         for shard in shard_array:
             alb_name = shard + '-https-wss-' + region
-            subnet_array = ['subnet-2f00cb73', 'subnet-7da3751a' ]
+            if region not in dict_alb_name.keys():
+                dict_alb_name[region] = [alb_name]
+            else:
+                dict_alb_name[region].append(alb_name)
             try:
                 resp_create_alb = client.create_load_balancer(Name = alb_name,
                                                 Subnets = subnetid_dict[region],
@@ -100,11 +114,94 @@ def create_load_balancer(region_array, shard_array, subnetid_dict):
             except Exception as e:
                 print("Unexpected error: %s" % e)
 
-    # client = boto3.client(service_name = 'elbv2', region_name = 'us-east-1')
-    # resp = client.create_load_balancer(Name = 'test-ALB')
+def create_alb_arn_dict(region_array):
+    for region in region_array:
+        try:
+            client = boto3.client(service_name = 'elbv2', region_name = region)
+            for alb_name in dict_alb_name[region]:
+                arn = client.describe_load_balancers(
+                    Names=[alb_name]).get('LoadBalancers')[0].get('LoadBalancerArn')
+                if region not in dict_alb_arn.keys():
+                    dict_alb_arn[region] = [arn]
+                else:
+                    dict_alb_arn[region].append(arn)
+        except Exception as e:
+                print("Unexpected error - create alb arn dict: %s" % e)
 
+def create_wide_open_sg_array(region_array):
+    for region in region_array:
+        try:
+            client = boto3.client(service_name = 'ec2', region_name = region)
+            resp = client.describe_security_groups(
+                Filters = [
+                    {'Name' : 'group-name', 'Values' : [group_name_alb]} 
+                ]
+            )
+            group_id = resp['SecurityGroups'][0]['GroupId']
+            sg_alb_array.append(group_id)
+        except Exception as e:
+                print("Unexpected error - create wide open sg array: %s" % e)
+    return sg_alb_array
 
+def set_security_group_alb(region_array, dict_alb_arn):
+    for region in region_array:
+        try:
+            client = boto3.client(service_name = 'elbv2', region_name = region)
+            for arn in dict_alb_arn[region]:
+                client.set_security_groups(
+                    LoadBalancerArn = arn,
+                    SecurityGroups=[
+                        'sg-0a9f239987978e0eb',
+                    ]  
+                )
+        except Exception as e:
+                print("Unexpected error - set sg of alb: %s" % e)
 
+def create_domainnames_networks():
+    network_array = ['b', 'p', 't']
+
+    
+    for network in network_array:
+        if network == 'b':
+            shard_array = ['s0', 's1']
+            for shard in shard_array:
+                full_domainname_api = 'api.' + shard + '.' + network + '.hmny.io'
+                full_domainname_wss = 'ws.'  + shard + '.' + network + '.hmny.io'
+                if network not in dict_domainname_networks.keys():
+                    dict_domainname_networks[network] = [full_domainname_api]
+                    dict_domainname_networks[network].append(full_domainname_wss)
+                else:
+                    dict_domainname_networks[network].append(full_domainname_api)
+                    dict_domainname_networks[network].append(full_domainname_wss)
+        else:
+            shard_array = ['s0', 's1', 's2', 's3']
+            for shard in shard_array:
+                full_domainname_api = 'api.' + shard + '.' + network + '.hmny.io'
+                full_domainname_wss = 'ws.'  + shard + '.' + network + '.hmny.io'
+                if network not in dict_domainname_networks.keys():
+                    dict_domainname_networks[network] = [full_domainname_api]
+                    dict_domainname_networks[network].append(full_domainname_wss)
+                else:
+                    dict_domainname_networks[network].append(full_domainname_api)
+                    dict_domainname_networks[network].append(full_domainname_wss)
+
+    return dict_domainname_networks
+
+def request_ssl_certificates(region_array, dict_domainname_networks):
+    domainname_array = []
+    for item in dict_domainname_networks.values():
+        domainname_array += item
+
+    for region in region_array:
+        try:
+            client = boto3.client(service_name = 'acm', region_name = region)
+            for domain in domainname_array:
+                response = client.request_certificate(
+                    DomainName = domain,
+                    ValidationMethod = 'DNS',
+                )
+        except Exception as e:
+             print("Unexpected error: %s" % e)       
 
 def main():
 
@@ -116,7 +213,15 @@ def main():
 
     create_load_balancer(region_array, shard_array, subnetid_dict)
 
-    alb_arn_array   = create_alb_arn_array() 
+    create_alb_arn_dict(region_array) 
+
+    wide_open_sg_array = create_wide_open_sg_array(region_array)
+
+    set_security_group_alb(region_array, dict_alb_arn)
+    
+    # one-time-use independent funcs
+    dict_domainname_networks = create_domainnames_networks()
+    request_ssl_certificates(region_array, dict_domainname_networks)
 
     return 0
 
