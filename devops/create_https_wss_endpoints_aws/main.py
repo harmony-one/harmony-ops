@@ -37,6 +37,7 @@ PLAN
 # t -> mainnet
 # b -> testnet, aka, betanet
 # p -> pangaea 
+
 NETWORK = 't'
 
 vpc_array = ['vpc-88c9c2f3',
@@ -222,6 +223,9 @@ def main():
     # one-time-use independent funcs
     dict_domainname_networks = create_domainnames_networks()
     request_ssl_certificates(region_array, dict_domainname_networks)
+
+    # download list of IP from github
+    
 
     return 0
 
