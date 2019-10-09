@@ -4,6 +4,8 @@ import sys
 import os
 import boto3
 from time import sleep
+import subprocess
+from dotenv import load_dotenv
 '''
 PURPOSE
 
@@ -59,6 +61,20 @@ dict_alb_name = {}
 dict_alb_arn = {}
 
 dict_domainname_networks = {}
+
+
+if NETWORK == 't':
+    path_mainnet_github = 'https://raw.githubusercontent.com/harmony-one/nodedb/master/mainnet/'
+    path_shard0 = path_mainnet_github + 'shard0.txt'
+    path_shard1 = path_mainnet_github + 'shard1.txt'
+    path_shard2 = path_mainnet_github + 'shard2.txt'
+    path_shard3 = path_mainnet_github + 'shard3.txt'
+elif NETWORK == 'p':
+    #TO-DO
+    pass
+elif NETWORK == 'b':
+    #TO-DO
+    pass
 
 def create_region_array(network_id):
     # mainnet
@@ -202,7 +218,42 @@ def request_ssl_certificates(region_array, dict_domainname_networks):
                     ValidationMethod = 'DNS',
                 )
         except Exception as e:
-             print("Unexpected error: %s" % e)       
+             print("Unexpected error: %s" % e)     
+
+def shcmd(cmd, ignore_error=False):
+    print('Doing:', cmd)
+    ret = subprocess.call(cmd, shell=True)
+    print('Returned', ret, cmd)
+    if ignore_error == False and ret != 0:
+        raise RuntimeError("Failed to execute {}. Return code:{}".format(
+            cmd, ret))
+    return ret
+
+def download_ip_list_from_github():
+
+    # download list of IP from shard 0
+    cmd = "curl -H 'Authorization: token {token}' "\
+        "-H 'Accept: application/vnd.github.v3.raw' -o shard0.txt "\
+        "{path}".format(token=GIT_TOKEN, path=path_shard0)
+    shcmd(cmd)
+
+    # download list of IP from shard 1
+    cmd = "curl -H 'Authorization: token {token}' "\
+        "-H 'Accept: application/vnd.github.v3.raw' -o shard1.txt "\
+        "{path}".format(token=GIT_TOKEN, path=path_shard1)
+    shcmd(cmd)
+
+        # download list of IP from shard 2
+    cmd = "curl -H 'Authorization: token {token}' "\
+        "-H 'Accept: application/vnd.github.v3.raw' -o shard2.txt "\
+        "{path}".format(token=GIT_TOKEN, path=path_shard2)
+    shcmd(cmd)
+
+        # download list of IP from shard 3
+    cmd = "curl -H 'Authorization: token {token}' "\
+        "-H 'Accept: application/vnd.github.v3.raw' -o shard3.txt "\
+        "{path}".format(token=GIT_TOKEN, path=path_shard3)
+    shcmd(cmd)      
 
 def main():
 
@@ -224,8 +275,9 @@ def main():
     dict_domainname_networks = create_domainnames_networks()
     request_ssl_certificates(region_array, dict_domainname_networks)
 
-    # download list of IP from github
-    
+    # download list of (legacy) IP from github
+
+
 
     return 0
 
