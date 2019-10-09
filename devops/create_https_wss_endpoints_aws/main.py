@@ -65,16 +65,23 @@ dict_domainname_networks = {}
 
 if NETWORK == 't':
     path_mainnet_github = 'https://raw.githubusercontent.com/harmony-one/nodedb/master/mainnet/'
-    path_shard0 = path_mainnet_github + 'shard0.txt'
+    path_shard0 = path_mainnet_github + 'shard0lg.txt'
     path_shard1 = path_mainnet_github + 'shard1.txt'
     path_shard2 = path_mainnet_github + 'shard2.txt'
     path_shard3 = path_mainnet_github + 'shard3.txt'
+    print(path_shard0)
 elif NETWORK == 'p':
     #TO-DO
     pass
 elif NETWORK == 'b':
     #TO-DO
     pass
+else:
+    print("NETWORK ID is not defined.")
+
+GIT_TOKEN = os.getenv("GIT_TOKEN")
+print("GIT_TOKEN: ", GIT_TOKEN)
+
 
 def create_region_array(network_id):
     # mainnet
@@ -276,7 +283,7 @@ def main():
     request_ssl_certificates(region_array, dict_domainname_networks)
 
     # download list of (legacy) IP from github
-
+    download_ip_list_from_github()
 
 
     return 0
