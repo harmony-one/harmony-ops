@@ -226,7 +226,7 @@ func pullBNB() (Dec, error) {
 
 const etherScan = "https://etherscan.io/token/0x799a4202c12ca952cb311598a024c80ed371a41e?a=0x6750DB41334e612a6E8Eb60323Cb6579f0a66542"
 
-func pullEtherScan() {
+func pullEtherScan() (Dec, error){
 	res, err := http.Get(etherScan)
 	if err != nil {
 		log.Fatal(err)
@@ -242,46 +242,23 @@ func pullEtherScan() {
 		log.Fatal(err)
 	}
 
-	// Find the review items
-	// doc.Find(".sidebar-reviews article .content-block").Each(func(i int, s *goquery.Selection) {
-	// 	// For each item found, get the band and title
-	// 	band := s.Find("a").Text()
-	// 	title := s.Find("i").Text()
-	// 	fmt.Printf("Review %d: %s - %s\n", i, band, title)
-	// })
-
+	balance := ""
 	doc.Find(".card-body div").Each(func(i int, s *goquery.Selection) {
 
-		// fmt.Println(s.First().Text())
-		t := strings.Trim(s.First().Text(), " ")
-		if t == "Balance" {
-			fmt.Println("hi")
-			fmt.Println(s.Contents())
+		t := strings.TrimSpace(s.First().Text())
+		t = strings.ReplaceAll(t, "\n", " ")
+		if strings.HasPrefix(t, "Balance") {
+			tokens := strings.Split(t, " ")
+			if len(tokens) > 2 {
+				balance = strings.ReplaceAll(tokens[1], ",", "")
+			}
 		}
-
-		// 	s.Contents().Each(func(j int, u *goquery.Selection) {
-		// 		fmt.Println(u.Text())
-		// if goquery.NodeName(u) == "#text" {
-		// 	fmt.Println(u.Text())
-		// 	// fmt.Printf(">>> (%d) >>> %s\n", i, u.First().Text())
-		// }
-		// })
-		// s.Siblings().Each(func(j int, u *goquery.Selection) {
-		// 	fmt.Println(u.Text())
-		// })
-
-		// bal := s.Find("h6").Text()
-		// fmt.Println(bal)
-
-		// s.First().Text()
-
-		// fmt.Println(strconv.Quote())
-		// For each item found, get the band and title
-		// band := s.Find("a").Text()
-		// title := s.Find("i").Text()
-		// fmt.Printf("Review %d: %s - %s\n", i, band, title)
 	})
 
+	if balance == "" {
+		return ZeroDec(), errors.New("Could not find balance on EtherScan")
+	}
+	return NewDecFromStr(balance)
 }
 
 func init() {
@@ -309,7 +286,11 @@ func init() {
 			// dec, _ := NewDecFromStr("69940962.85941047")
 			// fmt.Println(normed.Add(dec))
 
-			pullEtherScan()
+			bal, err := pullEtherScan()
+			if err != nil {
+				return err
+			}
+			fmt.Println(bal)
 
 			return nil
 		},
