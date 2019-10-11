@@ -1,4 +1,4 @@
-module harmony-monitor/node-metadata-watcher
+module bridge-watchdog
 
 go 1.12
 
