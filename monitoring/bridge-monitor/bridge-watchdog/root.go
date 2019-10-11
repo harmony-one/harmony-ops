@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"math/big"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -230,22 +231,22 @@ const etherScan = "https://etherscan.io/token/0x799a4202c12ca952cb311598a024c80e
 func pullEtherScan() (Dec, error) {
 	res, err := http.Get(etherScan)
 	if err != nil {
-		log.Fatal(err)
+		return ZeroDec(), err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
+		msg := fmt.Sprintf("status code error: %d %s", res.StatusCode, res.Status)
+		return ZeroDec(), errors.New(msg)
 	}
 
 	// Load the HTML document
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return ZeroDec(), err
 	}
 
 	balance := ""
 	doc.Find(".card-body div").Each(func(i int, s *goquery.Selection) {
-
 		t := strings.TrimSpace(s.First().Text())
 		t = strings.ReplaceAll(t, "\n", " ")
 		if strings.HasPrefix(t, "Balance") {
@@ -262,6 +263,8 @@ func pullEtherScan() (Dec, error) {
 	return NewDecFromStr(balance)
 }
 
+const pdServiceKey = "bc654ea11237451f86714192f692ffe1"
+
 func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
@@ -277,58 +280,61 @@ func init() {
 		Use:   "watch-bridge",
 		Short: "watch bnb",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			expectedBalance, _ := NewDecFromStr("152818477.146499980000000000")
+			thresholdBalance, _ := NewDecFromStr("152000000")
+			base := NewDecFromBigInt(big.NewInt(100000000))
+			tryAgainCounter := 0
 
-			// TODO factor this into a function that is called within the ticker loop
-			// base := NewDecFromBigInt(big.NewInt(100000000))
-			// bnb, oops := pullBNB()
-			// if oops != nil {
-			// 	return oops
-			// }
+			for range time.Tick(time.Duration(60) * time.Second) {
+				// If EtherSite fetch fail, wait 10 iterations
+				if tryAgainCounter > 0 {
+					tryAgainCounter--
+					if tryAgainCounter > 0 {
+						continue
+					}
+				}
+				// Calculate balance
+				bnb, oops := pullBNB()
+				if oops != nil {
+					// If BNB CLI fetch fail, quit
+					notify(pdServiceKey, fmt.Sprintf(`
+						BNB CLI fetch failed. %s
+						`, oops))
+					return oops
+				}
 
-			// normed := bnb.Quo(base)
-			// ethSiteBal, err := pullEtherScan()
-			// if err != nil {
-			// 	return err
-			// }
+				normed := bnb.Quo(base)
+				ethSiteBal, err := pullEtherScan()
+				if err != nil {
+					notify(pdServiceKey, fmt.Sprintf(`
+						EtherScan balance fetch failed. %s
+						`, err))
+					tryAgainCounter = 10
+				}
 
-			// fmt.Println(normed.Add(ethSiteBal))
+				totalBalance := normed.Add(ethSiteBal)
 
-			/*
-				I want in the message:
-				1. BNB value
-				2. Etherscan value
-				3. Time at which this happened
-				4. Deviation amount from 152818477.146499980000000000
+				diff := totalBalance.Sub(expectedBalance).Abs()
 
-			*/
-			// Use notify to kick off pagerduty message
-			// 			notify(pdServiceKey,
-			// 				fmt.Sprintf(`
-			// %s: Liviness problem on shard %s
+				// Check if below threshold
+				if expectedBalance.Sub(diff).LT(thresholdBalance) {
+					// Send PagerDuty message
+					notify(pdServiceKey, fmt.Sprintf(`
+						Mismatch detected!
 
-			// previous height %d at %s
-			// current height %d at %s
+						BNB Value: %s
 
-			// Difference in seconds: %d
+						EtherScan Value: %s
 
-			// See: http://watchdog.hmny.io/report-%s
+						Expected Balance: %s
 
-			// --%s
-			// `, message, shard, prevC, thenTS, nowC, nowTS, elapsed, chain, name))
-			// Make this tick every 60 seconds
-			for now := range time.Tick(time.Duration(5) * time.Second) {
-				// Do computation
+						Calculated Balance: %s = (%s / %s) + %s
 
-				// prove everything working by making computation result go down by enough below
-				// 1520000 on the 5th iteration of this loop
-
-				// if compuation sufficently below 15200000, call notify
-				fmt.Println(now)
+						Deviation: %s
+						`, normed, ethSiteBal, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff))
+				}
 			}
-
 			return nil
 		},
 	})
-	// rootCmd.AddCommand(serviceCmd())
-	// rootCmd.AddCommand(monitorCmd())
 }
