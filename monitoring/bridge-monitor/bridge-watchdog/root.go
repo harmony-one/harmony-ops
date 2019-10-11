@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/spf13/cobra"
@@ -226,7 +227,7 @@ func pullBNB() (Dec, error) {
 
 const etherScan = "https://etherscan.io/token/0x799a4202c12ca952cb311598a024c80ed371a41e?a=0x6750DB41334e612a6E8Eb60323Cb6579f0a66542"
 
-func pullEtherScan() (Dec, error){
+func pullEtherScan() (Dec, error) {
 	res, err := http.Get(etherScan)
 	if err != nil {
 		log.Fatal(err)
@@ -276,6 +277,8 @@ func init() {
 		Use:   "watch-bridge",
 		Short: "watch bnb",
 		RunE: func(cmd *cobra.Command, args []string) error {
+
+			// TODO factor this into a function that is called within the ticker loop
 			// base := NewDecFromBigInt(big.NewInt(100000000))
 			// bnb, oops := pullBNB()
 			// if oops != nil {
@@ -283,14 +286,45 @@ func init() {
 			// }
 
 			// normed := bnb.Quo(base)
-			// dec, _ := NewDecFromStr("69940962.85941047")
-			// fmt.Println(normed.Add(dec))
+			// ethSiteBal, err := pullEtherScan()
+			// if err != nil {
+			// 	return err
+			// }
 
-			bal, err := pullEtherScan()
-			if err != nil {
-				return err
+			// fmt.Println(normed.Add(ethSiteBal))
+
+			/*
+				I want in the message:
+				1. BNB value
+				2. Etherscan value
+				3. Time at which this happened
+				4. Deviation amount from 152818477.146499980000000000
+
+			*/
+			// Use notify to kick off pagerduty message
+			// 			notify(pdServiceKey,
+			// 				fmt.Sprintf(`
+			// %s: Liviness problem on shard %s
+
+			// previous height %d at %s
+			// current height %d at %s
+
+			// Difference in seconds: %d
+
+			// See: http://watchdog.hmny.io/report-%s
+
+			// --%s
+			// `, message, shard, prevC, thenTS, nowC, nowTS, elapsed, chain, name))
+			// Make this tick every 60 seconds
+			for now := range time.Tick(time.Duration(5) * time.Second) {
+				// Do computation
+
+				// prove everything working by making computation result go down by enough below
+				// 1520000 on the 5th iteration of this loop
+
+				// if compuation sufficently below 15200000, call notify
+				fmt.Println(now)
 			}
-			fmt.Println(bal)
 
 			return nil
 		},
