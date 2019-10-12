@@ -2,6 +2,7 @@
 
 - Make sure newman (and by extention node.js) is installed, do `npm install -g newman` (https://www.npmjs.com/package/newman)
 - Make sure that you are using python 3. 
+- Make sure that you have `pexpect` module for python (https://pypi.org/project/pexpect/). 
 
 ## Setup
 This test will require at least 2 keys to accounts that have some funds (for sending a transaction).
