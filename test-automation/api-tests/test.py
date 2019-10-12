@@ -18,6 +18,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cli_path", dest="hmy_binary_path", default=None,
                         help=f"ABSOLUTE PATH of CLI binary. "
                              f"Default uses the CLI included in pyhmy module", type=str)
+    parser.add_argument("--cli_passphrase", dest="passphrase", default="harmony-one",
+                        help=f"Passphrase used to unlock the keystore", type=str)
     parser.add_argument("--keystore", dest="keys_dir", default="TestnetValidatorKeys",
                         help=f"Direcotry of keystore to import. Must follow the format of CLI's keystore. "
                              f"Default is ./TestnetValidatorKeys", type=str)
@@ -53,7 +55,7 @@ def load_keys(cli) -> list:
     return acc_names_added
 
 
-def get_raw_txn(cli, source_account_names, chain_id, node, source_shard) -> str:
+def get_raw_txn(cli, source_account_names, passphrase, chain_id, node, source_shard) -> str:
     """
     Must be cross shard transaction for tests.
     """
@@ -67,10 +69,15 @@ def get_raw_txn(cli, source_account_names, chain_id, node, source_shard) -> str:
         to_addr_candidates.remove(acc_name)
         to_addr = cli.get_address(random.choice(to_addr_candidates))
         if balances[source_shard]["amount"] >= 1e-9:
-            response = cli.single_call(f"hmy --node={node} transfer --from={from_addr} --to={to_addr} "
-                                       f"--from-shard={source_shard} --to-shard={1-source_shard} --amount={1e-9} "
-                                       f"--passphrase=harmony-one --chain-id={chain_id} "
-                                       f"--dry-run")
+            if chain_id not in {"mainnet", "testnet", "pangaea"}:  # Must be localnet
+                response = cli.single_call(f"hmy transfer --from={from_addr} --to={to_addr} "
+                                           f"--from-shard={source_shard} --to-shard={1-source_shard} --amount={1e-9} "
+                                           f"--passphrase={passphrase} --dry-run")
+            else:
+                response = cli.single_call(f"hmy --node={node} transfer --from={from_addr} --to={to_addr} "
+                                           f"--from-shard={source_shard} --to-shard={1-source_shard} --amount={1e-9} "
+                                           f"--passphrase={passphrase} --chain-id={chain_id} "
+                                           f"--dry-run")
             ans = response.split("\n")[-2]
             return ans.replace("RawTxn: ", "")
     raise RuntimeError(f"None of the loaded accounts have funds on shard {source_shard}")
@@ -90,7 +97,7 @@ if __name__ == "__main__":
     acc_names_added = load_keys(CLI)
     source_shard = 0 if "s0" in args.hmy_endpoint else 1
     try:
-        raw_txn = get_raw_txn(CLI, acc_names_added, chain_id=args.chain_id,
+        raw_txn = get_raw_txn(CLI, acc_names_added, passphrase=args.passphrase, chain_id=args.chain_id,
                               node=args.hmy_endpoint, source_shard=source_shard)
     except RuntimeError as err:
         for acc_name in acc_names_added:
