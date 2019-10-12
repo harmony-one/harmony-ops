@@ -19,7 +19,8 @@ There are some options for the python script, here is the output of the help mes
 ```
 usage: test.py [-h] [--rpc_endpoint HMY_ENDPOINT]
                [--exp_endpoint HMY_EXP_ENDPOINT] [--chain-id CHAIN_ID]
-               [--cli_path HMY_BINARY_PATH] [--keystore KEYS_DIR]
+               [--cli_path HMY_BINARY_PATH] [--cli_passphrase PASSPHRASE]
+               [--keystore KEYS_DIR]
 
 Wrapper python script to test API using newman.
 
@@ -33,6 +34,9 @@ optional arguments:
   --cli_path HMY_BINARY_PATH
                         ABSOLUTE PATH of CLI binary. Default uses the CLI
                         included in pyhmy module
+  --cli_passphrase PASSPHRASE
+                        Passphrase used to unlock the keystore. Default is
+                        'harmony-one'
   --keystore KEYS_DIR   Direcotry of keystore to import. Must follow the
                         format of CLI's keystore. Default is
                         ./TestnetValidatorKeys

@@ -19,7 +19,8 @@ def parse_args() -> argparse.Namespace:
                         help=f"ABSOLUTE PATH of CLI binary. "
                              f"Default uses the CLI included in pyhmy module", type=str)
     parser.add_argument("--cli_passphrase", dest="passphrase", default="harmony-one",
-                        help=f"Passphrase used to unlock the keystore", type=str)
+                        help=f"Passphrase used to unlock the keystore. "
+                             f"Default is 'harmony-one'", type=str)
     parser.add_argument("--keystore", dest="keys_dir", default="TestnetValidatorKeys",
                         help=f"Direcotry of keystore to import. Must follow the format of CLI's keystore. "
                              f"Default is ./TestnetValidatorKeys", type=str)
