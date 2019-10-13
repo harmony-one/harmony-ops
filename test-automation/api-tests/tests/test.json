@@ -1571,14 +1571,14 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "{{hmy_exp_endpoint}}tx?id=0x7d8329dfd17cf82fcfda4e44f0f59b59c7a1379f173829beb005e94504d99b0f",
+					"raw": "{{hmy_exp_endpoint}}tx?id={{txHash}}",
 					"host": [
 						"{{hmy_exp_endpoint}}tx"
 					],
 					"query": [
 						{
 							"key": "id",
-							"value": "0x7d8329dfd17cf82fcfda4e44f0f59b59c7a1379f173829beb005e94504d99b0f"
+							"value": "{{txHash}}"
 						}
 					]
 				}

@@ -31,6 +31,8 @@ class HmyCLI:
         if hmy_binary_path:
             assert os.path.isfile(hmy_binary_path)
             self.hmy_binary_path = hmy_binary_path.replace("./", "")
+        if not self.hmy_binary_path:
+            raise FileNotFoundError("Path to harmony CLI binary is not found")
         self.environment = environment
         self.version = ""
         self.keystore_path = ""
