@@ -20,7 +20,7 @@ def get_environment() -> dict:
 
 
 class HmyCLI:
-    hmy_binary_path = None  # This attr should be set by the __init__.py of this module.
+    hmy_binary_path = None  # This class attr should be set by the __init__.py of this module.
 
     def __init__(self, environment, hmy_binary_path=None):
         """
