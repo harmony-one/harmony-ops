@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
@@ -21,7 +20,7 @@ const (
 
 func (cw *cobraSrvWrapper) install(cmd *cobra.Command, args []string) error {
 	// Check that file exists
-	r, err := cw.Install(mCmd, "--"+mFlag, monitorNodeYAML)
+	r, err := cw.Install(mCmd)
 	if err != nil {
 		return err
 	}
@@ -56,77 +55,29 @@ func (cw *cobraSrvWrapper) status(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// NOTE Important function because downstream commands assume results of it
-func (cw *cobraSrvWrapper) preRunInit(cmd *cobra.Command, args []string) error {
-	instr, err := newInstructions(monitorNodeYAML)
-	if err != nil {
-		return err
-	}
-	dm, err := daemon.New(
-		fmt.Sprintf(nameFMT, instr.TargetChain),
-		description,
-		dependencies...,
-	)
-	if err != nil {
-		return err
-	}
-	cw.Service = &Service{dm, nil, instr}
-	return nil
-}
-
 func (cw *cobraSrvWrapper) start(cmd *cobra.Command, args []string) error {
-	r, err := cw.Start()
+	dm, err := daemon.New(nameFMT, description, dependencies...)
 	if err != nil {
 		return err
 	}
-	fmt.Println(r)
-	return nil
-}
-
-func (cw *cobraSrvWrapper) doMonitor(cmd *cobra.Command, args []string) error {
-	lock := &sync.Mutex{}
-	cw.monitor = &monitor{
-		chain:             cw.TargetChain,
-		lock:              lock,
-		cond:              sync.NewCond(lock),
-		consensusProgress: map[string]bool{},
-	}
-	err := cw.monitorNetwork()
+	cw.Service = &Service{dm}
+	_, err = cw.Start()
 	if err != nil {
 		return err
 	}
+
+	err = cw.monitorNetwork()
+
 	return nil
 }
 
-func monitorCmd() *cobra.Command {
-	monitorCmd := &cobra.Command{
-		Use:               mCmd,
-		Short:             "start watching the blockchain for problems",
-		PersistentPreRunE: w.preRunInit,
-		RunE:              w.doMonitor,
-	}
-	monitorCmd.Flags().StringVar(&monitorNodeYAML, mFlag, "", mDescr)
-	monitorCmd.MarkFlagRequired(mFlag)
-	return monitorCmd
-}
-
-func serviceCmd() *cobra.Command {
-	daemonCmd := &cobra.Command{
-		Use:               "service",
-		Short:             "Control the daemon functionality of harmony-watchdog",
-		PersistentPreRunE: w.preRunInit,
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
-		},
-	}
+func init() {
 	install := &cobra.Command{
 		Use:   "install",
 		Short: installD,
 		RunE:  w.install,
 	}
-	install.Flags().StringVar(&monitorNodeYAML, mFlag, "", mDescr)
-	install.MarkFlagRequired(mFlag)
-	daemonCmd.AddCommand([]*cobra.Command{install, {
+	rootCmd.AddCommand([]*cobra.Command{install, {
 		Use:   "start",
 		Short: startD,
 		RunE:  w.start,
@@ -143,5 +94,4 @@ func serviceCmd() *cobra.Command {
 		Short: statusD,
 		RunE:  w.status,
 	}}...)
-	return daemonCmd
 }

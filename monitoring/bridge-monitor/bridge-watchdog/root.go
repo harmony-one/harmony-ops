@@ -1,20 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"math/big"
 	"net"
 	"net/http"
-	"math/big"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -22,12 +19,11 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
-	"gopkg.in/yaml.v2"
 )
 
 const (
-	nameFMT     = "harmony-watchdog@%s"
-	description = "Monitor the Harmony blockchain -- `%i`"
+	nameFMT     = "bridge-watchd"
+	description = "Monitor something -- `%i`"
 	spaceSep    = " "
 )
 
@@ -35,17 +31,16 @@ var (
 	sep       = []byte("\n")
 	recordSep = []byte(spaceSep)
 	rootCmd   = &cobra.Command{
-		Use:          "harmony-watchdog",
+		Use:          nameFMT,
 		SilenceUsage: true,
-		Long:         "Monitor a blockchain",
+		Long:         description,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
 	}
-	w               *cobraSrvWrapper = &cobraSrvWrapper{nil}
-	monitorNodeYAML string
-	stdlog          *log.Logger
-	errlog          *log.Logger
+	w      *cobraSrvWrapper = &cobraSrvWrapper{nil}
+	stdlog *log.Logger
+	errlog *log.Logger
 	// Add services here that we might want to depend on, see all services on
 	// the machine with systemctl list-unit-files
 	dependencies    = []string{}
@@ -61,8 +56,6 @@ type cobraSrvWrapper struct {
 // Service has embedded daemon
 type Service struct {
 	daemon.Daemon
-	*monitor
-	*instruction
 }
 
 // Manage by daemon commands or run the daemon
@@ -70,17 +63,70 @@ func (service *Service) monitorNetwork() error {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 	// Set up listener for defined host and port
-	listener, err := net.Listen(
-		"tcp",
-		":"+strconv.Itoa(service.instruction.HTTPReporter.Port+1),
-	)
+	listener, err := net.Listen("tcp", ":12500")
 	if err != nil {
 		return err
 	}
+
+	go func() {
+		// Our polling logic
+		expectedBalance, _ := NewDecFromStr("152818477.146499980000000000")
+		thresholdBalance, _ := NewDecFromStr("152000000")
+		base := NewDecFromBigInt(big.NewInt(100000000))
+		tryAgainCounter := 0
+
+		for range time.Tick(time.Duration(60) * time.Second) {
+			// If EtherSite fetch fail, wait 10 iterations
+			if tryAgainCounter > 0 {
+				tryAgainCounter--
+				if tryAgainCounter > 0 {
+					continue
+				}
+			}
+			// Calculate balance
+			bnb, oops := pullBNB()
+			if oops != nil {
+				// If BNB CLI fetch fail, quit
+				notify(pdServiceKey, fmt.Sprintf(`
+						BNB CLI fetch failed. %s
+						`, oops))
+				os.Exit(-1)
+			}
+
+			normed := bnb.Quo(base)
+			ethSiteBal, err := pullEtherScan()
+			if err != nil {
+				notify(pdServiceKey, fmt.Sprintf(`
+						EtherScan balance fetch failed. %s
+						`, err))
+				tryAgainCounter = 10
+			}
+
+			totalBalance := normed.Add(ethSiteBal)
+
+			diff := totalBalance.Sub(expectedBalance).Abs()
+
+			// Check if below threshold
+			if expectedBalance.Sub(diff).LT(thresholdBalance) {
+				// Send PagerDuty message
+				notify(pdServiceKey, fmt.Sprintf(`
+						Mismatch detected!
+
+						BNB Value: %s
+
+						EtherScan Value: %s
+
+						Expected Balance: %s
+
+						Calculated Balance: %s = (%s / %s) + %s
+
+						Deviation: %s
+						`, normed, ethSiteBal, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff))
+			}
+		}
+	}()
+
 	// set up channel on which to send accepted connections
-	listen := make(chan net.Conn, 100)
-	go service.startReportingHTTPServer(service.instruction)
-	go acceptConnection(listener, listen)
 	// loop work cycle with accept connections or interrupt
 	// by system signal
 	for {
@@ -109,79 +155,11 @@ func acceptConnection(listener net.Listener, listen chan<- net.Conn) {
 	}
 }
 
-type watchParams struct {
-	Auth struct {
-		PagerDuty struct {
-			EventServiceKey string `yaml:"event-service-key"`
-		} `yaml:"pagerduty"`
-	} `yaml:"auth"`
-	TargetChain string `yaml:"target-chain"`
-	// Assumes Seconds
-	InspectSchedule struct {
-		BlockHeader  int `yaml:"block-header"`
-		NodeMetadata int `yaml:"node-metadata"`
-	} `yaml:"inspect-schedule"`
-	HTTPReporter struct {
-		Port int `yaml:"port"`
-	} `yaml:"http-reporter"`
-	ShardHealthReporting struct {
-		Consensus struct {
-			Warning int `yaml:"warning"`
-			Redline int `yaml:"redline"`
-		} `yaml:"consensus"`
-	} `yaml:"shard-health-reporting"`
-	DistributionFiles struct {
-		MachineIPList string `yaml:"machine-ip-list"`
-	} `yaml:"node-distribution"`
-}
-
-type instruction struct {
-	watchParams
-	networkNodes []string
-}
-
-func newInstructions(yamlPath string) (*instruction, error) {
-	rawYAML, err := ioutil.ReadFile(yamlPath)
-	if err != nil {
-		return nil, err
-	}
-	t := watchParams{}
-	err = yaml.Unmarshal(rawYAML, &t)
-	if err != nil {
-		return nil, err
-	}
-	nodesRecord, err2 := ioutil.ReadFile(t.DistributionFiles.MachineIPList)
-	if err2 != nil {
-		return nil, err2
-	}
-	networkNodes := bytes.Split(bytes.Trim(nodesRecord, "\n"), sep)
-	instr := &instruction{t, []string{}}
-	for _, value := range networkNodes {
-		instr.networkNodes = append(
-			instr.networkNodes,
-			// Trust the input because it is already trusted elsewhere,
-			// if data malformed, then launch would have failed anyway
-			strings.TrimSpace(string(bytes.Split(value, recordSep)[0]))+":9500",
-		)
-	}
-	return instr, nil
-}
-
 func versionS() string {
 	return fmt.Sprintf(
 		"Harmony (C) 2019. %v, version %v-%v (%v %v)",
 		path.Base(os.Args[0]), version, commit, builtBy, builtAt,
 	)
-}
-
-func parseVersionS(v string) string {
-	const versionSpot = 5
-	const versionSep = "-"
-	chopped := strings.Split(v, spaceSep)
-	if len(chopped) < versionSpot {
-		return badVersionString
-	}
-	return chopped[versionSpot]
 }
 
 func pullBNB() (Dec, error) {
@@ -276,65 +254,5 @@ func init() {
 			os.Exit(0)
 		},
 	})
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "watch-bridge",
-		Short: "watch bnb",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			expectedBalance, _ := NewDecFromStr("152818477.146499980000000000")
-			thresholdBalance, _ := NewDecFromStr("152000000")
-			base := NewDecFromBigInt(big.NewInt(100000000))
-			tryAgainCounter := 0
 
-			for range time.Tick(time.Duration(60) * time.Second) {
-				// If EtherSite fetch fail, wait 10 iterations
-				if tryAgainCounter > 0 {
-					tryAgainCounter--
-					if tryAgainCounter > 0 {
-						continue
-					}
-				}
-				// Calculate balance
-				bnb, oops := pullBNB()
-				if oops != nil {
-					// If BNB CLI fetch fail, quit
-					notify(pdServiceKey, fmt.Sprintf(`
-						BNB CLI fetch failed. %s
-						`, oops))
-					return oops
-				}
-
-				normed := bnb.Quo(base)
-				ethSiteBal, err := pullEtherScan()
-				if err != nil {
-					notify(pdServiceKey, fmt.Sprintf(`
-						EtherScan balance fetch failed. %s
-						`, err))
-					tryAgainCounter = 10
-				}
-
-				totalBalance := normed.Add(ethSiteBal)
-
-				diff := totalBalance.Sub(expectedBalance).Abs()
-
-				// Check if below threshold
-				if expectedBalance.Sub(diff).LT(thresholdBalance) {
-					// Send PagerDuty message
-					notify(pdServiceKey, fmt.Sprintf(`
-						Mismatch detected!
-
-						BNB Value: %s
-
-						EtherScan Value: %s
-
-						Expected Balance: %s
-
-						Calculated Balance: %s = (%s / %s) + %s
-
-						Deviation: %s
-						`, normed, ethSiteBal, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff))
-				}
-			}
-			return nil
-		},
-	})
 }
