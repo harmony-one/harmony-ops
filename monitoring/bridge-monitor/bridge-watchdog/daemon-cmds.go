@@ -56,28 +56,45 @@ func (cw *cobraSrvWrapper) status(cmd *cobra.Command, args []string) error {
 }
 
 func (cw *cobraSrvWrapper) start(cmd *cobra.Command, args []string) error {
+	_, err := cw.Start()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (cw *cobraSrvWrapper) preRunInit(cmd *cobra.Command, args []string) error {
 	dm, err := daemon.New(nameFMT, description, dependencies...)
 	if err != nil {
 		return err
 	}
 	cw.Service = &Service{dm}
-	_, err = cw.Start()
-	if err != nil {
-		return err
-	}
-
-	err = cw.monitorNetwork()
-
 	return nil
 }
 
-func init() {
-	install := &cobra.Command{
+func (cw *cobraSrvWrapper) doMonitor(cmd *cobra.Command, args []string) error {
+	err := cw.monitorNetwork()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func serviceCmd() *cobra.Command {
+	daemonCmd := &cobra.Command{
+		Use:               "service",
+		Short:             "Control the daemon functionality of bridge-watchd",
+		PersistentPreRunE: w.preRunInit,
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+		},
+	}
+
+	daemonCmd.AddCommand([]*cobra.Command{{
 		Use:   "install",
 		Short: installD,
 		RunE:  w.install,
-	}
-	rootCmd.AddCommand([]*cobra.Command{install, {
+	}, {
 		Use:   "start",
 		Short: startD,
 		RunE:  w.start,
@@ -94,4 +111,6 @@ func init() {
 		Short: statusD,
 		RunE:  w.status,
 	}}...)
+
+	return daemonCmd
 }

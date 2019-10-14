@@ -103,7 +103,6 @@ func (service *Service) monitorNetwork() error {
 			}
 
 			totalBalance := normed.Add(ethSiteBal)
-
 			diff := totalBalance.Sub(expectedBalance).Abs()
 
 			// Check if below threshold
@@ -254,5 +253,14 @@ func init() {
 			os.Exit(0)
 		},
 	})
+	rootCmd.AddCommand(serviceCmd())
+	rootCmd.AddCommand(
+		&cobra.Command{
+			Use:               mCmd,
+			Short:             "start watching the bnbbridge for discrepency",
+			PersistentPreRunE: w.preRunInit,
+			RunE:              w.doMonitor,
+		},
+	)
 
 }
