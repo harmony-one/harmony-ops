@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"bytes"
 	"fmt"
 	"log"
 	"math/big"
@@ -22,9 +23,10 @@ import (
 )
 
 const (
-	nameFMT     = "bridge-watchd"
-	description = "Monitor something -- `%i`"
-	spaceSep    = " "
+	nameFMT      = "bridge-watchd"
+	description  = "Monitor something -- `%i`"
+	spaceSep     = " "
+	pdServiceKey = "bc654ea11237451f86714192f692ffe1"
 )
 
 var (
@@ -44,6 +46,7 @@ var (
 	// Add services here that we might want to depend on, see all services on
 	// the machine with systemctl list-unit-files
 	dependencies    = []string{}
+	errNoBalance    = errors.New("balance not found on EtherScan")
 	errSysIntrpt    = errors.New("daemon was interruped by system signal")
 	errDaemonKilled = errors.New("daemon was killed")
 )
@@ -74,6 +77,7 @@ func (service *Service) monitorNetwork() error {
 		thresholdBalance, _ := NewDecFromStr("152000000")
 		base := NewDecFromBigInt(big.NewInt(100000000))
 		tryAgainCounter := 0
+		etherFailCounter := 0
 
 		for range time.Tick(time.Duration(60) * time.Second) {
 			// If EtherSite fetch fail, wait 10 iterations
@@ -87,19 +91,49 @@ func (service *Service) monitorNetwork() error {
 			bnb, oops := pullBNB()
 			if oops != nil {
 				// If BNB CLI fetch fail, quit
-				notify(pdServiceKey, fmt.Sprintf(`
+				e := notify(pdServiceKey, fmt.Sprintf(`
 						BNB CLI fetch failed. %s
 						`, oops))
+				if e != nil {
+					stdlog.Println(e)
+				}
 				os.Exit(-1)
 			}
 
 			normed := bnb.Quo(base)
-			ethSiteBal, err := pullEtherScan()
+			data, err := reqEtherScan()
 			if err != nil {
-				notify(pdServiceKey, fmt.Sprintf(`
-						EtherScan balance fetch failed. %s
-						`, err))
+				etherFailCounter++
+				if etherFailCounter > 6 {
+					e := notify(pdServiceKey, fmt.Sprintf(`
+							EtherScan balance fetch failed for 1 hour. Exiting. Error: %s
+							`, err))
+					if e != nil {
+						stdlog.Println(e)
+					}
+					// If failing for 1 hour, exit
+					os.Exit(-1)
+				}
 				tryAgainCounter = 10
+				continue
+			}
+			ethSiteBal, error := pullEtherScan(data)
+			if error != nil {
+				etherFailCounter++
+				if etherFailCounter > 6 {
+					e := notify(pdServiceKey, fmt.Sprintf(`
+							EtherScan balance fetch failed for 1 hour. Exiting. Error: %s
+							`, error))
+					if e != nil {
+						stdlog.Println(e)
+					}
+					os.Exit(-1)
+				}
+				tryAgainCounter = 10
+				continue
+			} else {
+				// If balance fetch fully working, reset counter
+				etherFailCounter = 0
 			}
 
 			totalBalance := normed.Add(ethSiteBal)
@@ -107,8 +141,8 @@ func (service *Service) monitorNetwork() error {
 
 			// Check if below threshold
 			if expectedBalance.Sub(diff).LT(thresholdBalance) {
-				// Send PagerDuty message
-				notify(pdServiceKey, fmt.Sprintf(`
+			 	// Send PagerDuty message
+			 	e := notify(pdServiceKey, fmt.Sprintf(`
 						Mismatch detected!
 
 						BNB Value: %s
@@ -121,6 +155,9 @@ func (service *Service) monitorNetwork() error {
 
 						Deviation: %s
 						`, normed, ethSiteBal, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff))
+					if e != nil {
+						stdlog.Println(e)
+					}
 			}
 		}
 	}()
@@ -205,19 +242,26 @@ func pullBNB() (Dec, error) {
 
 const etherScan = "https://etherscan.io/token/0x799a4202c12ca952cb311598a024c80ed371a41e?a=0x6750DB41334e612a6E8Eb60323Cb6579f0a66542"
 
-func pullEtherScan() (Dec, error) {
+func reqEtherScan() (string, error) {
 	res, err := http.Get(etherScan)
 	if err != nil {
-		return ZeroDec(), err
+		return "", err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
 		msg := fmt.Sprintf("status code error: %d %s", res.StatusCode, res.Status)
-		return ZeroDec(), errors.New(msg)
+		return "", errors.New(msg)
 	}
 
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(res.Body)
+
+	return buf.String(), nil
+}
+
+func pullEtherScan(data string) (Dec, error) {
 	// Load the HTML document
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(data))
 	if err != nil {
 		return ZeroDec(), err
 	}
@@ -235,12 +279,10 @@ func pullEtherScan() (Dec, error) {
 	})
 
 	if balance == "" {
-		return ZeroDec(), errors.New("Could not find balance on EtherScan")
+		return ZeroDec(), errNoBalance
 	}
 	return NewDecFromStr(balance)
 }
-
-const pdServiceKey = "bc654ea11237451f86714192f692ffe1"
 
 func init() {
 	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
