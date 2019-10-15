@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/PagerDuty/go-pagerduty v0.0.0-20190829185950-7180e89b583b
+	github.com/PuerkitoBio/goquery v1.5.0
 	github.com/Workiva/go-datastructures v1.0.50
 	github.com/ahmetb/go-linq v3.0.0+incompatible
 	github.com/ahmetb/go-linq/v3 v3.1.0 // indirect
