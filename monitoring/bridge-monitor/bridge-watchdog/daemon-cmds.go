@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"errors"
 
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
@@ -19,7 +21,11 @@ const (
 )
 
 func (cw *cobraSrvWrapper) install(cmd *cobra.Command, args []string) error {
-	// Check that file exists
+	// Check that file exist
+	_, e := os.Stat(bnbcliPath)
+	if os.IsNotExist(e) {
+		return errors.New("invalid bnbcli path provided")
+	}
 	r, err := cw.Install(mCmd, "--" + mFlag, bnbcliPath)
 	if err != nil {
 		return err
