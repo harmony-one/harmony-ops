@@ -14,13 +14,13 @@ const (
 	stopD    = "stop the harmony-watchdog service"
 	statusD  = "check status of the harmony-watchdog service"
 	mCmd     = "monitor"
-	mFlag    = "yaml-config"
-	mDescr   = "yaml detailing what to watch [required]"
+	mFlag    = "bnbPath"
+	mDescr   = "path to bnbcli binary [required]"
 )
 
 func (cw *cobraSrvWrapper) install(cmd *cobra.Command, args []string) error {
 	// Check that file exists
-	r, err := cw.Install(mCmd)
+	r, err := cw.Install(mCmd, "--" + mFlag, bnbcliPath)
 	if err != nil {
 		return err
 	}
@@ -80,6 +80,18 @@ func (cw *cobraSrvWrapper) doMonitor(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func monitorCmd() *cobra.Command {
+	monCmd := &cobra.Command {
+			Use:               mCmd,
+			Short:             "start watching the bnbbridge for discrepency",
+			PersistentPreRunE: w.preRunInit,
+			RunE:              w.doMonitor,
+	}
+	monCmd.Flags().StringVar(&bnbcliPath, mFlag, "", mDescr)
+	monCmd.MarkFlagRequired(mFlag)
+	return monCmd
+}
+
 func serviceCmd() *cobra.Command {
 	daemonCmd := &cobra.Command{
 		Use:               "service",
@@ -89,12 +101,14 @@ func serviceCmd() *cobra.Command {
 			cmd.Help()
 		},
 	}
-
-	daemonCmd.AddCommand([]*cobra.Command{{
+	install := &cobra.Command{
 		Use:   "install",
 		Short: installD,
 		RunE:  w.install,
-	}, {
+	}
+	install.Flags().StringVar(&bnbcliPath, mFlag, "", mDescr)
+	install.MarkFlagRequired(mFlag)
+	daemonCmd.AddCommand([]*cobra.Command{install, {
 		Use:   "start",
 		Short: startD,
 		RunE:  w.start,

@@ -41,6 +41,7 @@ var (
 		},
 	}
 	w      *cobraSrvWrapper = &cobraSrvWrapper{nil}
+	bnbcliPath string
 	stdlog *log.Logger
 	errlog *log.Logger
 	// Add services here that we might want to depend on, see all services on
@@ -92,7 +93,7 @@ func (service *Service) monitorNetwork() error {
 			if oops != nil {
 				// If BNB CLI fetch fail, quit
 				e := notify(pdServiceKey, fmt.Sprintf(`
-						BNB CLI fetch failed. %s
+						BNB CLI fetch failed. Exiting. %s
 						`, oops))
 				if e != nil {
 					stdlog.Println(e)
@@ -138,7 +139,6 @@ func (service *Service) monitorNetwork() error {
 
 			totalBalance := normed.Add(ethSiteBal)
 			diff := totalBalance.Sub(expectedBalance).Abs()
-
 			// Check if below threshold
 			if expectedBalance.Sub(diff).LT(thresholdBalance) {
 			 	// Send PagerDuty message
@@ -200,7 +200,7 @@ func versionS() string {
 
 func pullBNB() (Dec, error) {
 	here, _ := os.Getwd()
-	cmd := exec.Command("./bnbcli", []string{
+	cmd := exec.Command(bnbcliPath, []string{
 		"--node=https://dataseed5.defibit.io:443",
 		"account",
 		"bnb1xwvm73088qrhq8aykcunsq25x2ymxc7pyg7tpj",
@@ -296,13 +296,5 @@ func init() {
 		},
 	})
 	rootCmd.AddCommand(serviceCmd())
-	rootCmd.AddCommand(
-		&cobra.Command{
-			Use:               mCmd,
-			Short:             "start watching the bnbbridge for discrepency",
-			PersistentPreRunE: w.preRunInit,
-			RunE:              w.doMonitor,
-		},
-	)
-
+	rootCmd.AddCommand(monitorCmd())
 }
