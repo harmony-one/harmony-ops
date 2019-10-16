@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	installD = "install the harmony-watchdog service"
-	removeD  = "remove the harmony-watchdog service"
-	startD   = "start the harmony-watchdog service"
-	stopD    = "stop the harmony-watchdog service"
-	statusD  = "check status of the harmony-watchdog service"
+	installD = "install the bridge-watchdog service"
+	removeD  = "remove the bridge-watchdog service"
+	startD   = "start the bridge-watchdog service"
+	stopD    = "stop the bridge-watchdog service"
+	statusD  = "check status of the bridge-watchdog service"
 	mCmd     = "monitor"
 	mFlag    = "bnbPath"
 	mDescr   = "path to bnbcli binary [required]"
