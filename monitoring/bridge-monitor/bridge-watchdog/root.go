@@ -42,8 +42,8 @@ var (
 	}
 	w      *cobraSrvWrapper = &cobraSrvWrapper{nil}
 	bnbcliPath string
-	stdlog *log.Logger
-	errlog *log.Logger
+	stdLog *log.Logger
+	errLog *log.Logger
 	// Add services here that we might want to depend on, see all services on
 	// the machine with systemctl list-unit-files
 	dependencies    = []string{}
@@ -99,8 +99,9 @@ func (service *Service) monitorNetwork() error {
 						BNB CLI fetch failed. Exiting. %s
 						`, oops))
 				if e != nil {
-					stdlog.Println(e)
+					errLog.Println(e)
 				}
+				errLog.Println(oops)
 				os.Exit(-1)
 			}
 
@@ -113,9 +114,10 @@ func (service *Service) monitorNetwork() error {
 							EtherScan balance fetch failed for 1 hour. Exiting. Error: %s
 							`, err))
 					if e != nil {
-						stdlog.Println(e)
+						errLog.Println(e)
 					}
 					// If failing for 1 hour, exit
+					errLog.Println(err)
 					os.Exit(-1)
 				}
 				tryAgainCounter = 10
@@ -129,8 +131,9 @@ func (service *Service) monitorNetwork() error {
 							EtherScan balance fetch failed for 1 hour. Exiting. Error: %s
 							`, error))
 					if e != nil {
-						stdlog.Println(e)
+						errLog.Println(e)
 					}
+					errLog.Println(error)
 					os.Exit(-1)
 				}
 				tryAgainCounter = 10
@@ -143,7 +146,7 @@ func (service *Service) monitorNetwork() error {
 			totalBalance := normed.Add(ethSiteBal)
 			diff := totalBalance.Sub(expectedBalance).Abs()
 			if reportCounter > 30 {
-				stdlog.Printf(`
+				stdLog.Printf(`
 Expected Balance: %s
 
 Calculated Balance: %s = (%s / %s) + %s
@@ -169,7 +172,7 @@ Deviation: %s
 						Deviation: %s
 						`, normed, ethSiteBal, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff))
 					if e != nil {
-						stdlog.Println(e)
+						stdLog.Println(e)
 					}
 			}
 		}
@@ -181,8 +184,8 @@ Deviation: %s
 	for {
 		select {
 		case killSignal := <-interrupt:
-			stdlog.Println("Got signal:", killSignal)
-			stdlog.Println("Stoping listening on ", listener.Addr())
+			stdLog.Println("Got signal:", killSignal)
+			stdLog.Println("Stoping listening on ", listener.Addr())
 			listener.Close()
 			if killSignal == os.Interrupt {
 				return errSysIntrpt
@@ -298,8 +301,8 @@ func pullEtherScan(data string) (Dec, error) {
 }
 
 func init() {
-	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
+	stdLog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	errLog = log.New(os.Stderr, "", log.Ldate|log.Ltime)
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Show version",
