@@ -24,7 +24,7 @@ import (
 
 const (
 	nameFMT      = "bridge-watchd"
-	description  = "Monitor something -- `%i`"
+	description  = "Monitor bridge discrepencies"
 	spaceSep     = " "
 	pdServiceKey = "bc654ea11237451f86714192f692ffe1"
 )
@@ -79,8 +79,11 @@ func (service *Service) monitorNetwork() error {
 		base := NewDecFromBigInt(big.NewInt(100000000))
 		tryAgainCounter := 0
 		etherFailCounter := 0
+		reportCounter := 0
 
 		for range time.Tick(time.Duration(60) * time.Second) {
+			// Track 30 minutes regardless of success
+			reportCounter++
 			// If EtherSite fetch fail, wait 10 iterations
 			if tryAgainCounter > 0 {
 				tryAgainCounter--
@@ -139,6 +142,16 @@ func (service *Service) monitorNetwork() error {
 
 			totalBalance := normed.Add(ethSiteBal)
 			diff := totalBalance.Sub(expectedBalance).Abs()
+			if reportCounter > 30 {
+				stdlog.Printf(`
+Expected Balance: %s
+
+Calculated Balance: %s = (%s / %s) + %s
+
+Deviation: %s
+						`, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff)
+				reportCounter = 0
+			}
 			// Check if below threshold
 			if expectedBalance.Sub(diff).LT(thresholdBalance) {
 			 	// Send PagerDuty message
