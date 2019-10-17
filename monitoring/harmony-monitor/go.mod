@@ -1,4 +1,4 @@
-module bridge-watchdog
+module blockchain-watchdog
 
 go 1.12
 
