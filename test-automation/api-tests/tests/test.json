@@ -1,0 +1,1824 @@
+{
+	"info": {
+		"_postman_id": "7232849f-cafd-4385-96b5-67513f9e37d3",
+		"name": "Harmony API Testnet (Env Vars)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "hmy_sendRawTransaction",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "10201ab5-3efc-4c63-aae3-2f6c29f5b7cb",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect(pm.response.json()).to.include.keys(\"result\");",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"pm.environment.set('txHash', pm.response.json().result)",
+							"// pm.environment.set('txHash', '0x5388c4eba87bd1c3ae20595052505bb9637a76cb7414f4fac4cae039dbf55665')"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_sendRawTransaction\",\"params\":[\"{{rawTransaction}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getTransactionByHash",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "2b78a9f1-529e-4fa7-8f27-b3779623d7ec",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"pm.environment.set('blockHash', pm.response.json().result.blockHash)",
+							"pm.environment.set('blockNumber', pm.response.json().result.blockNumber)",
+							"pm.environment.set('accountAddress', pm.response.json().result.from)",
+							"pm.environment.set('txIndex', pm.response.json().result.transactionIndex)"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "5e14a9d3-0fc3-49d7-9fac-2d3aaeea745b",
+						"exec": [
+							"console.log(\"Sleeping 25 seconds for finality...\")",
+							"setTimeout(function(){}, [25000]); // Timeout for txn"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getTransactionByHash\",\"params\":[\"{{txHash}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getCXReceiptByHash",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "2b78a9f1-529e-4fa7-8f27-b3779623d7ec",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"// pm.environment.set('blockHash', pm.response.json().result.blockHash)",
+							"// pm.environment.set('blockNumber', pm.response.json().result.blockNumber)",
+							"// pm.environment.set('accountAddress', pm.response.json().result.from)",
+							"// pm.environment.set('txIndex', pm.response.json().result.transactionIndex)"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getCXReceiptByHash\",\"params\":[\"{{txHash}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_resendCx",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "2b78a9f1-529e-4fa7-8f27-b3779623d7ec",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"// pm.environment.set('blockHash', pm.response.json().result.blockHash)",
+							"// pm.environment.set('blockNumber', pm.response.json().result.blockNumber)",
+							"// pm.environment.set('accountAddress', pm.response.json().result.from)",
+							"// pm.environment.set('txIndex', pm.response.json().result.transactionIndex)"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getCXReceiptByHash\",\"params\":[\"{{txHash}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getTransactionCount",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "c6fa71f1-22cc-411f-bc99-d130ecb02fc9",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getTransactionCount\",\n    \"params\": [\n        \"{{accountAddress}}\",\n        \"latest\"\n    ],\n    \"id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getBlockByHash",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "1a6a3c57-d830-4ed1-a158-f0d92364f44b",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"pm.environment.set('getBlockByHash_number', pm.response.json().result.number)"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getBlockByHash\",\n    \"params\": [\n        \"{{blockHash}}\",\n        true\n    ],\n    \"id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getBlockByNumber",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "bd6e61c0-c31e-4385-b7f9-c1f91bab7ae3",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"pm.test(\"hash in response should match blockHash of transaction block.\", () => {",
+							"    pm.expect(pm.response.json().result.hash).to.equal(pm.environment.get('blockHash'))",
+							"})",
+							"",
+							"pm.test(\"number in response should match number reported by getBlockByHash.\", () => {",
+							"    pm.expect(pm.response.json().result.number).to.equal(pm.environment.get('getBlockByHash_number'))",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getBlockByNumber\",\"params\":[\"{{blockNumber}}\", true],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getBlockTransactionCountByHash",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "eb2cfbe7-818c-4d0f-9de2-9d4e54f8dfa6",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"pm.environment.set('blockTxCount', pm.response.json().result)"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getBlockTransactionCountByHash\",\"params\":[\"{{blockHash}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getBlockTransactionCountByNumber",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "5fc53793-5b3c-4153-9767-85a5b5f718fd",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"pm.test(\"Transaction count in result should match transaction count from result of getBlockTransactionCountByHash\", () => {",
+							"    pm.expect(pm.response.json().result).to.equal(pm.environment.get('blockTxCount'))",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getBlockTransactionCountByNumber\",\"params\":[\"{{blockNumber}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getTransactionReceipt",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "00d0a706-32fe-4d7d-ad8a-2fb974e5c366",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect(pm.response.json()).to.include.keys('result');",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"pm.test(\"blockHash, blockNumber, transactionHash, and transactionIndex should match with previously saved values.\", () => {",
+							"    const { result } = pm.response.json();",
+							"    pm.expect(result.blockHash).to.equal(pm.environment.get('blockHash'))",
+							"    pm.expect(result.blockNumber).to.equal(pm.environment.get('blockNumber'))",
+							"    pm.expect(result.transactionHash).to.equal(pm.environment.get('txHash'))",
+							"    pm.expect(result.transactionIndex).to.equal(pm.environment.get('txIndex'))",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getTransactionReceipt\",\"params\":[\"{{txHash}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getBalance",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "51496b00-13ba-4755-9c35-1eda4a4b246b",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getBalance\",\n    \"params\": [\n        \"{{accountAddress}}\",\n        \"latest\"\n    ],\n    \"id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getShardingStructure",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "9747b462-a223-43fa-8af2-2e6254c074f0",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getShardingStructure\",\n    \"params\": [\n        \n    ],\n    \"id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getCode",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "3ca04b20-bcb9-41c1-a6a9-1e0f0519273f",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getCode\",\n    \"params\": [\n        \"0x8d0c56C099f2816B6534eB1d74543846EC558357\",\n        \"latest\"\t\n    ],\n    \"id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getTransactionByBlockHashAndIndex",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "e8d7ad55-4751-492b-bfd8-e5f9513fc4ee",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getTransactionByBlockHashAndIndex\",\"params\":[\"{{blockHash}}\", \"{{txIndex}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getTransactionByBlockNumberAndIndex",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "f2ea42cd-12fb-4d87-ad44-bb9efa041cf4",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getTransactionByBlockNumberAndIndex\",\"params\":[\"{{blockNumber}}\", \"{{txIndex}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_syncing",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "bbdda581-a7db-404e-a6f3-f7be446f7163",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_syncing\",\n    \"params\": [],\n    \"id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "net_peerCount",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "4aa2f594-bd6b-4272-9e29-ea571af47cce",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"net_peerCount\",\"params\":[],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getStorageAt",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "1e62916b-d080-47cc-b079-eb95bade68e5",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getStorageAt\",\"params\":[\"0x5d1bc8af89a892ec62ca124a4acb535fa67e4c24255269c929d9ac5c91bc2fee\", \"0\", \"latest\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getLogs",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "fba877eb-3211-4d9a-8dfc-ffe7758a6608",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getLogs\",\n    \"params\": [\n        {\n            \"BlockHash\": \"{{blockHash}}\"\n        }\n    ],\n    \"id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getFilterChanges",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "575e2f28-879c-4c5c-a110-d9f0c6afb501",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_getFilterChanges\", \"params\":[\"0xc480530dc87c1f95489606741dbc7bcc\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_newPendingTransactionFilter",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "aa303577-ca59-4276-b092-228454c42224",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_newPendingTransactionFilter\", \"params\":[],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_newBlockFilter",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "f2228ad0-6de6-4c6b-8041-31f2ff3ed6e9",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_newBlockFilter\", \"params\":[],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_newFilter",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "6243d270-584d-4d84-94ce-8388b2fffcef",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_newFilter\", \"params\":[{\"BlockHash\": \"0xb855a4a02ae5c658baaa1bb31da4eb5963659545d4604d5285cb6965c9137a4f\"}],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_call",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "fe299cce-6b5e-4a80-bd85-96fa0aa3cb93",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_call\", \"params\":[{\"to\": \"0x08AE1abFE01aEA60a47663bCe0794eCCD5763c19\"}, \"latest\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_gasPrice",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "c39809fc-8e8b-41e5-87df-ac2701a30ff8",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_gasPrice\",\"params\":[],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_blockNumber",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "b8922647-9b29-4f56-bece-125c08c945c8",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_blockNumber\",\"params\":[],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "net_version",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "0f5ad96b-4f12-43c3-a39c-2ae66edc5f41",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"net_version\",\"params\":[],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_protocolVersion",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "2c1b872f-d20c-4c99-a9b0-e8fc3b3b6b3f",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_protocolVersion\",\n    \"params\": [],\n    \"id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint}}",
+					"host": [
+						"{{hmy_endpoint}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "blocks_beta",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "88a84d0c-ad3b-47b2-a361-229ea7531e67",
+						"exec": [
+							"console.log(\"Request URL\")",
+							"console.log(pm.request.url)",
+							"console.log()",
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not be an empty array.\", () => {",
+							"    pm.expect(pm.response.json().length).not.equal(0)",
+							"})",
+							"",
+							"pm.test('Response array length should be the difference of the search bounds plus one.', () => {",
+							"    pm.expect(pm.response.json().length).to.equal(",
+							"        pm.request.url.query.get('to') - pm.request.url.query.get('from') + 1);",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{hmy_exp_endpoint}}blocks?from=0&to=4",
+					"host": [
+						"{{hmy_exp_endpoint}}blocks"
+					],
+					"query": [
+						{
+							"key": "from",
+							"value": "0"
+						},
+						{
+							"key": "to",
+							"value": "4"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "tx_beta",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "d39f38f5-b514-4455-856b-fed5041be377",
+						"exec": [
+							"console.log(\"Request URL\")",
+							"console.log(pm.request.url)",
+							"console.log()",
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test('Response ID should not be empty.', () => {",
+							"    pm.expect(pm.response.json().id).not.equal('')",
+							"})",
+							"",
+							"pm.test('Response ID should match ID specified in the URL', () => {",
+							"    pm.expect(pm.request.url.query.get('id')).to.equal(pm.response.json().id)",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{hmy_exp_endpoint}}tx?id={{txHash}}",
+					"host": [
+						"{{hmy_exp_endpoint}}tx"
+					],
+					"query": [
+						{
+							"key": "id",
+							"value": "{{txHash}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "address_beta",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "2ee6a018-b1c2-43aa-b7c1-56b39dd42854",
+						"exec": [
+							"console.log(\"Request URL\")",
+							"console.log(pm.request.url)",
+							"console.log()",
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test('Transactions array should be not null.', () => {",
+							"    pm.expect(pm.response.json().txs).not.equal(null)",
+							"})",
+							"",
+							"pm.test('Length of transactions array should match offset parameter in url.', () => {",
+							"    pm.expect(pm.response.json().txs.length).to.equal(",
+							"        parseInt(pm.request.url.query.get('offset')))",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{hmy_exp_endpoint}}address?id=one18t4yj4fuutj83uwqckkvxp9gfa0568uc48ggj7&tx_view=ALL&offset=5&page=2",
+					"host": [
+						"{{hmy_exp_endpoint}}address"
+					],
+					"query": [
+						{
+							"key": "id",
+							"value": "one18t4yj4fuutj83uwqckkvxp9gfa0568uc48ggj7"
+						},
+						{
+							"key": "tx_view",
+							"value": "ALL"
+						},
+						{
+							"key": "offset",
+							"value": "5"
+						},
+						{
+							"key": "page",
+							"value": "2"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "shard_beta",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "291d0466-b106-4260-a9b3-abc78d78afea",
+						"exec": [
+							"console.log(\"Request URL\")",
+							"console.log(pm.request.url)",
+							"console.log()",
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test('Nodes array should not be empty', () => {",
+							"    pm.expect(pm.response.json().nodes.length).not.equal(0)",
+							"})"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{hmy_exp_endpoint}}shard",
+					"host": [
+						"{{hmy_exp_endpoint}}shard"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "node-count_beta",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "4bcf610f-c92d-49f9-ab85-ce099a06af21",
+						"exec": [
+							"console.log(\"Request URL\")",
+							"console.log(pm.request.url)",
+							"console.log()",
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{hmy_exp_endpoint}}node-count",
+					"host": [
+						"{{hmy_exp_endpoint}}node-count"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "committee_beta",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "8ef0dce3-f9fa-4d34-8e6c-91f33c88b945",
+						"exec": [
+							"console.log(\"Request URL\")",
+							"console.log(pm.request.url)",
+							"console.log()",
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test('Validators array should not be null.', () => {",
+							"    pm.expect(pm.response.json().validators.length).not.equal(0)",
+							"})",
+							"",
+							"tests[\"Response should not be empty\"] = (responseBody.length !== 0)"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{hmy_exp_endpoint}}committee?shard_id=0&epoch=0",
+					"host": [
+						"{{hmy_exp_endpoint}}committee"
+					],
+					"query": [
+						{
+							"key": "shard_id",
+							"value": "0"
+						},
+						{
+							"key": "epoch",
+							"value": "0"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

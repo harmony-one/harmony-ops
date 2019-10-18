@@ -1,8 +1,6 @@
 _book
 .DS_Store
-docs/.DS_Store
-docs/img/.DS_Store
-harmony-watchdog
-monitor-testnet.yaml
-distribution_config.txt
-raw_ip.txt
+blockchain-watchd
+*.yaml
+bnbcli
+bridge-watchd

@@ -6,8 +6,8 @@ built_by := ${USER}@harmony.one
 flags := -gcflags="all=-N -l -c 2"
 ldflags := -X main.version=v${version} -X main.commit=${commit}
 ldflags += -X main.builtAt=${built_at} -X main.builtBy=${built_by}
-watchdog := harmony-watchdog
-watchdog_src := $(wildcard harmony-monitor/node-metadata-watcher/*.go)
+watchdog := blockchain-watchd
+watchdog_src := $(wildcard blockchain-watchdog/*.go)
 
 env := GO111MODULE=on
 
