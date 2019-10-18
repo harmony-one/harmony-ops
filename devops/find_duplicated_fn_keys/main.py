@@ -34,14 +34,15 @@ def tail(file, num_lines=num_lines):
         content = f.read().splitlines()
 
     count = len(content)
+    # '-1' is used to exclude the last line which is an ending '}'
     for i in range(count-int(num_lines)-1, count-1):
         array_epoch_string.append(re.sub(r'\t', '', content[i]))
 
 
 def generate_address_bls_array(array_epoch):
-    for i in range(len(array_epoch)):
-        array_addr.append(array_epoch[i].split("\"")[3])
-        array_bls.append(array_epoch[i].split("\"")[5])
+    for line in array_epoch:
+        array_addr.append(line.split("\"")[3])
+        array_bls.append(line.split("\"")[5])
 
 def find_dup(array_test):
     seen_address = set()
