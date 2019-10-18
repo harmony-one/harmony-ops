@@ -90,6 +90,7 @@ func blockHeaderSummary(
 	headers []headerInfoRPCResult,
 	includeRecords, includeTS bool,
 	sum map[string]interface{},
+	leaders []string,
 ) {
 	linq.From(headers).GroupBy(
 		// Group by ShardID
@@ -103,6 +104,15 @@ func blockHeaderSummary(
 		epoch := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
 			return c.(headerInfoRPCResult).Payload.Epoch
 		})
+		shardLeader := ""
+		ip := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
+			return c.(headerInfoRPCResult).IP
+		})
+		for _, v := range leaders {
+			if ip.Contains(v) {
+				shardLeader = v
+			}
+		}
 		uniqEpochs := []uint64{}
 		uniqBlockNums := []uint64{}
 		epoch.Distinct().ToSlice(&uniqEpochs)
@@ -114,6 +124,7 @@ func blockHeaderSummary(
 			"epoch-max":   epoch.Max(),
 			"uniq-epochs": uniqEpochs,
 			"uniq-blocks": uniqBlockNums,
+			"leader":			 shardLeader,
 		}
 		if includeRecords {
 			sum[shardID].(any)["records"] = value.(linq.Group).Group
@@ -139,13 +150,20 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 			headers[i].Payload.LastCommitSig = shorted
 		}
 	}
+
 	linq.From(metas).GroupByT(
 		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) }, identity,
 	).ForEach(func(value interface{}) {
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
 	})
-	blockHeaderSummary(headers, true, false, sum[headerSumry])
+	var leaders []string
+	linq.From(metas).WhereT(func (n metadataRPCResult) bool {
+			return n.Payload.IsLeader
+	}).SelectT(func (n metadataRPCResult) string {
+			return n.IP
+	}).ToSlice(&leaders)
+	blockHeaderSummary(headers, true, false, sum[headerSumry], leaders)
 	return sum
 }
 
@@ -171,19 +189,6 @@ func request(node, rpcMethod string, requestBody []byte) ([]byte, []byte, error)
 	fasthttp.ReleaseResponse(res)
 	return result, nil, nil
 }
-
-// TODO Make this be separate template parsed, not sure how to get it right
-const shardJumpRow = `
-{{define "shard-jump-row"}}
-<div>
-  {{ with (index .Summary "block-header") }}
-  {{range $key, $value := .}}
-    <a href=shard-{{$key}}> {{$key}} </a>
-  {{end}}
-  {{end}}
-</div>
-{{end}}
-`
 
 func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	t, e := template.New("report").Parse(reportPage())
@@ -375,12 +380,12 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 		currentSummary := any{}
 		m.lock.Lock()
 		m.cond.Wait()
-		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, previousSummary)
+		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, previousSummary, []string{})
 		m.lock.Unlock()
 		for range time.Tick(time.Duration(interval) * time.Second) {
 			m.lock.Lock()
 			m.cond.Wait()
-			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary)
+			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary, []string{})
 			m.lock.Unlock()
 			for shard, currentDetails := range currentSummary {
 				sName := fmt.Sprintf("shard-%s", shard)
