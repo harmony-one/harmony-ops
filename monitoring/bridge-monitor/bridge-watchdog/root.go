@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"bytes"
 	"fmt"
 	"log"
@@ -20,6 +19,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -80,6 +80,7 @@ func (service *Service) monitorNetwork() error {
 		tryAgainCounter := 0
 		etherFailCounter := 0
 		reportCounter := 0
+		wifiDowntime := time.Time{}
 
 		for range time.Tick(time.Duration(60) * time.Second) {
 			// Track 30 minutes regardless of success
@@ -89,6 +90,23 @@ func (service *Service) monitorNetwork() error {
 				tryAgainCounter--
 				if tryAgainCounter > 0 {
 					continue
+				}
+			}
+			// Check wifi by pinging Google DNS
+			client := http.Client{
+				Timeout: 5 * time.Second,
+			}
+			_, err := client.Get("https://8.8.8.8")
+			if err != nil {
+				errLog.Println("Google request failed.")
+				wifiDowntime = time.Now()
+				tryAgainCounter = 10
+				continue
+			} else {
+				// Skip until wifi actually goes down once
+				if !wifiDowntime.IsZero() {
+					errLog.Printf("Google request success. Total time down: %s\n", time.Now().Sub(wifiDowntime))
+					wifiDowntime = time.Time{}
 				}
 			}
 			// Calculate balance
@@ -224,10 +242,10 @@ func pullBNB() (Dec, error) {
 	}...)
 
 	cmd.Dir = here
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 
 	if err != nil {
-		return ZeroDec(), err
+		return ZeroDec(), errors.Wrapf(err, "raw output: %s", out)
 	}
 
 	type t struct {
