@@ -96,9 +96,9 @@ hr:after {
           <div class="flex-col center stat-box">
             <a href="#shard-{{$key}}">Shard-{{$key}}</a>
             <p>count:{{ len (index $value "records") }}</p>
-						<p>max block: {{index $value "block-max"}}</p>
+            <p>max block: {{index $value "block-max"}}</p>
             <p>max epoch: {{index $value "epoch-max"}}</p>
-						<p>leader: {{index $value "leader"}}</p>
+            <p>leader: {{index $value "leader"}}</p>
           </div>
         {{end}}
         {{end}}
