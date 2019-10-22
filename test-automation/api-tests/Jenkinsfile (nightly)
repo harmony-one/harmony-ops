@@ -1,0 +1,81 @@
+def src_harmony_ops = 'src/github.com/harmony-one/harmony-ops'
+def src_harmony = 'src/github.com/harmony-one/harmony'
+def src_mcl = 'src/github.com/harmony-one/mcl'
+def src_bls = 'src/github.com/harmony-one/bls'
+def src_cli = 'src/github.com/harmony-one/go-sdk'
+
+def build_webhookURL = 'https://discordapp.com/api/webhooks/568130604823085071/fJTFA9C7YNEkcsr-scZL9Q3xByqzfRxQj31klmP7nGU7Aa-4hIFlpg1l6vKg0oGzZOVM'
+
+node {
+  try {
+    stage('clean') {
+      if (params.CLEAN){
+        cleanWs()
+      }
+    }
+    docker.image('danielharmony/hmy-reg-test').inside('-u root:sudo -e "GOPATH=${WORKSPACE}" -e "XDG_CACHE_HOME="/tmp/.cache"') {
+      stage('checkout') {
+        dir (src_harmony) {
+          git branch:"${params.HARMONY_BRANCH}", url:'https://github.com/harmony-one/harmony'
+        }
+        dir(src_mcl) {
+          git url:'https://github.com/harmony-one/mcl'
+        }
+        dir(src_bls) {
+          git url:'https://github.com/harmony-one/bls'
+        }
+        dir(src_cli){
+          git branch:"${params.CLI_BRANCH}", url:"https://github.com/harmony-one/go-sdk"
+        }
+        dir (src_harmony_ops) {
+          git branch:"${params.OPS_BRANCH}", url:'https://github.com/harmony-one/harmony-ops'
+        } 
+      }
+      stage('build_latest_cli') {
+        dir(src_harmony) {
+          sh "make libs"
+        }
+        dir(src_cli) {
+          sh "make"
+          sh "cp hmy ${WORKSPACE}/" + src_harmony_ops + "/test-automation/api-tests/hmy" 
+        }
+      }
+      stage('regression_test_s0_to_s1') {
+        dir(src_harmony_ops + "/test-automation/api-tests"){
+          sh "python3 test.py --test_dir=./tests/no-explorer/ --iterations=" + params.ITERATIONS + " --rpc_endpoint_src=https://api.s0.b.hmny.io/ --rpc_endpoint_dst=https://api.s1.b.hmny.io/ --delay=" + params.CX_DELAY
+        }
+      }
+      stage('regression_test_s1_to_s0') {
+        dir(src_harmony_ops + "/test-automation/api-tests"){
+          sh "python3 test.py --test_dir=./tests/no-explorer/ --iterations=" + params.ITERATIONS + "  --rpc_endpoint_src=https://api.s1.b.hmny.io/ --rpc_endpoint_dst=https://api.s0.b.hmny.io/ --delay=" + params.CX_DELAY
+        }
+      }
+      stage('regression_test_explorer') {
+        dir(src_harmony_ops + "/test-automation/api-tests"){
+          sh "python3 test.py --test_dir=./tests/only-explorer/ --iterations=" + params.ITERATIONS + "  --delay=" + params.CX_DELAY
+        }
+      }
+    }
+  }
+  catch (exc) {
+    currentBuild.result = 'FAILURE'
+  }
+  finally {
+    stage('notify') {
+      def description = ''
+      description += "**Harmony-Ops Branch:** ${params.OPS_BRANCH}\n"
+      description += "**Job:** ${env.JOB_URL}\n"
+      description += "**Status:** ${currentBuild.currentResult}\n"
+
+      def title = "Testnet API regression tests (nightly)"
+
+      discordSend (
+        webhookURL: build_webhookURL,
+        title: title,
+        description: description,
+        result: currentBuild.currentResult,
+        successful: currentBuild.resultIsBetterOrEqualTo('SUCCESS'),
+      )
+    }
+  }
+}

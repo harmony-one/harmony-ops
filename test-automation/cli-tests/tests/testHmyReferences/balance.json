@@ -1,0 +1,8 @@
+{
+    "key": "one103q7qe5t2505lypvltkqtddaef5tzfxwsse4z7",
+    "note": "Validator for shard 0 on localnet",
+    "min_balance": {
+        "shard_0" : 1,
+        "shard_1" : 0
+    }
+}

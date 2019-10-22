@@ -62,7 +62,7 @@ class HmyCLI:
         """
         response = self.single_call("hmy keys location").strip()
         if not os.path.exists(response):
-            raise ValueError(f"'{response}' is not a valid path")
+            os.mkdir(response)
         self.keystore_path = response
 
     def _sync_addresses(self) -> None:
