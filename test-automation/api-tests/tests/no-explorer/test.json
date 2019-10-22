@@ -1,7 +1,7 @@
 {
 	"info": {
-		"_postman_id": "7232849f-cafd-4385-96b5-67513f9e37d3",
-		"name": "Harmony API Testnet (Env Vars)",
+		"_postman_id": "116e194c-e7f9-420e-bd45-1d172a214c18",
+		"name": "Harmony API Tests - no-explorer (Env Vars)",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -50,9 +50,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_sendRawTransaction\",\"params\":[\"{{rawTransaction}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -94,8 +94,9 @@
 					"script": {
 						"id": "5e14a9d3-0fc3-49d7-9fac-2d3aaeea745b",
 						"exec": [
-							"console.log(\"Sleeping 25 seconds for finality...\")",
-							"setTimeout(function(){}, [25000]); // Timeout for txn"
+							"let delay = pm.variables.get(\"txn_delay\")",
+							"console.log(\"Sleeping \" + delay + \" seconds for cross-shard transaction finality...\")",
+							"setTimeout(function(){}, [delay * 1000]); // Timeout for txn"
 						],
 						"type": "text/javascript"
 					}
@@ -107,8 +108,8 @@
 					{
 						"key": "Content-Type",
 						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
+						"type": "text",
+						"value": "application/json"
 					}
 				],
 				"body": {
@@ -116,9 +117,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getTransactionByHash\",\"params\":[\"{{txHash}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -145,12 +146,7 @@
 							"pm.test(\"Response should have non-null result field.\", () => {",
 							"    pm.expect('result' in pm.response.json()).to.equal(true);",
 							"    pm.expect(pm.response.json().result).not.equal(null);",
-							"})",
-							"",
-							"// pm.environment.set('blockHash', pm.response.json().result.blockHash)",
-							"// pm.environment.set('blockNumber', pm.response.json().result.blockNumber)",
-							"// pm.environment.set('accountAddress', pm.response.json().result.from)",
-							"// pm.environment.set('txIndex', pm.response.json().result.transactionIndex)"
+							"})"
 						],
 						"type": "text/javascript"
 					}
@@ -171,9 +167,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getCXReceiptByHash\",\"params\":[\"{{txHash}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_dst}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_dst}}"
 					]
 				}
 			},
@@ -226,9 +222,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getCXReceiptByHash\",\"params\":[\"{{txHash}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_dst}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_dst}}"
 					]
 				}
 			},
@@ -276,9 +272,9 @@
 					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getTransactionCount\",\n    \"params\": [\n        \"{{accountAddress}}\",\n        \"latest\"\n    ],\n    \"id\": 1\n}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -328,9 +324,9 @@
 					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getBlockByHash\",\n    \"params\": [\n        \"{{blockHash}}\",\n        true\n    ],\n    \"id\": 1\n}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -386,9 +382,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getBlockByNumber\",\"params\":[\"{{blockNumber}}\", true],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -438,9 +434,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getBlockTransactionCountByHash\",\"params\":[\"{{blockHash}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -492,9 +488,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getBlockTransactionCountByNumber\",\"params\":[\"{{blockNumber}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -550,9 +546,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getTransactionReceipt\",\"params\":[\"{{txHash}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -600,9 +596,9 @@
 					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getBalance\",\n    \"params\": [\n        \"{{accountAddress}}\",\n        \"latest\"\n    ],\n    \"id\": 1\n}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -650,9 +646,9 @@
 					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getShardingStructure\",\n    \"params\": [\n        \n    ],\n    \"id\": 1\n}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -700,9 +696,9 @@
 					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getCode\",\n    \"params\": [\n        \"0x8d0c56C099f2816B6534eB1d74543846EC558357\",\n        \"latest\"\t\n    ],\n    \"id\": 1\n}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -750,9 +746,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getTransactionByBlockHashAndIndex\",\"params\":[\"{{blockHash}}\", \"{{txIndex}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -800,9 +796,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getTransactionByBlockNumberAndIndex\",\"params\":[\"{{blockNumber}}\", \"{{txIndex}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -850,9 +846,9 @@
 					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_syncing\",\n    \"params\": [],\n    \"id\": 1\n}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -900,9 +896,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"net_peerCount\",\"params\":[],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -950,9 +946,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getStorageAt\",\"params\":[\"0x5d1bc8af89a892ec62ca124a4acb535fa67e4c24255269c929d9ac5c91bc2fee\", \"0\", \"latest\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -972,14 +968,16 @@
 							"console.log(\"Response\")",
 							"console.log(pm.response.json())",
 							"",
-							"pm.test(\"Response should not contain errors.\", () => {",
-							"    pm.expect('error' in pm.response.json()).to.equal(false);",
-							"})",
+							"// Ignoring This test",
 							"",
-							"pm.test(\"Response should have non-null result field.\", () => {",
-							"    pm.expect('result' in pm.response.json()).to.equal(true);",
-							"    pm.expect(pm.response.json().result).not.equal(null);",
-							"})"
+							"// pm.test(\"Response should not contain errors.\", () => {",
+							"//     pm.expect('error' in pm.response.json()).to.equal(false);",
+							"// })",
+							"",
+							"// pm.test(\"Response should have non-null result field.\", () => {",
+							"//     pm.expect('result' in pm.response.json()).to.equal(true);",
+							"//     pm.expect(pm.response.json().result).not.equal(null);",
+							"// })"
 						],
 						"type": "text/javascript"
 					}
@@ -1000,9 +998,9 @@
 					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getLogs\",\n    \"params\": [\n        {\n            \"BlockHash\": \"{{blockHash}}\"\n        }\n    ],\n    \"id\": 1\n}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -1022,14 +1020,16 @@
 							"console.log(\"Response\")",
 							"console.log(pm.response.json())",
 							"",
-							"pm.test(\"Response should not contain errors.\", () => {",
-							"    pm.expect('error' in pm.response.json()).to.equal(false);",
-							"})",
+							"// Ignoring this test",
 							"",
-							"pm.test(\"Response should have non-null result field.\", () => {",
-							"    pm.expect('result' in pm.response.json()).to.equal(true);",
-							"    pm.expect(pm.response.json().result).not.equal(null);",
-							"})"
+							"// pm.test(\"Response should not contain errors.\", () => {",
+							"//     pm.expect('error' in pm.response.json()).to.equal(false);",
+							"// })",
+							"",
+							"// pm.test(\"Response should have non-null result field.\", () => {",
+							"//     pm.expect('result' in pm.response.json()).to.equal(true);",
+							"//     pm.expect(pm.response.json().result).not.equal(null);",
+							"// })"
 						],
 						"type": "text/javascript"
 					}
@@ -1050,9 +1050,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_getFilterChanges\", \"params\":[\"0xc480530dc87c1f95489606741dbc7bcc\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -1100,9 +1100,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_newPendingTransactionFilter\", \"params\":[],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -1150,9 +1150,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_newBlockFilter\", \"params\":[],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -1200,9 +1200,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_newFilter\", \"params\":[{\"BlockHash\": \"0xb855a4a02ae5c658baaa1bb31da4eb5963659545d4604d5285cb6965c9137a4f\"}],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -1250,9 +1250,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_call\", \"params\":[{\"to\": \"0x08AE1abFE01aEA60a47663bCe0794eCCD5763c19\"}, \"latest\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -1300,9 +1300,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_gasPrice\",\"params\":[],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -1350,9 +1350,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_blockNumber\",\"params\":[],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -1400,9 +1400,9 @@
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"net_version\",\"params\":[],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
@@ -1450,375 +1450,36 @@
 					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_protocolVersion\",\n    \"params\": [],\n    \"id\": 1\n}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint}}"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "blocks_beta",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"id": "88a84d0c-ad3b-47b2-a361-229ea7531e67",
-						"exec": [
-							"console.log(\"Request URL\")",
-							"console.log(pm.request.url)",
-							"console.log()",
-							"console.log(\"Request Body\")",
-							"console.log(pm.request.body.raw)",
-							"console.log()",
-							"console.log(\"Response\")",
-							"console.log(pm.response.json())",
-							"",
-							"pm.test(\"Response should not be an empty array.\", () => {",
-							"    pm.expect(pm.response.json().length).not.equal(0)",
-							"})",
-							"",
-							"pm.test('Response array length should be the difference of the search bounds plus one.', () => {",
-							"    pm.expect(pm.response.json().length).to.equal(",
-							"        pm.request.url.query.get('to') - pm.request.url.query.get('from') + 1);",
-							"})"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Content-Type",
-						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
-				"url": {
-					"raw": "{{hmy_exp_endpoint}}blocks?from=0&to=4",
-					"host": [
-						"{{hmy_exp_endpoint}}blocks"
-					],
-					"query": [
-						{
-							"key": "from",
-							"value": "0"
-						},
-						{
-							"key": "to",
-							"value": "4"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "tx_beta",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"id": "d39f38f5-b514-4455-856b-fed5041be377",
-						"exec": [
-							"console.log(\"Request URL\")",
-							"console.log(pm.request.url)",
-							"console.log()",
-							"console.log(\"Request Body\")",
-							"console.log(pm.request.body.raw)",
-							"console.log()",
-							"console.log(\"Response\")",
-							"console.log(pm.response.json())",
-							"",
-							"pm.test('Response ID should not be empty.', () => {",
-							"    pm.expect(pm.response.json().id).not.equal('')",
-							"})",
-							"",
-							"pm.test('Response ID should match ID specified in the URL', () => {",
-							"    pm.expect(pm.request.url.query.get('id')).to.equal(pm.response.json().id)",
-							"})"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Content-Type",
-						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
-				"url": {
-					"raw": "{{hmy_exp_endpoint}}tx?id={{txHash}}",
-					"host": [
-						"{{hmy_exp_endpoint}}tx"
-					],
-					"query": [
-						{
-							"key": "id",
-							"value": "{{txHash}}"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "address_beta",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"id": "2ee6a018-b1c2-43aa-b7c1-56b39dd42854",
-						"exec": [
-							"console.log(\"Request URL\")",
-							"console.log(pm.request.url)",
-							"console.log()",
-							"console.log(\"Request Body\")",
-							"console.log(pm.request.body.raw)",
-							"console.log()",
-							"console.log(\"Response\")",
-							"console.log(pm.response.json())",
-							"",
-							"pm.test('Transactions array should be not null.', () => {",
-							"    pm.expect(pm.response.json().txs).not.equal(null)",
-							"})",
-							"",
-							"pm.test('Length of transactions array should match offset parameter in url.', () => {",
-							"    pm.expect(pm.response.json().txs.length).to.equal(",
-							"        parseInt(pm.request.url.query.get('offset')))",
-							"})"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Content-Type",
-						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
-				"url": {
-					"raw": "{{hmy_exp_endpoint}}address?id=one18t4yj4fuutj83uwqckkvxp9gfa0568uc48ggj7&tx_view=ALL&offset=5&page=2",
-					"host": [
-						"{{hmy_exp_endpoint}}address"
-					],
-					"query": [
-						{
-							"key": "id",
-							"value": "one18t4yj4fuutj83uwqckkvxp9gfa0568uc48ggj7"
-						},
-						{
-							"key": "tx_view",
-							"value": "ALL"
-						},
-						{
-							"key": "offset",
-							"value": "5"
-						},
-						{
-							"key": "page",
-							"value": "2"
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "shard_beta",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"id": "291d0466-b106-4260-a9b3-abc78d78afea",
-						"exec": [
-							"console.log(\"Request URL\")",
-							"console.log(pm.request.url)",
-							"console.log()",
-							"console.log(\"Request Body\")",
-							"console.log(pm.request.body.raw)",
-							"console.log()",
-							"console.log(\"Response\")",
-							"console.log(pm.response.json())",
-							"",
-							"pm.test('Nodes array should not be empty', () => {",
-							"    pm.expect(pm.response.json().nodes.length).not.equal(0)",
-							"})"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Content-Type",
-						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
-				"url": {
-					"raw": "{{hmy_exp_endpoint}}shard",
-					"host": [
-						"{{hmy_exp_endpoint}}shard"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "node-count_beta",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"id": "4bcf610f-c92d-49f9-ab85-ce099a06af21",
-						"exec": [
-							"console.log(\"Request URL\")",
-							"console.log(pm.request.url)",
-							"console.log()",
-							"console.log(\"Request Body\")",
-							"console.log(pm.request.body.raw)",
-							"console.log()",
-							"console.log(\"Response\")",
-							"console.log(pm.response.json())"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Content-Type",
-						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
-				"url": {
-					"raw": "{{hmy_exp_endpoint}}node-count",
-					"host": [
-						"{{hmy_exp_endpoint}}node-count"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "committee_beta",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"id": "8ef0dce3-f9fa-4d34-8e6c-91f33c88b945",
-						"exec": [
-							"console.log(\"Request URL\")",
-							"console.log(pm.request.url)",
-							"console.log()",
-							"console.log(\"Request Body\")",
-							"console.log(pm.request.body.raw)",
-							"console.log()",
-							"console.log(\"Response\")",
-							"console.log(pm.response.json())",
-							"",
-							"pm.test('Validators array should not be null.', () => {",
-							"    pm.expect(pm.response.json().validators.length).not.equal(0)",
-							"})",
-							"",
-							"tests[\"Response should not be empty\"] = (responseBody.length !== 0)"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Content-Type",
-						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
-				"url": {
-					"raw": "{{hmy_exp_endpoint}}committee?shard_id=0&epoch=0",
-					"host": [
-						"{{hmy_exp_endpoint}}committee"
-					],
-					"query": [
-						{
-							"key": "shard_id",
-							"value": "0"
-						},
-						{
-							"key": "epoch",
-							"value": "0"
-						}
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
 			"response": []
 		}
-	]
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"id": "282173e5-f253-4a1e-bec9-388619e37774",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"id": "04949c30-3d5e-4175-a30e-ab213a31148c",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"protocolProfileBehavior": {}
 }

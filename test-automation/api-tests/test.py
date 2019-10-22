@@ -1,19 +1,31 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import subprocess
 import os
 import random
 import json
 import argparse
 import pyhmy
+import sys
+
+ACC_NAMES_ADDED = []
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Wrapper python script to test API using newman.')
-    parser.add_argument("--rpc_endpoint", dest="hmy_endpoint", default="https://api.s0.b.hmny.io/",
-                        help="Default is https://api.s0.b.hmny.io/", type=str)
+    parser.add_argument("--test_dir", dest="test_dir", default="./tests/default",
+                        help="Path to test directory. Default is './tests/default'", type=str)
+    parser.add_argument("--iterations", dest="iterations", default=5,
+                        help="Number of attempts for a successful test. Default is 5.", type=int)
+    parser.add_argument("--rpc_endpoint_src", dest="hmy_endpoint_src", default="https://api.s0.b.hmny.io/",
+                        help="Source endpoint for Cx. Default is https://api.s0.b.hmny.io/", type=str)
+    parser.add_argument("--rpc_endpoint_dst", dest="hmy_endpoint_dst", default="https://api.s1.b.hmny.io/",
+                        help="Destination endpoint for Cx. Default is https://api.s1.b.hmny.io/", type=str)
     parser.add_argument("--exp_endpoint", dest="hmy_exp_endpoint", default="http://e0.b.hmny.io:5000/",
                         help="Default is http://e0.b.hmny.io:5000/", type=str)
-    parser.add_argument("--chain-id", dest="chain_id", default="testnet",
+    parser.add_argument("--delay", dest="txn_delay", default=30,
+                        help="The time to wait before checking if a Cx/Tx is on the blockchain. "
+                             "Default is 30 seconds. (Input is in seconds)", type=int)
+    parser.add_argument("--chain_id", dest="chain_id", default="testnet",
                         help="Chain ID for the CLI. Default is 'testnet'", type=str)
     parser.add_argument("--cli_path", dest="hmy_binary_path", default=None,
                         help=f"ABSOLUTE PATH of CLI binary. "
@@ -35,9 +47,10 @@ def get_balance(cli, name, node) -> dict:
     return eval(response)  # Assumes that the return of CLI is list of dictionaries in plain text.
 
 
-def load_keys(cli) -> list:
+def load_keys(cli) -> None:
     print("Loading keys...")
-    acc_names_added = []
+    global ACC_NAMES_ADDED
+    random_num = random.randint(-1e9, 1e9)
     key_paths = os.listdir(args.keys_dir)
     for i, key in enumerate(key_paths):
         if not os.path.isdir(f"{args.keys_dir}/{key}"):
@@ -46,83 +59,181 @@ def load_keys(cli) -> list:
         for file in key_content:
             if file.endswith(".key"):
                 key_file_path = f"{os.getcwd()}/{args.keys_dir}/{key}/{file}"
-                new_account_name = f"api_test_{i}"
-                cli.remove_address(new_account_name)
+                new_account_name = f"_test_key_{random_num}_{i}"
+                CLI.remove_address(new_account_name)
                 response = cli.single_call(f"keys import-ks {key_file_path} {new_account_name}").strip()
-                if f"Imported keystore given account alias of `{new_account_name}`" != response:
-                    raise RuntimeError(f"Could not import key: {key_file_path}")
-                acc_names_added.append(new_account_name)
+                if f"Imported keystore given account alias of `{new_account_name}`" == response:
+                    ACC_NAMES_ADDED.append(new_account_name)
                 break
-    return acc_names_added
+    assert len(ACC_NAMES_ADDED) > 1, "Must load at least 2 keys and must match CLI's keystore format"
 
 
-def get_raw_txn(cli, source_account_names, passphrase, chain_id, node, source_shard) -> str:
+def get_raw_txn(cli, passphrase, chain_id, node, source_shard) -> str:
     """
     Must be cross shard transaction for tests.
     """
     print("Getting RawTxn...")
     assert source_shard == 0 or source_shard == 1, "Assume only 2 shards on network"
-    assert len(source_account_names) > 1, "Must load at least 2 keys"
-    for acc_name in source_account_names:
+    if source_shard == 0:
+        assert ".s0." in node or ":9500/" in node, "Miss match between source shard and node"
+    else:
+        assert ".s1." in node or ":9501/" in node, "Miss match between source shard and node"
+    assert len(ACC_NAMES_ADDED) > 1, "Must load at least 2 keys and must match CLI's keystore format"
+    for acc_name in ACC_NAMES_ADDED:
         balances = get_balance(cli, acc_name, node)
         from_addr = cli.get_address(acc_name)
-        to_addr_candidates = source_account_names.copy()
+        to_addr_candidates = ACC_NAMES_ADDED.copy()
         to_addr_candidates.remove(acc_name)
         to_addr = cli.get_address(random.choice(to_addr_candidates))
         if balances[source_shard]["amount"] >= 1e-9:
+            print(f"Raw transaction details:\n"
+                  f"\tNode: {node}\n"
+                  f"\tFrom: {from_addr}\n"
+                  f"\tTo: {to_addr}\n"
+                  f"\tFrom-shard: {source_shard}\n"
+                  f"\tTo-shard: {1-source_shard}")
             if chain_id not in {"mainnet", "testnet", "pangaea"}:  # Must be localnet
                 response = cli.single_call(f"hmy transfer --from={from_addr} --to={to_addr} "
                                            f"--from-shard={source_shard} --to-shard={1-source_shard} --amount={1e-9} "
                                            f"--passphrase={passphrase} --dry-run")
+                print("\tTransaction for localnet")
             else:
                 response = cli.single_call(f"hmy --node={node} transfer --from={from_addr} --to={to_addr} "
                                            f"--from-shard={source_shard} --to-shard={1-source_shard} --amount={1e-9} "
                                            f"--passphrase={passphrase} --chain-id={chain_id} "
                                            f"--dry-run")
-            ans = response.split("\n")[-2]
-            return ans.replace("RawTxn: ", "")
+                print(f"\tTransaction for {chain_id}")
+            response_lines = response.split("\n")
+            assert len(response_lines) == 17, 'CLI output for transaction dry-run is not recognized, check CLI version.'
+            transaction = '\n\t\t'.join(response_lines[1:15])
+            print(f"\tTransaction:\n\t\t{transaction}")
+            return response_lines[-2].replace("RawTxn: ", "")
     raise RuntimeError(f"None of the loaded accounts have funds on shard {source_shard}")
+
+
+def setup_no_explorer(args, test_json, global_json, env_json):
+    source_shard = 0 if ".s0." in args.hmy_endpoint_src or ":9500/" in args.hmy_endpoint_src else 1
+    raw_txn = get_raw_txn(CLI, passphrase=args.passphrase, chain_id=args.chain_id,
+                          node=args.hmy_endpoint_src, source_shard=source_shard)
+
+    for i, var in enumerate(env_json["values"]):
+        if var["key"] == "rawTransaction":
+            env_json["values"][i]["value"] = raw_txn
+        if var["key"] == "txn_delay":
+            env_json["values"][i]["value"] = args.txn_delay
+
+    for i, var in enumerate(global_json["values"]):
+        if var["key"] == "hmy_endpoint_src":
+            if f":950{1-source_shard}/" in args.hmy_endpoint_src:
+                global_json["values"][i]["value"] = args.hmy_endpoint_src.replace(f":950{1-source_shard}/",
+                                                                                  f":950{source_shard}/")
+            else:
+                global_json["values"][i]["value"] = args.hmy_endpoint_src.replace(f".s{1-source_shard}.",
+                                                                                  f".s{source_shard}.")
+        if var["key"] == "hmy_endpoint_dst":
+            if f":950{source_shard}/" in args.hmy_endpoint_dst:
+                global_json["values"][i]["value"] = args.hmy_endpoint_dst.replace(f":950{source_shard}/",
+                                                                                  f":950{1-source_shard}/")
+            else:
+                global_json["values"][i]["value"] = args.hmy_endpoint_dst.replace(f".s{source_shard}.",
+                                                                                  f".s{1-source_shard}.")
+
+
+def setup_only_explorer(args, test_json, global_json, env_json):
+    if "localhost" in args.hmy_endpoint_src or "localhost" in args.hmy_exp_endpoint:
+        print("\n\t[WARNING] This test is for testnet or mainnet.\n")
+
+    source_shard = 0 if ".s0." in args.hmy_endpoint_src else 1
+    raw_txn = get_raw_txn(CLI, passphrase=args.passphrase, chain_id=args.chain_id,
+                          node=args.hmy_endpoint_src, source_shard=source_shard)
+
+    for i, var in enumerate(env_json["values"]):
+        if var["key"] == "rawTransaction":
+            env_json["values"][i]["value"] = raw_txn
+        if var["key"] == "tx_beta_endpoint":
+            env_json["values"][i]["value"] = args.hmy_exp_endpoint.replace(f"e{source_shard-1}.", f"e{source_shard}.")
+        if var["key"] == "txn_delay":
+            env_json["values"][i]["value"] = args.txn_delay
+
+    for i, var in enumerate(global_json["values"]):
+        if var["key"] == "hmy_exp_endpoint":
+            global_json["values"][i]["value"] = args.hmy_exp_endpoint
+
+
+def setup_default(args, test_json, global_json, env_json):
+    if "localhost" in args.hmy_endpoint_src or "localhost" in args.hmy_exp_endpoint:
+        print("\n\t[WARNING] This test is for testnet or mainnet.\n")
+
+    source_shard = 0 if ".s0." in args.hmy_endpoint_src else 1
+    raw_txn = get_raw_txn(CLI, passphrase=args.passphrase, chain_id=args.chain_id,
+                          node=args.hmy_endpoint_src, source_shard=source_shard)
+
+    for i, var in enumerate(env_json["values"]):
+        if var["key"] == "rawTransaction":
+            env_json["values"][i]["value"] = raw_txn
+        if var["key"] == "tx_beta_endpoint":
+            env_json["values"][i]["value"] = args.hmy_exp_endpoint.replace(f"e{source_shard-1}.", f"e{source_shard}.")
+        if var["key"] == "txn_delay":
+            env_json["values"][i]["value"] = args.txn_delay
+
+    for i, var in enumerate(global_json["values"]):
+        if var["key"] == "hmy_endpoint_src":
+            global_json["values"][i]["value"] = args.hmy_endpoint_src.replace(f".s{1-source_shard}.",
+                                                                              f".s{source_shard}.")
+        if var["key"] == "hmy_endpoint_dst":
+            global_json["values"][i]["value"] = args.hmy_endpoint_dst.replace(f".s{source_shard}.",
+                                                                              f".s{1-source_shard}.")
+        if var["key"] == "hmy_exp_endpoint":
+            global_json["values"][i]["value"] = args.hmy_exp_endpoint
 
 
 if __name__ == "__main__":
     args = parse_args()
     assert os.path.isdir(args.keys_dir), "Could not find keystore directory"
+    test_dir = args.test_dir
 
-    with open("tests/global.json", 'r') as file:
+    with open(f"{test_dir}/test.json", 'r') as file:
+        test_json = json.load(file)
+    with open(f"{test_dir}/global.json", 'r') as file:
         global_json = json.load(file)
-    with open("tests/env.json", 'r') as file:
+    with open(f"{test_dir}/env.json", 'r') as file:
         env_json = json.load(file)
     CLI = pyhmy.HmyCLI(environment=pyhmy.get_environment(), hmy_binary_path=args.hmy_binary_path)
     print(f"CLI Version: {CLI.version}")
 
-    acc_names_added = load_keys(CLI)
-    source_shard = 0 if "s0" in args.hmy_endpoint else 1
     try:
-        raw_txn = get_raw_txn(CLI, acc_names_added, passphrase=args.passphrase, chain_id=args.chain_id,
-                              node=args.hmy_endpoint, source_shard=source_shard)
-    except RuntimeError as err:
-        for acc_name in acc_names_added:
+        load_keys(CLI)
+
+        for i in range(args.iterations):
+            print(f"\n\tIteration {i+1} out of {args.iterations}\n")
+
+            if "Harmony API Tests - no-explorer" in test_json["info"]["name"]:
+                setup_no_explorer(args, test_json, global_json, env_json)
+            elif "Harmony API Tests - only-explorer" in test_json["info"]["name"]:
+                setup_only_explorer(args, test_json, global_json, env_json)
+            else:
+                setup_default(args, test_json, global_json, env_json)
+
+            with open(f"{test_dir}/global.json", 'w') as file:
+                json.dump(global_json, file)
+            with open(f"{test_dir}/env.json", 'w') as file:
+                json.dump(env_json, file)
+
+            proc = subprocess.Popen(["newman", "run", f"{test_dir}/test.json",
+                                     "-e", f"{test_dir}/env.json",
+                                     "-g", f"{test_dir}/global.json"])
+            proc.wait()
+            if proc.returncode == 0:
+                print(f"\n\tSucceeded in {i+1} attempt(s)\n")
+                break
+
+    except (RuntimeError, KeyboardInterrupt) as err:
+        print("Removing imported keys from CLI's keystore...")
+        for acc_name in ACC_NAMES_ADDED:
             CLI.remove_address(acc_name)
         raise err
 
-    for i, var in enumerate(env_json["values"]):
-        if var["key"] != "rawTransaction":
-            continue
-        env_json["values"][i]["value"] = raw_txn
-
-    for i, var in enumerate(global_json["values"]):
-        if var["key"] == "hmy_endpoint":
-            env_json["values"][i]["value"] = args.hmy_endpoint
-        if var["key"] == "hmy_exp_endpoint":
-            env_json["values"][i]["value"] = args.hmy_exp_endpoint
-
-    with open("tests/global.json", 'w') as file:
-        json.dump(global_json, file)
-    with open("tests/env.json", 'w') as file:
-        json.dump(env_json, file)
-
-    subprocess.call(["newman", "run", "tests/test.json", "-e", "tests/env.json", "-g", "tests/global.json"])
-
     print("Removing imported keys from CLI's keystore...")
-    for acc_name in acc_names_added:
+    for acc_name in ACC_NAMES_ADDED:
         CLI.remove_address(acc_name)
+    sys.exit(proc.returncode)

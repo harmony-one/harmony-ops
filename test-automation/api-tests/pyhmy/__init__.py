@@ -10,5 +10,5 @@ import os
 # Find the CLI binary for HmyCLI.
 for root, dirs, files in os.walk(os.path.curdir):
     if "hmy" in files:
-        HmyCLI.hmy_binary_path = os.path.join(root, "hmy").replace("./", "")
+        HmyCLI.hmy_binary_path = os.path.join(root, "hmy")
         break
