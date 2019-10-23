@@ -33,6 +33,7 @@ type nodeMetadata struct {
 	NetworkType  string `json:"network"`
 	ChainID      string `json:"chainid"`
 	IsLeader     bool   `json:"is-leader"`
+	ShardID			 uint32 `json:"shard-id"`
 }
 
 type headerInformation struct {
@@ -352,7 +353,8 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	}
 	switch rpc {
 	case metadataRPC:
-		oneReport := r{}
+		// FIXME: For testing purposes only, remove before commit 
+		oneReport := r{ nodeMetadata{ ShardID:9999 }}
 		json.Unmarshal(payload, &oneReport)
 		m.MetadataSnapshot.Nodes = append(m.MetadataSnapshot.Nodes, metadataRPCResult{
 			oneReport.Result,
