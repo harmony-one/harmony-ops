@@ -42,6 +42,7 @@ var (
 	}
 	w      *cobraSrvWrapper = &cobraSrvWrapper{nil}
 	bnbcliPath string
+	expectedBal int64
 	stdLog *log.Logger
 	errLog *log.Logger
 	// Add services here that we might want to depend on, see all services on
@@ -74,8 +75,8 @@ func (service *Service) monitorNetwork() error {
 
 	go func() {
 		// Our polling logic
-		expectedBalance, _ := NewDecFromStr("152818477.146499980000000000")
-		thresholdBalance, _ := NewDecFromStr("152000000")
+		expectedBalance := NewDecFromBigInt(big.NewInt(expectedBal))
+		thresholdBalance := NewDecFromBigInt(big.NewInt(152000000))
 		base := NewDecFromBigInt(big.NewInt(100000000))
 		tryAgainCounter := 0
 		etherFailCounter := 0
