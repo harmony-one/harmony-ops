@@ -98,7 +98,7 @@ hr:after {
             <p>count:{{ len (index $value "records") }}</p>
             <p>max block: {{index $value "block-max"}}</p>
             <p>max epoch: {{index $value "epoch-max"}}</p>
-            <p>leader: {{index $value "leader"}}</p>
+            <p>leader: {{index $value "shard-leader"}}</p>
           </div>
         {{end}}
         {{end}}

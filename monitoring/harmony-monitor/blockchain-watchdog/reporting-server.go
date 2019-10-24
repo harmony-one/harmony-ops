@@ -91,7 +91,6 @@ func blockHeaderSummary(
 	headers []headerInfoRPCResult,
 	includeRecords, includeTS bool,
 	sum map[string]interface{},
-	leaders []string,
 ) {
 	linq.From(headers).GroupBy(
 		// Group by ShardID
@@ -105,27 +104,26 @@ func blockHeaderSummary(
 		epoch := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
 			return c.(headerInfoRPCResult).Payload.Epoch
 		})
-		shardLeader := ""
-		ip := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
-			return c.(headerInfoRPCResult).IP
-		})
-		for _, v := range leaders {
-			if ip.Contains(v) {
-				shardLeader = v
-			}
-		}
 		uniqEpochs := []uint64{}
 		uniqBlockNums := []uint64{}
 		epoch.Distinct().ToSlice(&uniqEpochs)
 		block.Distinct().ToSlice(&uniqBlockNums)
-		sum[shardID] = any{
-			"block-min":   block.Min(),
-			blockMax:      block.Max(),
-			"epoch-min":   epoch.Min(),
-			"epoch-max":   epoch.Max(),
-			"uniq-epochs": uniqEpochs,
-			"uniq-blocks": uniqBlockNums,
-			"leader":			 shardLeader,
+		if sum[shardID] == nil {
+			sum[shardID] = any {
+				"block-min":   block.Min(),
+				blockMax:      block.Max(),
+				"epoch-min":   epoch.Min(),
+				"epoch-max":   epoch.Max(),
+				"uniq-epochs": uniqEpochs,
+				"uniq-blocks": uniqBlockNums,
+			}
+		} else {
+			sum[shardID].(any)["block-min"] = block.Min()
+			sum[shardID].(any)[blockMax] = block.Max()
+			sum[shardID].(any)["epoch-min"] = epoch.Min()
+			sum[shardID].(any)["epoch-max"] = epoch.Max()
+			sum[shardID].(any)["uniq-epochs"] = uniqEpochs
+			sum[shardID].(any)["uniq-blocks"] = uniqBlockNums
 		}
 		if includeRecords {
 			sum[shardID].(any)["records"] = value.(linq.Group).Group
@@ -152,19 +150,25 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		}
 	}
 
-	linq.From(metas).GroupByT(
-		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) }, identity,
+	linq.From(metas).GroupBy(
+		func(node interface{}) interface{} { return parseVersionS(node.(metadataRPCResult).Payload.Version) }, identity,
 	).ForEach(func(value interface{}) {
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
 	})
-	var leaders []string
-	linq.From(metas).WhereT(func (n metadataRPCResult) bool {
-			return n.Payload.IsLeader
-	}).SelectT(func (n metadataRPCResult) string {
-			return n.IP
-	}).ToSlice(&leaders)
-	blockHeaderSummary(headers, true, false, sum[headerSumry], leaders)
+	leaders := make(map[string][]string)
+	linq.From(metas).Where(func (n interface{}) bool {
+		return n.(metadataRPCResult).Payload.IsLeader
+	}).ForEach(func (n interface{}) {
+		shardID := strconv.FormatUint(uint64(n.(metadataRPCResult).Payload.ShardID), 10)
+		leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
+	})
+	for i, _ := range leaders {
+		sum[headerSumry][i] = any {
+			"shard-leader": leaders[i],
+		}
+	}
+	blockHeaderSummary(headers, true, false, sum[headerSumry])
 	return sum
 }
 
@@ -353,8 +357,7 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	}
 	switch rpc {
 	case metadataRPC:
-		// FIXME: For testing purposes only, remove before commit 
-		oneReport := r{ nodeMetadata{ ShardID:9999 }}
+		oneReport := r{}
 		json.Unmarshal(payload, &oneReport)
 		m.MetadataSnapshot.Nodes = append(m.MetadataSnapshot.Nodes, metadataRPCResult{
 			oneReport.Result,
@@ -382,12 +385,12 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 		currentSummary := any{}
 		m.lock.Lock()
 		m.cond.Wait()
-		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, previousSummary, []string{})
+		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, previousSummary)
 		m.lock.Unlock()
 		for range time.Tick(time.Duration(interval) * time.Second) {
 			m.lock.Lock()
 			m.cond.Wait()
-			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary, []string{})
+			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary)
 			m.lock.Unlock()
 			for shard, currentDetails := range currentSummary {
 				sName := fmt.Sprintf("shard-%s", shard)
