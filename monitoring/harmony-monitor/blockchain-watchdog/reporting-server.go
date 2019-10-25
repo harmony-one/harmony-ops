@@ -108,22 +108,13 @@ func blockHeaderSummary(
 		uniqBlockNums := []uint64{}
 		epoch.Distinct().ToSlice(&uniqEpochs)
 		block.Distinct().ToSlice(&uniqBlockNums)
-		if sum[shardID] == nil {
-			sum[shardID] = any {
-				"block-min":   block.Min(),
-				blockMax:      block.Max(),
-				"epoch-min":   epoch.Min(),
-				"epoch-max":   epoch.Max(),
-				"uniq-epochs": uniqEpochs,
-				"uniq-blocks": uniqBlockNums,
-			}
-		} else {
-			sum[shardID].(any)["block-min"] = block.Min()
-			sum[shardID].(any)[blockMax] = block.Max()
-			sum[shardID].(any)["epoch-min"] = epoch.Min()
-			sum[shardID].(any)["epoch-max"] = epoch.Max()
-			sum[shardID].(any)["uniq-epochs"] = uniqEpochs
-			sum[shardID].(any)["uniq-blocks"] = uniqBlockNums
+		sum[shardID] = any {
+			"block-min":   block.Min(),
+			blockMax:      block.Max(),
+			"epoch-min":   epoch.Min(),
+			"epoch-max":   epoch.Max(),
+			"uniq-epochs": uniqEpochs,
+			"uniq-blocks": uniqBlockNums,
 		}
 		if includeRecords {
 			sum[shardID].(any)["records"] = value.(linq.Group).Group
@@ -132,8 +123,7 @@ func blockHeaderSummary(
 			sum[shardID].(any)[timestamp] = time.Unix(linq.From(value.(linq.Group).Group).Select(
 				func(c interface{}) interface{} {
 					return c.(headerInfoRPCResult).Payload.UnixTime
-				}).Distinct().Max().(int64),
-				0)
+				}).Distinct().Max().(int64), 0)
 		}
 	})
 }
@@ -164,7 +154,7 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
 	})
 	for i, _ := range leaders {
-		sum[headerSumry][i] = any {
+		sum[metaSumry][i] = any {
 			"shard-leader": leaders[i],
 		}
 	}
