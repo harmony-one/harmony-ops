@@ -125,7 +125,7 @@ type watchParams struct {
 		} `yaml:"consensus"`
 	} `yaml:"shard-health-reporting"`
 	DistributionFiles struct {
-		MachineIPList string `yaml:"machine-ip-list"`
+		MachineIPList []string `yaml:"machine-ip-list"`
 	} `yaml:"node-distribution"`
 }
 
@@ -144,9 +144,13 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodesRecord, err2 := ioutil.ReadFile(t.DistributionFiles.MachineIPList)
-	if err2 != nil {
-		return nil, err2
+	nodesRecord := []byte{}
+	for _, file := range t.DistributionFiles.MachineIPList {
+		fileContents, err2 := ioutil.ReadFile(file)
+		if err2 != nil {
+			return nil, err2
+		}
+		nodesRecord = append(nodesRecord, fileContents...)
 	}
 	networkNodes := bytes.Split(bytes.Trim(nodesRecord, "\n"), sep)
 	instr := &instruction{t, []string{}}
