@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	nameFMT     = "harmony-watchdog@%s"
+	nameFMT     = "harmony-watchdogd@%s"
 	description = "Monitor the Harmony blockchain -- `%i`"
 	spaceSep    = " "
 )
@@ -29,9 +29,9 @@ var (
 	sep       = []byte("\n")
 	recordSep = []byte(spaceSep)
 	rootCmd   = &cobra.Command{
-		Use:          "harmony-watchdog",
+		Use:          "harmony-watchdogd",
 		SilenceUsage: true,
-		Long:         "Monitor a blockchain",
+		Long:         "Monitor a Harmony blockchain",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
