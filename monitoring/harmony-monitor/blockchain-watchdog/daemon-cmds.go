@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	installD = "install the harmony-watchdog service"
-	removeD  = "remove the harmony-watchdog service"
-	startD   = "start the harmony-watchdog service"
-	stopD    = "stop the harmony-watchdog service"
-	statusD  = "check status of the harmony-watchdog service"
+	installD = "install the harmony-watchdogd service"
+	removeD  = "remove the harmony-watchdogd service"
+	startD   = "start the harmony-watchdogd service"
+	stopD    = "stop the harmony-watchdogd service"
+	statusD  = "check status of the harmony-watchdogd service"
 	mCmd     = "monitor"
 	mFlag    = "yaml-config"
 	mDescr   = "yaml detailing what to watch [required]"
@@ -113,7 +113,7 @@ func monitorCmd() *cobra.Command {
 func serviceCmd() *cobra.Command {
 	daemonCmd := &cobra.Command{
 		Use:               "service",
-		Short:             "Control the daemon functionality of harmony-watchdog",
+		Short:             "Control the daemon functionality of harmony-watchdogd",
 		PersistentPreRunE: w.preRunInit,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
