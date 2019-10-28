@@ -33,7 +33,7 @@ type nodeMetadata struct {
 	NetworkType  string `json:"network"`
 	ChainID      string `json:"chainid"`
 	IsLeader     bool   `json:"is-leader"`
-	ShardID			 uint32 `json:"shard-id"`
+	ShardID      uint32 `json:"shard-id"`
 }
 
 type headerInformation struct {
