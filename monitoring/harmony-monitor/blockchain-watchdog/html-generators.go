@@ -96,6 +96,9 @@ hr:after {
           <div class="flex-col center stat-box">
             <a href="#shard-{{$key}}">Shard-{{$key}}</a>
             <p>count:{{ len (index $value "records") }}</p>
+            <p>max block: {{index $value "block-max"}}</p>
+            <p>max epoch: {{index $value "epoch-max"}}</p>
+            <p>leader: {{index $value "shard-leader"}}</p>
           </div>
         {{end}}
         {{end}}
@@ -122,7 +125,7 @@ hr:after {
               Down machines <span><a href="#top-of-page">(Top)</a></span>
             </h3>
             <p style="width: 375px;">
-             Note: "dialing to the given TCP address timed out" failure could 
+             Note: "dialing to the given TCP address timed out" failure could
              just mean that the HTTP RPC did not complete fast enough.
             </p>
           </div>

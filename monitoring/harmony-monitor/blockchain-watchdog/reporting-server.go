@@ -33,6 +33,7 @@ type nodeMetadata struct {
 	NetworkType  string `json:"network"`
 	ChainID      string `json:"chainid"`
 	IsLeader     bool   `json:"is-leader"`
+	ShardID      uint32 `json:"shard-id"`
 }
 
 type headerInformation struct {
@@ -107,7 +108,7 @@ func blockHeaderSummary(
 		uniqBlockNums := []uint64{}
 		epoch.Distinct().ToSlice(&uniqEpochs)
 		block.Distinct().ToSlice(&uniqBlockNums)
-		sum[shardID] = any{
+		sum[shardID] = any {
 			"block-min":   block.Min(),
 			blockMax:      block.Max(),
 			"epoch-min":   epoch.Min(),
@@ -122,8 +123,7 @@ func blockHeaderSummary(
 			sum[shardID].(any)[timestamp] = time.Unix(linq.From(value.(linq.Group).Group).Select(
 				func(c interface{}) interface{} {
 					return c.(headerInfoRPCResult).Payload.UnixTime
-				}).Distinct().Max().(int64),
-				0)
+				}).Distinct().Max().(int64), 0)
 		}
 	})
 }
@@ -139,8 +139,9 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 			headers[i].Payload.LastCommitSig = shorted
 		}
 	}
-	linq.From(metas).GroupByT(
-		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) }, identity,
+
+	linq.From(metas).GroupBy(
+		func(node interface{}) interface{} { return parseVersionS(node.(metadataRPCResult).Payload.Version) }, identity,
 	).ForEach(func(value interface{}) {
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
@@ -172,19 +173,6 @@ func request(node, rpcMethod string, requestBody []byte) ([]byte, []byte, error)
 	return result, nil, nil
 }
 
-// TODO Make this be separate template parsed, not sure how to get it right
-const shardJumpRow = `
-{{define "shard-jump-row"}}
-<div>
-  {{ with (index .Summary "block-header") }}
-  {{range $key, $value := .}}
-    <a href=shard-{{$key}}> {{$key}} </a>
-  {{end}}
-  {{end}}
-</div>
-{{end}}
-`
-
 func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	t, e := template.New("report").Parse(reportPage())
 	if e != nil {
@@ -199,6 +187,18 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		DownMachineCount      int
 	}
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	leaders := make(map[string][]string)
+	linq.From(sum[metaSumry]).ForEach(func (v interface{}) {
+		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string] interface{})["records"]).Where(func (n interface{}) bool {
+			return n.(metadataRPCResult).Payload.IsLeader
+		}).ForEach(func (n interface{}) {
+			shardID := strconv.FormatUint(uint64(n.(metadataRPCResult).Payload.ShardID), 10)
+			leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
+		})
+	})
+	for i, _ := range leaders {
+		sum[headerSumry][i].(any)["shard-leader"] = leaders[i]
+	}
 	cnsMsg := "Consensus Progress not known yet"
 	if len(m.consensusProgress) != 0 {
 		cM, _ := json.Marshal(m.consensusProgress)
