@@ -146,18 +146,6 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
 	})
-	leaders := make(map[string][]string)
-	linq.From(metas).Where(func (n interface{}) bool {
-		return n.(metadataRPCResult).Payload.IsLeader
-	}).ForEach(func (n interface{}) {
-		shardID := strconv.FormatUint(uint64(n.(metadataRPCResult).Payload.ShardID), 10)
-		leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
-	})
-	for i, _ := range leaders {
-		sum[metaSumry][i] = any {
-			"shard-leader": leaders[i],
-		}
-	}
 	blockHeaderSummary(headers, true, false, sum[headerSumry])
 	return sum
 }
@@ -199,6 +187,18 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		DownMachineCount      int
 	}
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	leaders := make(map[string][]string)
+	linq.From(sum[metaSumry]).ForEach(func (v interface{}) {
+		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string] interface{})["records"]).Where(func (n interface{}) bool {
+			return n.(metadataRPCResult).Payload.IsLeader
+		}).ForEach(func (n interface{}) {
+			shardID := strconv.FormatUint(uint64(n.(metadataRPCResult).Payload.ShardID), 10)
+			leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
+		})
+	})
+	for i, _ := range leaders {
+		sum[headerSumry][i].(any)["shard-leader"] = leaders[i]
+	}
 	cnsMsg := "Consensus Progress not known yet"
 	if len(m.consensusProgress) != 0 {
 		cM, _ := json.Marshal(m.consensusProgress)
