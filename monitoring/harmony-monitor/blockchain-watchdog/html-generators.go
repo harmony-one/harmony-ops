@@ -122,7 +122,7 @@ hr:after {
               Down machines <span><a href="#top-of-page">(Top)</a></span>
             </h3>
             <p style="width: 375px;">
-             Note: "dialing to the given TCP address timed out" failure could 
+             Note: "dialing to the given TCP address timed out" failure could
              just mean that the HTTP RPC did not complete fast enough.
             </p>
           </div>
@@ -161,7 +161,7 @@ hr:after {
             <h3>
               Block Header <span><a href="#top-of-page">(Top)</a></span>
             </h3>
-            <a href="/report-download?report=%s">Download CSV</a>
+            <a href="/report-download?report=%s&shard={{$key}}">Download CSV</a>
           </div>
           <div class="flex-row">
             <p> shard: {{ $key }} </p>
@@ -225,7 +225,7 @@ hr:after {
             <h3>
               Node Metadata <span><a href="#top-of-page">(Top)</a></span>
            </h3>
-            <a href="/report-download?report=%s">Download CSV</a>
+            <a href="/report-download?report=%s&vrs={{$key}}">Download CSV</a>
           </div>
           <div class="flex-row">
             <p> build version: {{ $key }} </p>

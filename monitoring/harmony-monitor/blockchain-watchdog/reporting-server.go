@@ -81,9 +81,11 @@ func init() {
 	for i := 0; i < h.NumField(); i++ {
 		headerInformationCSVHeader = append(headerInformationCSVHeader, h.Field(i).Name)
 	}
+	headerInformationCSVHeader = append([]string{"IP"}, headerInformationCSVHeader...)
 	for i := 0; i < n.NumField(); i++ {
 		nodeMetadataCSVHeader = append(nodeMetadataCSVHeader, n.Field(i).Name)
 	}
+	nodeMetadataCSVHeader = append([]string{"IP"}, nodeMetadataCSVHeader...)
 }
 
 func blockHeaderSummary(
@@ -213,6 +215,7 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
 	})
+	m.SummarySnapshot = sum
 }
 
 func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
@@ -224,9 +227,46 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 		case blockHeaderReport:
 			filename = blockHeaderReport + ".csv"
 			records = append(records, headerInformationCSVHeader)
+
+			shard, ex := req.URL.Query()["shard"]
+			if !ex {
+				http.Error(w, "shard not chosen in query param", http.StatusBadRequest)
+				return
+			}
+			for _, v := range m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{}) {
+				row := []string {
+					v.(headerInfoRPCResult).IP,
+					v.(headerInfoRPCResult).Payload.BlockHash,
+					strconv.FormatUint(v.(headerInfoRPCResult).Payload.Epoch, 10),
+					strconv.FormatUint(v.(headerInfoRPCResult).Payload.BlockNumber, 10),
+					v.(headerInfoRPCResult).Payload.Leader,
+					strconv.FormatUint(v.(headerInfoRPCResult).Payload.ViewID, 10),
+					v.(headerInfoRPCResult).Payload.Timestamp,
+					strconv.FormatInt(v.(headerInfoRPCResult).Payload.UnixTime, 10),
+					v.(headerInfoRPCResult).Payload.LastCommitSig,
+					v.(headerInfoRPCResult).Payload.LastCommitBitmap,
+				}
+				records = append(records, row)
+			}
 		case nodeMetadataReport:
 			filename = nodeMetadataReport + ".csv"
 			records = append(records, nodeMetadataCSVHeader)
+
+			vrs, ex := req.URL.Query()["vrs"]
+			if !ex {
+				http.Error(w, "version not chosen in query param", http.StatusBadRequest)
+				return
+			}
+			for _, v := range m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{}) {
+				row := []string {
+					v.(metadataRPCResult).IP,
+					v.(metadataRPCResult).Payload.BLSPublicKey,
+					v.(metadataRPCResult).Payload.Version,
+					v.(metadataRPCResult).Payload.NetworkType,
+					v.(metadataRPCResult).Payload.ChainID,
+				}
+				records = append(records, row)
+			}
 		}
 	default:
 		http.Error(w, "report not chosen in query param", http.StatusBadRequest)
@@ -235,12 +275,6 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment;filename="+filename)
 	wr := csv.NewWriter(w)
-	// records := [][]string{
-	// 	{"first_name", "last_name", "username"},
-	// 	{"Rob", "Pike", "rob"},
-	// 	{"Ken", "Thompson", "ken"},
-	// 	{"Robert", "Griesemer", "gri"},
-	// }
 	err := wr.WriteAll(records)
 	if err != nil {
 		http.Error(w, "Error sending csv: "+err.Error(), http.StatusInternalServerError)
@@ -272,6 +306,7 @@ type monitor struct {
 		TS    time.Time
 		Nodes []headerInfoRPCResult
 	}
+	SummarySnapshot   map[string]map[string]interface{}
 	NoReplyMachines   []noReply
 	lock              *sync.Mutex
 	cond              *sync.Cond
