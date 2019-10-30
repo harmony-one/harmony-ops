@@ -53,8 +53,8 @@ type any map[string]interface{}
 var (
 	buildVersion               = versionS()
 	queryID                    = 0
-	nodeMetadataCSVHeader      []string
-	headerInformationCSVHeader []string
+	nodeMetadataCSVHeader      = []string{"IP"}
+	headerInformationCSVHeader = []string{"IP"}
 	post                       = []byte("POST")
 	client                     = &fasthttp.Client{
 		Dial: func(addr string) (net.Conn, error) {
@@ -81,11 +81,9 @@ func init() {
 	for i := 0; i < h.NumField(); i++ {
 		headerInformationCSVHeader = append(headerInformationCSVHeader, h.Field(i).Name)
 	}
-	headerInformationCSVHeader = append([]string{"IP"}, headerInformationCSVHeader...)
 	for i := 0; i < n.NumField(); i++ {
 		nodeMetadataCSVHeader = append(nodeMetadataCSVHeader, n.Field(i).Name)
 	}
-	nodeMetadataCSVHeader = append([]string{"IP"}, nodeMetadataCSVHeader...)
 }
 
 func blockHeaderSummary(
