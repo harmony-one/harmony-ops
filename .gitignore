@@ -1,6 +1,6 @@
 _book
 .DS_Store
-blockchain-watchd
+harmony-watchdogd
 *.yaml
 bnbcli
 bridge-watchd

@@ -164,7 +164,7 @@ hr:after {
             <h3>
               Block Header <span><a href="#top-of-page">(Top)</a></span>
             </h3>
-            <a href="/report-download?report=%s">Download CSV</a>
+            <a href="/report-download?report=%s&shard={{$key}}">Download CSV</a>
           </div>
           <div class="flex-row">
             <p> shard: {{ $key }} </p>
@@ -228,7 +228,7 @@ hr:after {
             <h3>
               Node Metadata <span><a href="#top-of-page">(Top)</a></span>
            </h3>
-            <a href="/report-download?report=%s">Download CSV</a>
+            <a href="/report-download?report=%s&vrs={{$key}}">Download CSV</a>
           </div>
           <div class="flex-row">
             <p> build version: {{ $key }} </p>
