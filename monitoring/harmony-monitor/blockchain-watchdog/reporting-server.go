@@ -235,10 +235,11 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				row := []string {
 					v.(headerInfoRPCResult).IP,
 					v.(headerInfoRPCResult).Payload.BlockHash,
-					strconv.FormatUint(v.(headerInfoRPCResult).Payload.Epoch, 10),
 					strconv.FormatUint(v.(headerInfoRPCResult).Payload.BlockNumber, 10),
+					shard[0],
 					v.(headerInfoRPCResult).Payload.Leader,
 					strconv.FormatUint(v.(headerInfoRPCResult).Payload.ViewID, 10),
+					strconv.FormatUint(v.(headerInfoRPCResult).Payload.Epoch, 10),
 					v.(headerInfoRPCResult).Payload.Timestamp,
 					strconv.FormatInt(v.(headerInfoRPCResult).Payload.UnixTime, 10),
 					v.(headerInfoRPCResult).Payload.LastCommitSig,
@@ -262,6 +263,8 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 					v.(metadataRPCResult).Payload.Version,
 					v.(metadataRPCResult).Payload.NetworkType,
 					v.(metadataRPCResult).Payload.ChainID,
+					strconv.FormatBool(v.(metadataRPCResult).Payload.IsLeader),
+					strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ShardID), 10),
 				}
 				records = append(records, row)
 			}
