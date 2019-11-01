@@ -1,7 +1,7 @@
 # Harmony Monitor
 
 ## Example YAML file
-```
+```yaml
 # Place all needed authorization keys here
 auth:
   pagerduty:
