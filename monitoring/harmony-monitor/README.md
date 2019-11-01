@@ -5,7 +5,7 @@
 # Place all needed authorization keys here
 auth:
   pagerduty:
-    event-service-key: [key]
+    event-service-key: key
 
 target-chain: mainnet
 
@@ -25,9 +25,9 @@ shard-health-reporting:
     warning: 40
     redline: 300
 
-# Needs to be an absolute file path to usual dump
+# Needs to be an absolute file path
 node-distribution:
   machine-ip-list:
-    - .../ip_list1.txt
-    - .../ip_list2.txt
+    - /some/path/ip_list1.txt
+    - /some/path/ip_list2.txt
 ```
