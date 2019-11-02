@@ -9,14 +9,15 @@ import (
 )
 
 const (
-	installD = "install the harmony-watchdogd service"
-	removeD  = "remove the harmony-watchdogd service"
-	startD   = "start the harmony-watchdogd service"
-	stopD    = "stop the harmony-watchdogd service"
-	statusD  = "check status of the harmony-watchdogd service"
-	mCmd     = "monitor"
-	mFlag    = "yaml-config"
-	mDescr   = "yaml detailing what to watch [required]"
+	installD           = "install the harmony-watchdogd service"
+	removeD            = "remove the harmony-watchdogd service"
+	startD             = "start the harmony-watchdogd service"
+	stopD              = "stop the harmony-watchdogd service"
+	statusD            = "check status of the harmony-watchdogd service"
+	mCmd               = "monitor"
+	mMachineIPValidate = "validate-ip-in-shard"
+	mFlag              = "yaml-config"
+	mDescr             = "yaml detailing what to watch [required]"
 )
 
 func (cw *cobraSrvWrapper) install(cmd *cobra.Command, args []string) error {
@@ -63,7 +64,7 @@ func (cw *cobraSrvWrapper) preRunInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	dm, err := daemon.New(
-		fmt.Sprintf(nameFMT, instr.TargetChain),
+		fmt.Sprintf(nameFMT, instr.Network.TargetChain),
 		description,
 		dependencies...,
 	)
@@ -86,16 +87,18 @@ func (cw *cobraSrvWrapper) start(cmd *cobra.Command, args []string) error {
 func (cw *cobraSrvWrapper) doMonitor(cmd *cobra.Command, args []string) error {
 	lock := &sync.Mutex{}
 	cw.monitor = &monitor{
-		chain:             cw.TargetChain,
+		chain:             cw.Network.TargetChain,
 		lock:              lock,
 		cond:              sync.NewCond(lock),
 		consensusProgress: map[string]bool{},
 	}
-	err := cw.monitorNetwork()
-	if err != nil {
-		return err
-	}
-	return nil
+	return cw.monitorNetwork()
+}
+
+func (cw *cobraSrvWrapper) validateShardFileWithReality(
+	cmd *cobra.Command, args []string,
+) error {
+	return cw.compareIPInShardFileWithNodes()
 }
 
 func monitorCmd() *cobra.Command {
@@ -108,6 +111,19 @@ func monitorCmd() *cobra.Command {
 	monitorCmd.Flags().StringVar(&monitorNodeYAML, mFlag, "", mDescr)
 	monitorCmd.MarkFlagRequired(mFlag)
 	return monitorCmd
+}
+
+func validateMachineIPList() *cobra.Command {
+	const msg = "check if node in IP of shard file does not match what node reports"
+	validateShardIP := &cobra.Command{
+		Use:               mMachineIPValidate,
+		Short:             msg,
+		PersistentPreRunE: w.preRunInit,
+		RunE:              w.validateShardFileWithReality,
+	}
+	validateShardIP.Flags().StringVar(&monitorNodeYAML, mFlag, "", mDescr)
+	validateShardIP.MarkFlagRequired(mFlag)
+	return validateShardIP
 }
 
 func serviceCmd() *cobra.Command {

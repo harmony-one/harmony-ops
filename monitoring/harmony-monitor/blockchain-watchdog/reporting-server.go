@@ -108,7 +108,7 @@ func blockHeaderSummary(
 		uniqBlockNums := []uint64{}
 		epoch.Distinct().ToSlice(&uniqEpochs)
 		block.Distinct().ToSlice(&uniqBlockNums)
-		sum[shardID] = any {
+		sum[shardID] = any{
 			"block-min":   block.Min(),
 			blockMax:      block.Max(),
 			"epoch-min":   epoch.Min(),
@@ -150,7 +150,7 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 	return sum
 }
 
-func request(node, rpcMethod string, requestBody []byte) ([]byte, []byte, error) {
+func request(node string, requestBody []byte) ([]byte, []byte, error) {
 	const contentType = "application/json"
 	req := fasthttp.AcquireRequest()
 	req.SetBody(requestBody)
@@ -188,10 +188,10 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	}
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
 	leaders := make(map[string][]string)
-	linq.From(sum[metaSumry]).ForEach(func (v interface{}) {
-		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string] interface{})["records"]).Where(func (n interface{}) bool {
+	linq.From(sum[metaSumry]).ForEach(func(v interface{}) {
+		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string]interface{})["records"]).Where(func(n interface{}) bool {
 			return n.(metadataRPCResult).Payload.IsLeader
-		}).ForEach(func (n interface{}) {
+		}).ForEach(func(n interface{}) {
 			shardID := strconv.FormatUint(uint64(n.(metadataRPCResult).Payload.ShardID), 10)
 			leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
 		})
@@ -232,7 +232,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			for _, v := range m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{}) {
-				row := []string {
+				row := []string{
 					v.(headerInfoRPCResult).IP,
 					v.(headerInfoRPCResult).Payload.BlockHash,
 					strconv.FormatUint(v.(headerInfoRPCResult).Payload.BlockNumber, 10),
@@ -257,7 +257,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			for _, v := range m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{}) {
-				row := []string {
+				row := []string{
 					v.(metadataRPCResult).IP,
 					v.(metadataRPCResult).Payload.BLSPublicKey,
 					v.(metadataRPCResult).Payload.Version,
@@ -314,13 +314,21 @@ type monitor struct {
 	consensusProgress map[string]bool
 }
 
-func (m *monitor) update(rpc string, every int, nodeList []string) {
+func (m *monitor) update(
+	rpc string, every int, supercommittee [][]string,
+) {
 	type t struct {
 		addr       string
 		rpcPayload []byte
 		rpcResult  []byte
 		oops       error
 	}
+
+	nodeList := []string{}
+	for shard := 0; shard <= len(supercommittee); shard++ {
+		nodeList = append(nodeList, supercommittee[shard]...)
+	}
+
 	for now := range time.Tick(time.Duration(every) * time.Second) {
 		m.NoReplyMachines = []noReply{}
 		switch rpc {
@@ -342,11 +350,8 @@ func (m *monitor) update(rpc string, every int, nodeList []string) {
 			for _, nodeIP := range nodeList {
 				go func(addr string) {
 					result := t{addr: addr}
-					result.rpcResult, result.rpcPayload, result.oops = request(
-						"http://"+addr,
-						rpc,
-						requestBody,
-					)
+					result.rpcResult, result.rpcPayload, result.oops =
+						request("http://"+addr, requestBody)
 					payloadChan <- result
 				}(nodeIP)
 			}
@@ -461,15 +466,18 @@ See: http://watchdog.hmny.io/report-%s
 }
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
-	go m.update(metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.networkNodes)
-	go m.update(blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.networkNodes)
+	go m.update(
+		metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.superCommittee)
+	go m.update(
+		blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.superCommittee,
+	)
 	go m.watchShardHealth(
 		instrs.Auth.PagerDuty.EventServiceKey,
-		instrs.TargetChain,
+		instrs.Network.TargetChain,
 		instrs.ShardHealthReporting.Consensus.Warning,
 		instrs.ShardHealthReporting.Consensus.Redline,
 	)
-	http.HandleFunc("/report-"+instrs.TargetChain, m.renderReport)
+	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download", m.produceCSV)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
 }

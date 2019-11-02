@@ -1,7 +1,8 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -59,7 +61,82 @@ type Service struct {
 	*instruction
 }
 
-// Manage by daemon commands or run the daemon
+func (service *Service) compareIPInShardFileWithNodes() error {
+	requestBody, _ := json.Marshal(map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"id":      strconv.Itoa(queryID),
+		"method":  blockHeaderRPC,
+		"params":  []interface{}{},
+	})
+	type t struct {
+		addr       string
+		rpcPayload []byte
+		rpcResult  []byte
+		oops       error
+	}
+	type s struct {
+		Result headerInformation `json:"result"`
+	}
+	type hooligans [][2]string
+	const unreachableShard = -1
+	results := sync.Map{}
+	wait := sync.WaitGroup{}
+	results.Store(unreachableShard, hooligans{})
+
+	for shardID, subcommittee := range service.superCommittee {
+		results.Store(shardID, hooligans{})
+		for _, nodeIP := range subcommittee {
+			wait.Add(1)
+			go func(shardID int, nodeIP string) {
+				defer wait.Add(-1)
+				result := t{addr: nodeIP}
+				url := "http://" + result.addr
+				result.rpcResult, result.rpcPayload, result.oops = request(url, requestBody)
+				if result.oops != nil {
+					noReply, _ := results.Load(unreachableShard)
+					results.Store(unreachableShard, append(
+						noReply.(hooligans),
+						[2]string{strconv.Itoa(shardID), nodeIP + "-" + result.oops.Error()},
+					),
+					)
+					return
+				}
+				oneReport := s{}
+				json.Unmarshal(result.rpcResult, &oneReport)
+				if oneReport.Result.ShardID != uint32(shardID) {
+					// I should be shardID but actually I was in Result.ShardID and my address is nodeIP
+					naughty, _ := results.Load(shardID)
+					results.Store(
+						shardID, append(
+							naughty.(hooligans), [2]string{strconv.Itoa(int(oneReport.Result.ShardID)), nodeIP},
+						),
+					)
+				}
+			}(shardID, nodeIP)
+		}
+	}
+
+	wait.Wait()
+
+	type wrongSpot struct {
+		InShard string
+		Addr    string
+	}
+	plainMap := map[int][]wrongSpot{}
+	results.Range(func(key, value interface{}) bool {
+		misplaced := make([]wrongSpot, len(value.(hooligans)))
+		for i, pair := range value.(hooligans) {
+			misplaced[i] = wrongSpot{pair[0], pair[1]}
+		}
+		plainMap[key.(int)] = misplaced
+		return true
+	})
+
+	mapDump, _ := json.Marshal(plainMap)
+	fmt.Println(string(mapDump))
+	return nil
+}
+
 func (service *Service) monitorNetwork() error {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
@@ -109,7 +186,10 @@ type watchParams struct {
 			EventServiceKey string `yaml:"event-service-key"`
 		} `yaml:"pagerduty"`
 	} `yaml:"auth"`
-	TargetChain string `yaml:"target-chain"`
+	Network struct {
+		TargetChain string `yaml:"target-chain"`
+		RPCPort     int    `yaml:"public-rpc"`
+	} `yaml:"network-config"`
 	// Assumes Seconds
 	InspectSchedule struct {
 		BlockHeader  int `yaml:"block-header"`
@@ -131,7 +211,7 @@ type watchParams struct {
 
 type instruction struct {
 	watchParams
-	networkNodes []string
+	superCommittee [][]string
 }
 
 func newInstructions(yamlPath string) (*instruction, error) {
@@ -144,25 +224,31 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodesRecord := []byte{}
+	byShard := make([][]string, len(t.DistributionFiles.MachineIPList))
 	for _, file := range t.DistributionFiles.MachineIPList {
-		fileContents, err2 := ioutil.ReadFile(file)
-		if err2 != nil {
-			return nil, err2
+		shard := path.Base(strings.TrimSuffix(file, path.Ext(file)))
+		id, err := strconv.Atoi(string(shard[len(shard)-1]))
+		if err != nil {
+			return nil, err
 		}
-		nodesRecord = append(nodesRecord, fileContents...)
+		byShard[id] = []string{}
+		f, err := os.Open(file)
+		if err != nil {
+			return nil, nil
+		}
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			byShard[id] = append(
+				byShard[id], scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort),
+			)
+		}
+		err = scanner.Err()
+		if err != nil {
+			return nil, err
+		}
 	}
-	networkNodes := bytes.Split(bytes.Trim(nodesRecord, "\n"), sep)
-	instr := &instruction{t, []string{}}
-	for _, value := range networkNodes {
-		instr.networkNodes = append(
-			instr.networkNodes,
-			// Trust the input because it is already trusted elsewhere,
-			// if data malformed, then launch would have failed anyway
-			strings.TrimSpace(string(bytes.Split(value, recordSep)[0]))+":9500",
-		)
-	}
-	return instr, nil
+	return &instruction{t, byShard}, nil
 }
 
 func versionS() string {
@@ -195,4 +281,5 @@ func init() {
 	})
 	rootCmd.AddCommand(serviceCmd())
 	rootCmd.AddCommand(monitorCmd())
+	rootCmd.AddCommand(validateMachineIPList())
 }
