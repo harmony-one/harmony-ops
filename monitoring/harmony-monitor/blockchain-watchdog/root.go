@@ -79,12 +79,10 @@ func (service *Service) compareIPInShardFileWithNodes() error {
 	}
 	type hooligans [][2]string
 	const unreachableShard = -1
-
 	results := sync.Map{}
 	wait := sync.WaitGroup{}
 	results.Store(unreachableShard, hooligans{})
 
-	// Okay to do it sequentially, prefer correctness
 	for shardID, subcommittee := range service.superCommittee {
 		results.Store(shardID, hooligans{})
 		for _, nodeIP := range subcommittee {
@@ -234,8 +232,6 @@ func newInstructions(yamlPath string) (*instruction, error) {
 			return nil, err
 		}
 		byShard[id] = []string{}
-		// fmt.Println(shard, id)
-
 		f, err := os.Open(file)
 		if err != nil {
 			return nil, nil
@@ -248,7 +244,6 @@ func newInstructions(yamlPath string) (*instruction, error) {
 			)
 		}
 		err = scanner.Err()
-
 		if err != nil {
 			return nil, err
 		}
