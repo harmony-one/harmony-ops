@@ -10,8 +10,7 @@ import random
 import requests
 import time
 
-# To flag a failure, make sure to exit with a non-zero exit code.
-LOGGER = get_logger(filename="testHmy.log")
+log = get_logger(filename="testHmy.log")
 ENVIRONMENT = {}
 ADDRESSES = {}
 KEYSTORE_PATH = ""
@@ -28,19 +27,19 @@ def load_environment():
         ENVIRONMENT = json.loads(env_raw)
         ENVIRONMENT["HOME"] = os.environ.get("HOME")
     except json.decoder.JSONDecodeError as _:
-        LOGGER(f"[Critical] Could not parse environment variables from setup_bls_build_flags.sh")
+        log(f"[Critical] Could not parse environment variables from setup_bls_build_flags.sh")
         sys.exit(-1)
 
 
 def delete_from_keystore_by_name(name):
-    LOGGER(f"[KEY DELETE] Removing {name} from keystore at {KEYSTORE_PATH}", error=False)
+    log(f"[KEY DELETE] Removing {name} from keystore at {KEYSTORE_PATH}", error=False)
     key_file_path = f"{KEYSTORE_PATH}/{name}"
 
     try:
         shutil.rmtree(key_file_path)
     except shutil.Error as e:
-        LOGGER(f"[KEY DELETE] Failed to delete dir: {key_file_path}\n"
-               f"Exception: {e}")
+        log(f"[KEY DELETE] Failed to delete dir: {key_file_path}\n"
+            f"Exception: {e}")
         return
 
     del ADDRESSES[name]
@@ -88,14 +87,14 @@ def test_and_load_keystore_directory():
     try:
         response = subprocess.check_output(["hmy", "keys", "location"], env=ENVIRONMENT).decode().strip()
     except subprocess.CalledProcessError as err:
-        LOGGER(f"Failed: Could not get keystore path.\n"
-               f"\tGot exit code {err.returncode}. Msg: {err.output}")
+        log(f"Failed: Could not get keystore path.\n"
+            f"\tGot exit code {err.returncode}. Msg: {err.output}")
         return False
     if not os.path.exists(response):
-        LOGGER(f"Failed: '{response}' is not a valid path")
+        log(f"Failed: '{response}' is not a valid path")
         return False
     KEYSTORE_PATH = response
-    LOGGER("Passed", error=False)
+    log("Passed", error=False)
     return True
 
 
@@ -107,9 +106,9 @@ def test_and_load_keys_list():
     try:
         load_addresses()
     except RuntimeError as err:
-        LOGGER(f"Failed: got error: {err}")
+        log(f"Failed: got error: {err}")
         return False
-    LOGGER("Passed", error=False)
+    log("Passed", error=False)
     return True
 
 
@@ -133,15 +132,15 @@ def test_balance():
     }
 
     try:
-        cli_response = subprocess.check_output(["hmy", "balance", ref_key], env=ENVIRONMENT).decode().strip()
+        cli_response = subprocess.check_output(["hmy", "balances", ref_key], env=ENVIRONMENT).decode().strip()
     except subprocess.CalledProcessError as err:
-        LOGGER(f"Failed: Could not get balance.\n"
-               f"Got exit code {err.returncode}. Msg: {err.output}")
+        log(f"Failed: Could not get balance.\n"
+            f"Got exit code {err.returncode}. Msg: {err.output}")
         return False
     try:
         cli_response_list = eval(cli_response.strip())
     except SyntaxError:
-        LOGGER(f"Failed: Unexpected format of cli_response. Got: {cli_response}")
+        log(f"Failed: Unexpected format of cli_response. Got: {cli_response}")
         return False
 
     response = requests.request('POST', url, headers=headers, data=payload, allow_redirects=False, timeout=3)
@@ -149,15 +148,15 @@ def test_balance():
     request_bal = round(int(body["result"], 16) * 10 ** -18, 6)
 
     if ref_min_bal > request_bal:
-        LOGGER(f"Failed: Balance for reference is {request_bal} but need at least {ref_min_bal} for test to be valid.")
+        log(f"Failed: Balance for reference is {request_bal} but need at least {ref_min_bal} for test to be valid.")
         return False
 
     cli_s0_bal = round(cli_response_list[0]["amount"], 6)
     if cli_s0_bal != request_bal:
-        LOGGER(f"Failed: cli balance shard 0 balance ({cli_s0_bal}) does not "
-               f"match manual post request balance ({request_bal})")
+        log(f"Failed: cli balance shard 0 balance ({cli_s0_bal}) does not "
+            f"match manual post request balance ({request_bal})")
         return False
-    LOGGER("Passed", error=False)
+    log("Passed", error=False)
     return True
 
 
@@ -167,14 +166,14 @@ def test_keys_add():
     try:
         subprocess.check_output(["hmy", "keys", "add", key_name_to_add], env=ENVIRONMENT).decode().strip()
     except subprocess.CalledProcessError as err:
-        LOGGER(f"Failed: Could not get keystore path.\n"
-               f"\tGot exit code {err.returncode}. Msg: {err.output}")
+        log(f"Failed: Could not get keystore path.\n"
+            f"\tGot exit code {err.returncode}. Msg: {err.output}")
         return False
     if not get_address_from_name(key_name_to_add):
-        LOGGER(f"Failed: Could not get newly added key (name: {key_name_to_add})")
+        log(f"Failed: Could not get newly added key (name: {key_name_to_add})")
         return False
     KEYS_ADDED.add(key_name_to_add)
-    LOGGER("Passed")
+    log("Passed", error=False)
     return True
 
 
@@ -193,7 +192,7 @@ def test_keys_mnemonics():
     with open('testHmyReferences/sdkMnemonics.json') as f:
         sdk_mnemonics = json.load(f)
         if not sdk_mnemonics:
-            LOGGER("Could not load reference data.")
+            log("Could not load reference data.")
             return False
 
     passed = True
@@ -219,20 +218,20 @@ def test_keys_mnemonics():
             hmy.wait()
             hmy.expect(pexpect.EOF)
         except pexpect.ExceptionPexpect as e:
-            LOGGER(f"Exception occurred when adding a key with mnemonic."
-                   f"\nException: {e}")
+            log(f"Exception occurred when adding a key with mnemonic."
+                f"\nException: {e}")
             passed = False
 
         hmy_address = get_address_from_name(address_name)
         if hmy_address != correct_address or hmy_address is None:
-            LOGGER(f"Address does not match sdk's address. \n"
-                   f"\tMnemonic: {mnemonic}\n"
-                   f"\tCorrect address: {correct_address}\n"
-                   f"\tCLI address: {hmy_address}")
+            log(f"Address does not match sdk's address. \n"
+                f"\tMnemonic: {mnemonic}\n"
+                f"\tCorrect address: {correct_address}\n"
+                f"\tCLI address: {hmy_address}")
             passed = False
         else:
             KEYS_ADDED.add(address_name)
-    LOGGER("Passed", error=False) if passed else LOGGER("FAILED", error=False)
+    log("Passed", error=False) if passed else log("FAILED", error=False)
     return passed
 
 
@@ -281,7 +280,7 @@ if __name__ == "__main__":
 
     tests_results = []
     try:
-        LOGGER(f"Sleeping for 45 seconds to generate some funds...", error=False)
+        log(f"Sleeping for 45 seconds to generate some funds...", error=False)
         time.sleep(45)
 
         tests_results = [  # Run critical tests here

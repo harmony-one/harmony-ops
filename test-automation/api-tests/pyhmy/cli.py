@@ -113,7 +113,7 @@ class HmyCLI:
         :raises: RuntimeError if bad command
         """
         command_toks = command.split(" ")
-        if re.match(".*hmy", command_toks[0]) or re.match(".*hmy_default", command_toks[0]):
+        if re.match(".*hmy", command_toks[0]):
             command_toks = command_toks[1:]
         command_toks = [self.hmy_binary_path] + command_toks
         try:
@@ -131,7 +131,7 @@ class HmyCLI:
         :raises: RuntimeError if bad command
         """
         command_toks = command.split(" ")
-        if re.match(".*hmy", command_toks[0]) or re.match(".*hmy_default", command_toks[0]):
+        if re.match(".*hmy", command_toks[0]):
             command_toks = command_toks[1:]
         try:
             proc = pexpect.spawn(f"{self.hmy_binary_path}", command_toks, env=self.environment, timeout=timeout)
