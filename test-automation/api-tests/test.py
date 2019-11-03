@@ -8,6 +8,7 @@ import pyhmy
 import sys
 
 ACC_NAMES_ADDED = []
+args = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,9 +31,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cli_path", dest="hmy_binary_path", default=None,
                         help=f"ABSOLUTE PATH of CLI binary. "
                              f"Default uses the CLI included in pyhmy module", type=str)
-    parser.add_argument("--cli_passphrase", dest="passphrase", default="harmony-one",
+    parser.add_argument("--cli_passphrase", dest="passphrase", default='',
                         help=f"Passphrase used to unlock the keystore. "
-                             f"Default is 'harmony-one'", type=str)
+                             f"Default is ''", type=str)
     parser.add_argument("--keystore", dest="keys_dir", default="TestnetValidatorKeys",
                         help=f"Direcotry of keystore to import. Must follow the format of CLI's keystore. "
                              f"Default is ./TestnetValidatorKeys", type=str)
@@ -43,7 +44,7 @@ def get_balance(cli, name, node) -> dict:
     address = cli.get_address(name)
     if not address:
         return {}
-    response = cli.single_call(f"hmy balance {address} --node={node}").replace("\n", "")
+    response = cli.single_call(f"hmy balances {address} --node={node}").replace("\n", "")
     return eval(response)  # Assumes that the return of CLI is list of dictionaries in plain text.
 
 
@@ -56,12 +57,13 @@ def load_keys(cli) -> None:
         if not os.path.isdir(f"{args.keys_dir}/{key}"):
             continue
         key_content = os.listdir(f"{args.keys_dir}/{key}")
-        for file in key_content:
-            if file.endswith(".key"):
-                key_file_path = f"{os.getcwd()}/{args.keys_dir}/{key}/{file}"
+        for f in key_content:
+            if f.endswith(".key"):
+                key_file_path = f"{os.getcwd()}/{args.keys_dir}/{key}/{f}"
                 new_account_name = f"_test_key_{random_num}_{i}"
                 CLI.remove_address(new_account_name)
-                response = cli.single_call(f"keys import-ks {key_file_path} {new_account_name}").strip()
+                response = cli.single_call(f"keys import-ks {key_file_path} {new_account_name} "
+                                           f"--passphrase={args.passphrase}").strip()
                 if f"Imported keystore given account alias of `{new_account_name}`" == response:
                     ACC_NAMES_ADDED.append(new_account_name)
                 break
@@ -74,10 +76,6 @@ def get_raw_txn(cli, passphrase, chain_id, node, source_shard) -> str:
     """
     print("Getting RawTxn...")
     assert source_shard == 0 or source_shard == 1, "Assume only 2 shards on network"
-    if source_shard == 0:
-        assert ".s0." in node or ":9500/" in node, "Miss match between source shard and node"
-    else:
-        assert ".s1." in node or ":9501/" in node, "Miss match between source shard and node"
     assert len(ACC_NAMES_ADDED) > 1, "Must load at least 2 keys and must match CLI's keystore format"
     for acc_name in ACC_NAMES_ADDED:
         balances = get_balance(cli, acc_name, node)
@@ -95,13 +93,12 @@ def get_raw_txn(cli, passphrase, chain_id, node, source_shard) -> str:
             if chain_id not in {"mainnet", "testnet", "pangaea"}:  # Must be localnet
                 response = cli.single_call(f"hmy transfer --from={from_addr} --to={to_addr} "
                                            f"--from-shard={source_shard} --to-shard={1-source_shard} --amount={1e-9} "
-                                           f"--passphrase={passphrase} --dry-run")
+                                           f"--dry-run")
                 print("\tTransaction for localnet")
             else:
                 response = cli.single_call(f"hmy --node={node} transfer --from={from_addr} --to={to_addr} "
                                            f"--from-shard={source_shard} --to-shard={1-source_shard} --amount={1e-9} "
-                                           f"--passphrase={passphrase} --chain-id={chain_id} "
-                                           f"--dry-run")
+                                           f"--chain-id={chain_id} --dry-run")
                 print(f"\tTransaction for {chain_id}")
             response_lines = response.split("\n")
             assert len(response_lines) == 17, 'CLI output for transaction dry-run is not recognized, check CLI version.'
@@ -111,7 +108,7 @@ def get_raw_txn(cli, passphrase, chain_id, node, source_shard) -> str:
     raise RuntimeError(f"None of the loaded accounts have funds on shard {source_shard}")
 
 
-def setup_no_explorer(args, test_json, global_json, env_json):
+def setup_no_explorer(test_json, global_json, env_json):
     source_shard = 0 if ".s0." in args.hmy_endpoint_src or ":9500/" in args.hmy_endpoint_src else 1
     raw_txn = get_raw_txn(CLI, passphrase=args.passphrase, chain_id=args.chain_id,
                           node=args.hmy_endpoint_src, source_shard=source_shard)
@@ -139,7 +136,7 @@ def setup_no_explorer(args, test_json, global_json, env_json):
                                                                                   f".s{1-source_shard}.")
 
 
-def setup_only_explorer(args, test_json, global_json, env_json):
+def setup_only_explorer(test_json, global_json, env_json):
     if "localhost" in args.hmy_endpoint_src or "localhost" in args.hmy_exp_endpoint:
         print("\n\t[WARNING] This test is for testnet or mainnet.\n")
 
@@ -154,13 +151,22 @@ def setup_only_explorer(args, test_json, global_json, env_json):
             env_json["values"][i]["value"] = args.hmy_exp_endpoint.replace(f"e{source_shard-1}.", f"e{source_shard}.")
         if var["key"] == "txn_delay":
             env_json["values"][i]["value"] = args.txn_delay
+        if var["key"] == "source_shard":
+            env_json["values"][i]["value"] = source_shard
 
     for i, var in enumerate(global_json["values"]):
         if var["key"] == "hmy_exp_endpoint":
             global_json["values"][i]["value"] = args.hmy_exp_endpoint
+        if var["key"] == "hmy_endpoint_src":
+            if f":950{1-source_shard}/" in args.hmy_endpoint_src:
+                global_json["values"][i]["value"] = args.hmy_endpoint_src.replace(f":950{1-source_shard}/",
+                                                                                  f":950{source_shard}/")
+            else:
+                global_json["values"][i]["value"] = args.hmy_endpoint_src.replace(f".s{1-source_shard}.",
+                                                                                  f".s{source_shard}.")
 
 
-def setup_default(args, test_json, global_json, env_json):
+def setup_default(test_json, global_json, env_json):
     if "localhost" in args.hmy_endpoint_src or "localhost" in args.hmy_exp_endpoint:
         print("\n\t[WARNING] This test is for testnet or mainnet.\n")
 
@@ -175,6 +181,8 @@ def setup_default(args, test_json, global_json, env_json):
             env_json["values"][i]["value"] = args.hmy_exp_endpoint.replace(f"e{source_shard-1}.", f"e{source_shard}.")
         if var["key"] == "txn_delay":
             env_json["values"][i]["value"] = args.txn_delay
+        if var["key"] == "source_shard":
+            env_json["values"][i]["value"] = source_shard
 
     for i, var in enumerate(global_json["values"]):
         if var["key"] == "hmy_endpoint_src":
@@ -192,33 +200,32 @@ if __name__ == "__main__":
     assert os.path.isdir(args.keys_dir), "Could not find keystore directory"
     test_dir = args.test_dir
 
-    with open(f"{test_dir}/test.json", 'r') as file:
-        test_json = json.load(file)
-    with open(f"{test_dir}/global.json", 'r') as file:
-        global_json = json.load(file)
-    with open(f"{test_dir}/env.json", 'r') as file:
-        env_json = json.load(file)
+    with open(f"{test_dir}/test.json", 'r') as f:
+        test_json = json.load(f)
+    with open(f"{test_dir}/global.json", 'r') as f:
+        global_json = json.load(f)
+    with open(f"{test_dir}/env.json", 'r') as f:
+        env_json = json.load(f)
     CLI = pyhmy.HmyCLI(environment=pyhmy.get_environment(), hmy_binary_path=args.hmy_binary_path)
     print(f"CLI Version: {CLI.version}")
 
     try:
         load_keys(CLI)
 
+        if "Harmony API Tests - no-explorer" in test_json["info"]["name"]:
+            setup_no_explorer(test_json, global_json, env_json)
+        elif "Harmony API Tests - only-explorer" in test_json["info"]["name"]:
+            setup_only_explorer(test_json, global_json, env_json)
+        else:
+            setup_default(test_json, global_json, env_json)
+
+        with open(f"{test_dir}/global.json", 'w') as f:
+            json.dump(global_json, f)
+        with open(f"{test_dir}/env.json", 'w') as f:
+            json.dump(env_json, f)
+
         for i in range(args.iterations):
             print(f"\n\tIteration {i+1} out of {args.iterations}\n")
-
-            if "Harmony API Tests - no-explorer" in test_json["info"]["name"]:
-                setup_no_explorer(args, test_json, global_json, env_json)
-            elif "Harmony API Tests - only-explorer" in test_json["info"]["name"]:
-                setup_only_explorer(args, test_json, global_json, env_json)
-            else:
-                setup_default(args, test_json, global_json, env_json)
-
-            with open(f"{test_dir}/global.json", 'w') as file:
-                json.dump(global_json, file)
-            with open(f"{test_dir}/env.json", 'w') as file:
-                json.dump(env_json, file)
-
             proc = subprocess.Popen(["newman", "run", f"{test_dir}/test.json",
                                      "-e", f"{test_dir}/env.json",
                                      "-g", f"{test_dir}/global.json"])
