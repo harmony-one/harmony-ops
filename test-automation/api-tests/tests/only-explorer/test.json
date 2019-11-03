@@ -28,11 +28,7 @@
 							"    pm.expect(pm.response.json().result).not.equal(null);",
 							"})",
 							"",
-							"pm.environment.set('txHash', pm.response.json().result)",
-							"",
-							"let delay = pm.variables.get(\"txn_delay\")",
-							"console.log(\"Sleeping \" + delay + \" seconds for cross-shard transaction finality...\")",
-							"setTimeout(function(){}, [delay * 1000]); // Timeout for txn"
+							"pm.environment.set('txHash', pm.response.json().result)"
 						],
 						"type": "text/javascript"
 					}
@@ -51,6 +47,73 @@
 				"body": {
 					"mode": "raw",
 					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_sendRawTransaction\",\"params\":[\"{{rawTransaction}}\"],\"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint_src}}",
+					"host": [
+						"{{hmy_endpoint_src}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hmy_getTransactionByHash",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "2b78a9f1-529e-4fa7-8f27-b3779623d7ec",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							"",
+							"pm.environment.set('blockHash', pm.response.json().result.blockHash)",
+							"pm.environment.set('blockNumber', pm.response.json().result.blockNumber)",
+							"pm.environment.set('accountAddress', pm.response.json().result.from)",
+							"pm.environment.set('txIndex', pm.response.json().result.transactionIndex)"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "5e14a9d3-0fc3-49d7-9fac-2d3aaeea745b",
+						"exec": [
+							"let delay = pm.variables.get(\"txn_delay\")",
+							"console.log(\"Sleeping \" + delay + \" seconds for cross-shard transaction finality...\")",
+							"setTimeout(function(){}, [delay * 1000]); // Timeout for txn"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getTransactionByHash\",\"params\":[\"{{txHash}}\"],\"id\":1}"
 				},
 				"url": {
 					"raw": "{{hmy_endpoint_src}}",
@@ -236,14 +299,14 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "{{hmy_exp_endpoint}}address?id=one1vjywuur8ckddmc4dsyx6qdgf590eu07ag9fg4a&tx_view=ALL&offset=5&page=2",
+					"raw": "{{hmy_exp_endpoint}}address?id={{accountAddress}}&tx_view=ALL&offset=1&page=1",
 					"host": [
 						"{{hmy_exp_endpoint}}address"
 					],
 					"query": [
 						{
 							"key": "id",
-							"value": "one1vjywuur8ckddmc4dsyx6qdgf590eu07ag9fg4a"
+							"value": "{{accountAddress}}"
 						},
 						{
 							"key": "tx_view",
@@ -251,11 +314,11 @@
 						},
 						{
 							"key": "offset",
-							"value": "5"
+							"value": "1"
 						},
 						{
 							"key": "page",
-							"value": "2"
+							"value": "1"
 						}
 					]
 				}
@@ -405,14 +468,14 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "{{hmy_exp_endpoint}}committee?shard_id=0&epoch=0",
+					"raw": "{{hmy_exp_endpoint}}committee?shard_id={{source_shard}}&epoch=0",
 					"host": [
 						"{{hmy_exp_endpoint}}committee"
 					],
 					"query": [
 						{
 							"key": "shard_id",
-							"value": "0"
+							"value": "{{source_shard}}"
 						},
 						{
 							"key": "epoch",

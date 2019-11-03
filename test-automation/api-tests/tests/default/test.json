@@ -315,13 +315,13 @@
 					{
 						"key": "Content-Type",
 						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
+						"type": "text",
+						"value": "application/json"
 					}
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_getBlockByHash\",\n    \"params\": [\n        \"{{blockHash}}\",\n        true\n    ],\n    \"id\": 1\n}"
+					"raw": "{ \"jsonrpc\": \"2.0\", \"method\": \"hmy_getBlockByHash\", \"params\": [\"{{blockHash}}\" , true], \"id\": 1}"
 				},
 				"url": {
 					"raw": "{{hmy_endpoint_src}}",
@@ -1633,14 +1633,14 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "{{hmy_exp_endpoint}}address?id=one1vjywuur8ckddmc4dsyx6qdgf590eu07ag9fg4a&tx_view=ALL&offset=5&page=2",
+					"raw": "{{hmy_exp_endpoint}}address?id={{accountAddress}}&tx_view=ALL&offset=1&page=1",
 					"host": [
 						"{{hmy_exp_endpoint}}address"
 					],
 					"query": [
 						{
 							"key": "id",
-							"value": "one1vjywuur8ckddmc4dsyx6qdgf590eu07ag9fg4a"
+							"value": "{{accountAddress}}"
 						},
 						{
 							"key": "tx_view",
@@ -1648,11 +1648,11 @@
 						},
 						{
 							"key": "offset",
-							"value": "5"
+							"value": "1"
 						},
 						{
 							"key": "page",
-							"value": "2"
+							"value": "1"
 						}
 					]
 				}
@@ -1802,14 +1802,14 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "{{hmy_exp_endpoint}}committee?shard_id=0&epoch=0",
+					"raw": "{{hmy_exp_endpoint}}committee?shard_id={{source_shard}}&epoch=0",
 					"host": [
 						"{{hmy_exp_endpoint}}committee"
 					],
 					"query": [
 						{
 							"key": "shard_id",
-							"value": "0"
+							"value": "{{source_shard}}"
 						},
 						{
 							"key": "epoch",
