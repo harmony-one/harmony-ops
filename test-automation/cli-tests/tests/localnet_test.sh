@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-until $(curl --location --request POST "localhost:9500" \
+until $(curl --silent --location --request POST "localhost:9500" \
    --header "Content-Type: application/json" \
    --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' > HTML_Output)
 do
@@ -11,11 +11,11 @@ done
 valid=False
 until $valid
 do
-    result=$(curl --location --request POST "localhost:9500" \
+    result=$(curl --silent --location --request POST "localhost:9500" \
         --header "Content-Type: application/json" \
-        --data '{"jsonrpc":"2.0","method":"hmy_getBlockByNumber","params":["0x1", true],"id":1}' \
-         | jq | jq 'select(.result)')
-    if [ -z "$result" ]; then
+        --data '{"jsonrpc":"2.0","method":"hmy_blockNumber","params":[],"id":1}' \
+         | jq | jq '.result')
+    if [ "$result" = "\"0x0\"" ]; then
         echo "Waiting for localnet to boot..."
         sleep 3
     else

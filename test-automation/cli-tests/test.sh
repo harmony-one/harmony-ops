@@ -74,5 +74,5 @@ pull_and_build_localnet
 cd $harmony_path && bash test/kill_node.sh
 rm -rf tmp_log*
 ./test/deploy.sh $harmony_path/test/configs/local-resharding.txt > /dev/null &
-cd $src_dir/tests && bash launch_test.sh
+cd $src_dir/tests && bash localnet_test.sh
 cd $harmony_path && bash test/kill_node.sh

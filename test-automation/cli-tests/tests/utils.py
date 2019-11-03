@@ -35,7 +35,7 @@ def get_logger(filename):
 
 
 def test_announce(fn):
-    def warp(*args):
+    def wrap(*args):
         print(f"Testing {Colors.WARNING}{fn.__name__}{Colors.ENDC}")
         return fn(*args)
-    return warp
+    return wrap
