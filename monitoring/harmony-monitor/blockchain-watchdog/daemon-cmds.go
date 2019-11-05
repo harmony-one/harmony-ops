@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
@@ -86,11 +85,8 @@ func (cw *cobraSrvWrapper) start(cmd *cobra.Command, args []string) error {
 }
 
 func (cw *cobraSrvWrapper) doMonitor(cmd *cobra.Command, args []string) error {
-	lock := &sync.Mutex{}
 	cw.monitor = &monitor{
 		chain:             cw.Network.TargetChain,
-		lock:              lock,
-		cond:              sync.NewCond(lock),
 		consensusProgress: map[string]bool{},
 	}
 	return cw.monitorNetwork()

@@ -294,6 +294,7 @@ type headerInfoRPCResult struct {
 	Payload headerInformation
 	IP      string
 }
+
 type noReply struct {
 	IP            string
 	FailureReason string
@@ -305,42 +306,88 @@ type monitor struct {
 	MetadataSnapshot struct {
 		TS    time.Time
 		Nodes []metadataRPCResult
+		Down  []noReply
 	}
 	BlockHeaderSnapshot struct {
 		TS    time.Time
 		Nodes []headerInfoRPCResult
+		Down  []noReply
 	}
 	SummarySnapshot   map[string]map[string]interface{}
-	NoReplyMachines   []noReply
-	lock              *sync.Mutex
-	cond              *sync.Cond
 	consensusProgress map[string]bool
 }
 
-func (m *monitor) update(
-	rpc string, every int, superCommittee map[int]committee,
-) {
-	type t struct {
-		addr       string
-		rpcPayload []byte
-		rpcResult  []byte
-		oops       error
-	}
+type work struct {
+	address string
+	rpc     string
+	body    []byte
+}
 
+type reply struct {
+	address    string
+	rpc        string
+	rpcPayload []byte
+	rpcResult  []byte
+	oops       error
+}
+
+func (m* monitor) worker(jobs chan work, channels map[string](chan reply), group *sync.WaitGroup) {
+	for j := range jobs {
+		result := reply{address : j.address, rpc : j.rpc}
+		result.rpcResult, result.rpcPayload, result.oops = request(
+			"http://" + j.address, j.rpc, j.body)
+		channels[j.rpc] <- result
+		group.Done()
+	}
+}
+
+func (m* monitor) writer(data chan reply, group *sync.WaitGroup) {
+	group.Wait()
+	for d := range data {
+		switch d.rpc {
+		case metadataRPC:
+			m.MetadataSnapshot.Down = []noReply{}
+			m.MetadataSnapshot.Nodes = []metadataRPCResult{}
+			for d := range data {
+				if d.oops != nil {
+					m.MetadataSnapshot.Down = append(m.MetadataSnapshot.Down,
+					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+				} else {
+					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
+				}
+			}
+		case blockHeaderRPC:
+			m.BlockHeaderSnapshot.Down = []noReply{}
+			m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
+			for d := range data {
+				if d.oops != nil {
+					m.BlockHeaderSnapshot.Down = append(m.BlockHeaderSnapshot.Down,
+					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+				} else {
+					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
+				}
+			}
+	  }
+	}
+}
+
+func (m *monitor) update(schedule InspectSchedule, superCommittee map[int]committee, rpcs []string, opts Performance) {
 	nodeList := []string{}
 	for _, v := range superCommittee {
 		nodeList = append(nodeList, v.members...)
 	}
 
-	for now := range time.Tick(time.Duration(every) * time.Second) {
-		m.NoReplyMachines = []noReply{}
-		switch rpc {
-		case metadataRPC:
-			m.MetadataSnapshot.Nodes = []metadataRPCResult{}
-		case blockHeaderRPC:
-			m.lock.Lock()
-			m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
-		}
+	var group sync.WaitGroup
+	jobs := make(chan work, len(nodeList))
+
+	replyChannel = make(chan reply, len(nodeList))
+	go writer(replyChannel, &group)
+
+	for i := 0; i < opts.WorkerPoolSize; i++ {
+		go worker(jobs, replyChannels)
+	}
+
+	for now := range time.Tick(time.Duration(1) * time.Second) {
 		requestBody, _ := json.Marshal(map[string]interface{}{
 			"jsonrpc": versionJSONRPC,
 			"id":      strconv.Itoa(queryID),
@@ -469,11 +516,7 @@ See: http://watchdog.hmny.io/report-%s
 }
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
-	go m.update(
-		metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.superCommittee)
-	go m.update(
-		blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.superCommittee,
-	)
+	go m.update(instrs.InspectSchedule, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC}, instrs.Performance)
 	go m.watchShardHealth(
 		instrs.Auth.PagerDuty.EventServiceKey,
 		instrs.Network.TargetChain,

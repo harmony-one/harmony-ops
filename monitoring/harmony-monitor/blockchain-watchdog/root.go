@@ -200,6 +200,10 @@ type watchParams struct {
 		BlockHeader  int `yaml:"block-header"`
 		NodeMetadata int `yaml:"node-metadata"`
 	} `yaml:"inspect-schedule"`
+	Performance struct {
+		WorkerPoolSize int `yaml:"num-workers"`
+		HTTPTimeout    int `yaml:"http-timeout"`
+	} `yaml:"performance"`
 	HTTPReporter struct {
 		Port int `yaml:"port"`
 	} `yaml:"http-reporter"`
