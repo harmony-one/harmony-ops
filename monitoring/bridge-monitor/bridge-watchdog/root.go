@@ -113,15 +113,10 @@ func (service *Service) monitorNetwork() error {
 			// Calculate balance
 			bnb, oops := pullBNB()
 			if oops != nil {
-				// If BNB CLI fetch fail, quit
-				e := notify(pdServiceKey, fmt.Sprintf(`
-						BNB CLI fetch failed. Exiting. %s
-						`, oops))
-				if e != nil {
-					errLog.Println(e)
-				}
+				// If BNB CLI fetch fail
 				errLog.Println(oops)
-				os.Exit(-1)
+				tryAgainCounter = 10
+				continue
 			}
 
 			normed := bnb.Quo(base)
@@ -129,15 +124,9 @@ func (service *Service) monitorNetwork() error {
 			if err != nil {
 				etherFailCounter++
 				if etherFailCounter > 6 {
-					e := notify(pdServiceKey, fmt.Sprintf(`
-							EtherScan balance fetch failed for 1 hour. Exiting. Error: %s
-							`, err))
-					if e != nil {
-						errLog.Println(e)
-					}
-					// If failing for 1 hour, exit
+					// If failing for 1 hour
 					errLog.Println(err)
-					os.Exit(-1)
+					etherFailCounter = 0
 				}
 				tryAgainCounter = 10
 				continue
@@ -146,14 +135,8 @@ func (service *Service) monitorNetwork() error {
 			if error != nil {
 				etherFailCounter++
 				if etherFailCounter > 6 {
-					e := notify(pdServiceKey, fmt.Sprintf(`
-							EtherScan balance fetch failed for 1 hour. Exiting. Error: %s
-							`, error))
-					if e != nil {
-						errLog.Println(e)
-					}
 					errLog.Println(error)
-					os.Exit(-1)
+					etherFailCounter = 0
 				}
 				tryAgainCounter = 10
 				continue
