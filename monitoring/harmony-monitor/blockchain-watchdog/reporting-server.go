@@ -57,12 +57,7 @@ var (
 	nodeMetadataCSVHeader      = []string{"IP"}
 	headerInformationCSVHeader = []string{"IP"}
 	post                       = []byte("POST")
-	client                     = &fasthttp.Client{
-		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(addr, time.Second*15)
-		},
-		MaxConnsPerHost: 2048,
-	}
+	client                     fasthttp.Client
 )
 
 func identity(x interface{}) interface{} {
@@ -380,6 +375,10 @@ func (m *monitor) update(schedule InspectSchedule, superCommittee map[int]commit
 	var group sync.WaitGroup
 	jobs := make(chan work, len(nodeList))
 
+	replyChannels = make(map[string](chan reply))
+	for _, rpc := range rpcs {
+		replyChannels[rpc] = make(chan reply, len(nodeList))
+	}
 	replyChannel = make(chan reply, len(nodeList))
 	go writer(replyChannel, &group)
 
@@ -516,7 +515,17 @@ See: http://watchdog.hmny.io/report-%s
 }
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
+<<<<<<< HEAD
 	go m.update(instrs.InspectSchedule, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC}, instrs.Performance)
+=======
+	client = &fasthttp.Client{
+		Dial: func(addr string) (net.Conn, error) {
+			return fasthttp.DialTimeout(addr, time.Second * instrs.Performance.HTTPTimeout)
+		},
+		MaxConnsPerHost: 2048,
+	}
+	go m.update(instrs.InspectSchedule, instrs.networkNodes, [blockHeaderRPC, metadataRPC], instrs.Performance.WorkerPoolSize)
+>>>>>>> [shard-health] Intermediate commit
 	go m.watchShardHealth(
 		instrs.Auth.PagerDuty.EventServiceKey,
 		instrs.Network.TargetChain,
