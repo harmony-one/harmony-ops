@@ -122,13 +122,18 @@ func (service *Service) compareIPInShardFileWithNodes() error {
 		InShard string
 		Addr    string
 	}
-	plainMap := map[int][]wrongSpot{}
+	plainMap := map[string][]wrongSpot{}
 	results.Range(func(key, value interface{}) bool {
 		misplaced := make([]wrongSpot, len(value.(hooligans)))
 		for i, pair := range value.(hooligans) {
 			misplaced[i] = wrongSpot{pair[0], pair[1]}
 		}
-		plainMap[key.(int)] = misplaced
+		switch k := key.(int); k {
+		case unreachableShard:
+			plainMap["no-reply-nodes"] = misplaced
+		default:
+
+		}
 		return true
 	})
 
@@ -209,9 +214,14 @@ type watchParams struct {
 	} `yaml:"node-distribution"`
 }
 
+type committee struct {
+	file    string
+	members []string
+}
+
 type instruction struct {
 	watchParams
-	superCommittee [][]string
+	superCommittee []committee
 }
 
 func newInstructions(yamlPath string) (*instruction, error) {
@@ -224,14 +234,14 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	if err != nil {
 		return nil, err
 	}
-	byShard := make([][]string, len(t.DistributionFiles.MachineIPList))
+	byShard := make([]committee, len(t.DistributionFiles.MachineIPList))
 	for _, file := range t.DistributionFiles.MachineIPList {
 		shard := path.Base(strings.TrimSuffix(file, path.Ext(file)))
 		id, err := strconv.Atoi(string(shard[len(shard)-1]))
 		if err != nil {
 			return nil, err
 		}
-		byShard[id] = []string{}
+		byShard[id] = committee{file, []string{}}
 		f, err := os.Open(file)
 		if err != nil {
 			return nil, nil
@@ -239,8 +249,8 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
-			byShard[id] = append(
-				byShard[id], scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort),
+			byShard[id].members = append(
+				byShard[id].members, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort),
 			)
 		}
 		err = scanner.Err()
