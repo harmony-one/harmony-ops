@@ -85,7 +85,7 @@ func (service *Service) compareIPInShardFileWithNodes() error {
 
 	for shardID, subcommittee := range service.superCommittee {
 		results.Store(shardID, hooligans{})
-		for _, nodeIP := range subcommittee {
+		for _, nodeIP := range subcommittee.members {
 			wait.Add(1)
 			go func(shardID int, nodeIP string) {
 				defer wait.Add(-1)
@@ -221,7 +221,7 @@ type committee struct {
 
 type instruction struct {
 	watchParams
-	superCommittee []committee
+	superCommittee map[int]committee
 }
 
 func newInstructions(yamlPath string) (*instruction, error) {
@@ -234,14 +234,14 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	if err != nil {
 		return nil, err
 	}
-	byShard := make([]committee, len(t.DistributionFiles.MachineIPList))
+	byShard := make(map[int]committee, len(t.DistributionFiles.MachineIPList))
 	for _, file := range t.DistributionFiles.MachineIPList {
 		shard := path.Base(strings.TrimSuffix(file, path.Ext(file)))
 		id, err := strconv.Atoi(string(shard[len(shard)-1]))
 		if err != nil {
 			return nil, err
 		}
-		byShard[id] = committee{file, []string{}}
+		ip_list := []string{}
 		f, err := os.Open(file)
 		if err != nil {
 			return nil, nil
@@ -249,14 +249,13 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
-			byShard[id].members = append(
-				byShard[id].members, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort),
-			)
+		 	ip_list = append(ip_list, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort))
 		}
 		err = scanner.Err()
 		if err != nil {
 			return nil, err
 		}
+		byShard[id] = committee{file, ip_list}
 	}
 	return &instruction{t, byShard}, nil
 }

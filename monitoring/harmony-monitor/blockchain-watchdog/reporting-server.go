@@ -197,7 +197,10 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		})
 	})
 	for i, _ := range leaders {
-		sum[headerSumry][i].(any)["shard-leader"] = leaders[i]
+		// FIXME: Remove when hmy_getNodeMetadata RPC is fixed & deployed
+		if sum[headerSumry][i] != nil {
+			sum[headerSumry][i].(any)["shard-leader"] = leaders[i]
+		}
 	}
 	cnsMsg := "Consensus Progress not known yet"
 	if len(m.consensusProgress) != 0 {
@@ -315,7 +318,7 @@ type monitor struct {
 }
 
 func (m *monitor) update(
-	rpc string, every int, supercommittee [][]string,
+	rpc string, every int, superCommittee map[int]committee,
 ) {
 	type t struct {
 		addr       string
@@ -325,8 +328,8 @@ func (m *monitor) update(
 	}
 
 	nodeList := []string{}
-	for shard := 0; shard < len(supercommittee); shard++ {
-		nodeList = append(nodeList, supercommittee[shard]...)
+	for _, v := range superCommittee {
+		nodeList = append(nodeList, v.members...)
 	}
 
 	for now := range time.Tick(time.Duration(every) * time.Second) {
