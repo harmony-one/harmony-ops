@@ -5,7 +5,7 @@
 # Place all needed authorization keys here
 auth:
   pagerduty:
-    event-service-key: key
+    event-service-key: YOU_REPLACE_ME
 
 target-chain: mainnet
 
