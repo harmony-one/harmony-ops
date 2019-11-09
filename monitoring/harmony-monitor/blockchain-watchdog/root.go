@@ -230,7 +230,7 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		return nil, err
 	}
 	t := watchParams{}
-	err = yaml.Unmarshal(rawYAML, &t)
+	err = yaml.UnmarshalStrict(rawYAML, &t)
 	if err != nil {
 		return nil, err
 	}

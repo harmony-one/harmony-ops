@@ -325,7 +325,7 @@ func (m *monitor) update(
 	}
 
 	nodeList := []string{}
-	for shard := 0; shard <= len(supercommittee); shard++ {
+	for shard := 0; shard < len(supercommittee); shard++ {
 		nodeList = append(nodeList, supercommittee[shard]...)
 	}
 
