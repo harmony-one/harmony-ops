@@ -234,6 +234,10 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	if err != nil {
 		return nil, err
 	}
+	oops := t.sanityCheck()
+	if oops != nil {
+		return nil, oops
+	}
 	byShard := make(map[int]committee, len(t.DistributionFiles.MachineIPList))
 	for _, file := range t.DistributionFiles.MachineIPList {
 		shard := path.Base(strings.TrimSuffix(file, path.Ext(file)))
@@ -241,7 +245,7 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		if err != nil {
 			return nil, err
 		}
-		ip_list := []string{}
+		ipList := []string{}
 		f, err := os.Open(file)
 		if err != nil {
 			return nil, nil
@@ -249,15 +253,37 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
-		 	ip_list = append(ip_list, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort))
+		 	ipList = append(ipList, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort))
 		}
 		err = scanner.Err()
 		if err != nil {
 			return nil, err
 		}
-		byShard[id] = committee{file, ip_list}
+		byShard[id] = committee{file, ipList}
 	}
 	return &instruction{t, byShard}, nil
+}
+
+func (w *watchParams) sanityCheck() error {
+	if w.Network.RPCPort == 0 {
+		return errors.New("Missing RPCPort under Network in yaml config")
+	}
+	if w.InspectSchedule.BlockHeader == 0 {
+		return errors.New("Missing BlockHeader under InspectSchedule in yaml config")
+	}
+	if w.InspectSchedule.NodeMetadata == 0 {
+		return errors.New("Missing NodeMetadata under InspectSchedule in yaml config")
+	}
+	if w.HTTPReporter.Port == 0 {
+		return errors.New("Missing Port under HTTPReporter in yaml config")
+	}
+	if w.ShardHealthReporting.Consensus.Warning == 0 {
+		return errors.New("Missing Warning under ShardHealthReporting, Consensus in yaml config")
+	}
+	if w.ShardHealthReporting.Consensus.Redline == 0 {
+		return errors.New("Missing Redline under ShardHealthReporting, Consensus in yaml config")
+	}
+	return nil
 }
 
 func versionS() string {
