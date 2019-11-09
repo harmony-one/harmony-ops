@@ -5,9 +5,11 @@
 # Place all needed authorization keys here
 auth:
   pagerduty:
-    event-service-key: key
+    event-service-key: YOUR_PAGERDUTY_KEY
 
-target-chain: mainnet
+network-config:
+  target-chain: testnet
+  public-rpc: 9500
 
 # How often to check, the numbers assumed as seconds
 # block-header RPC must happen first
@@ -26,8 +28,14 @@ shard-health-reporting:
     redline: 300
 
 # Needs to be an absolute file path
+# NOTE: The ending of the basename of the file
+# is important, in this example the 0, 1, 2, 3
+# indicate shardID. Need to have some trailing
+# number on the filename
 node-distribution:
   machine-ip-list:
-    - /some/path/ip_list1.txt
-    - /some/path/ip_list2.txt
+    - /home/ec2-user/mainnet/shard0.txt
+    - /home/ec2-user/mainnet/shard1.txt
+    - /home/ec2-user/mainnet/shard2.txt
+    - /home/ec2-user/mainnet/shard3.txt
 ```
