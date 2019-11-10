@@ -34,8 +34,8 @@ shard-health-reporting:
 # number on the filename
 node-distribution:
   machine-ip-list:
-    - /home/ec2-user/mainnet/shard0.txt
-    - /home/ec2-user/mainnet/shard1.txt
-    - /home/ec2-user/mainnet/shard2.txt
-    - /home/ec2-user/mainnet/shard3.txt
+  - /home/ec2-user/mainnet/shard0.txt
+  - /home/ec2-user/mainnet/shard1.txt
+  - /home/ec2-user/mainnet/shard2.txt
+  - /home/ec2-user/mainnet/shard3.txt
 ```

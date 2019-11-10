@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -124,6 +125,37 @@ func validateMachineIPList() *cobra.Command {
 	validateShardIP.Flags().StringVar(&monitorNodeYAML, mFlag, "", mDescr)
 	validateShardIP.MarkFlagRequired(mFlag)
 	return validateShardIP
+}
+
+func generateSampleYAML() *cobra.Command {
+	generateSample := &cobra.Command {
+		Use:              "generate-sample",
+		Short:            "print sample yaml config file",
+		RunE:             func (cmd *cobra.Command, args []string) error {
+												sampleParams := watchParams{}
+												sampleParams.Auth.PagerDuty.EventServiceKey = "YOUR_PAGERDUTY_KEY"
+												sampleParams.Network.TargetChain = "mainnet"
+												sampleParams.Network.RPCPort = 9500
+												sampleParams.InspectSchedule.BlockHeader = 15
+												sampleParams.InspectSchedule.NodeMetadata = 30
+												sampleParams.HTTPReporter.Port = 8080
+												sampleParams.ShardHealthReporting.Consensus.Warning = 40
+												sampleParams.ShardHealthReporting.Consensus.Redline = 100
+												sampleParams.DistributionFiles.MachineIPList = []string{
+																																					"/home/ec2_user/mainnet/shard0.txt",
+																																					"/home/ec2_user/mainnet/shard1.txt",
+																																					"/home/ec2_user/mainnet/shard2.txt",
+																																					"/home/ec2_user/mainnet/shard3.txt",
+																																				}
+												sampleConfig, err := yaml.Marshal(sampleParams)
+												if err != nil {
+													return err
+												}
+												fmt.Println(string(sampleConfig))
+												return nil
+		},
+	}
+	return generateSample
 }
 
 func serviceCmd() *cobra.Command {
