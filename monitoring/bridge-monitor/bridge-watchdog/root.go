@@ -76,7 +76,7 @@ func (service *Service) monitorNetwork() error {
 	go func() {
 		// Our polling logic
 		expectedBalance := NewDecFromBigInt(big.NewInt(expectedBal))
-		thresholdBalance := NewDecFromBigInt(big.NewInt(152000000))
+		threshold := NewDecFromBigInt(big.NewInt(10))
 		base := NewDecFromBigInt(big.NewInt(100000000))
 		tryAgainCounter := 0
 		etherFailCounter := 0
@@ -158,7 +158,7 @@ Deviation: %s
 				reportCounter = 0
 			}
 			// Check if below threshold
-			if expectedBalance.Sub(diff).LT(thresholdBalance) {
+			if diff.GT(threshold) {
 			 	// Send PagerDuty message
 			 	e := notify(pdServiceKey, fmt.Sprintf(`
 						Mismatch detected!
