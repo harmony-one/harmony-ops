@@ -317,4 +317,5 @@ func init() {
 	rootCmd.AddCommand(serviceCmd())
 	rootCmd.AddCommand(monitorCmd())
 	rootCmd.AddCommand(validateMachineIPList())
+	rootCmd.AddCommand(generateSampleYAML())
 }
