@@ -14,6 +14,7 @@ import (
 
 	"github.com/ahmetb/go-linq"
 	"github.com/valyala/fasthttp"
+	"github.com/jinzhu/copier"
 )
 
 const (
@@ -300,21 +301,27 @@ type noReply struct {
 	RPCPayload    string
 }
 
+type MetadataContainer struct {
+	TS    time.Time
+	Nodes []metadataRPCResult
+	Down  []noReply
+}
+
+type BlockHeaderContainer struct {
+	TS    time.Time
+	Nodes []headerInfoRPCResult
+	Down  []noReply
+}
+
 type monitor struct {
-	chain            string
-	MetadataSnapshot struct {
-		TS    time.Time
-		Nodes []metadataRPCResult
-		Down  []noReply
-	}
-	BlockHeaderSnapshot struct {
-		TS    time.Time
-		Nodes []headerInfoRPCResult
-		Down  []noReply
-	}
-	SummarySnapshot   map[string]map[string]interface{}
-	NoReplySnapshot []noReply
-	consensusProgress map[string]bool
+	chain               string
+	WorkingMetadata     MetadataContainer
+	WorkingBlockHeader  BlockHeaderContainer
+	MetadataSnapshot    MetadataContainer
+	BlockHeaderSnapshot BlockHeaderContainer
+	SummarySnapshot     map[string]map[string]interface{}
+	NoReplySnapshot     []noReply
+	consensusProgress   map[string]bool
 }
 
 type work struct {
@@ -341,43 +348,11 @@ func (m* monitor) worker(jobs chan work, channels map[string](chan reply), group
 	}
 }
 
-func (m* monitor) writer(data chan reply, group *sync.WaitGroup) {
-	group.Wait()
-	first := true
-	for d := range data {
-		switch d.rpc {
-		case metadataRPC:
-			if first {
-				m.MetadataSnapshot.Down = []noReply{}
-				m.MetadataSnapshot.Nodes = []metadataRPCResult{}
-				first = false
-			}
-			if d.oops == nil {
-				m.MetadataSnapshot.Down = append(m.MetadataSnapshot.Down,
-				noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
-			} else {
-				m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
-			}
-		case blockHeaderRPC:
-			if first {
-				m.BlockHeaderSnapshot.Down = []noReply{}
-				m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
-				first = false
-			}
-			if d.oops == nil {
-				m.BlockHeaderSnapshot.Down = append(m.BlockHeaderSnapshot.Down,
-				noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
-			} else {
-				m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
-			}
-	  }
-	}
-}
-
-func (m* monitor) manager(jobs chan work, interval int, nodeList []string, rpc string, group *sync.WaitGroup) {
+func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
+					rpc string, group *sync.WaitGroup, channels map[string](chan reply)) {
 	for now := range time.Tick(time.Duration(interval) * time.Second) {
-		group.Wait()
 		queryID := 0
+		group.Add(len(nodeList))
 		for _, n := range nodeList {
 			requestBody, _ := json.Marshal(map[string]interface{} {
 				"jsonrpc": versionJSONRPC,
@@ -387,14 +362,54 @@ func (m* monitor) manager(jobs chan work, interval int, nodeList []string, rpc s
 			})
 			jobs <- work {n, rpc, requestBody}
 			queryID++
-			group.Add(1)
 		}
 		switch rpc {
 		case metadataRPC:
-			m.MetadataSnapshot.TS = now
+			m.WorkingMetadata.TS = now
 		case blockHeaderRPC:
-			m.BlockHeaderSnapshot.TS = now
+			m.WorkingBlockHeader.TS = now
 		}
+		group.Wait()
+		close(channels[rpc])
+
+		first := true
+		switch rpc {
+		case metadataRPC:
+			for d := range channels[rpc] {
+				if first {
+					m.WorkingMetadata.Down = []noReply{}
+					m.WorkingMetadata.Nodes = []metadataRPCResult{}
+					first = false
+				}
+				if d.oops != nil {
+					m.WorkingMetadata.Down = append(m.WorkingMetadata.Down,
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+				} else {
+					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
+				}
+			}
+			m.MetadataSnapshot = MetadataContainer{}
+			copier.Copy(&m.MetadataSnapshot, &m.WorkingMetadata)
+		case blockHeaderRPC:
+			for d := range channels[rpc] {
+				if first {
+					m.WorkingBlockHeader.Down = []noReply{}
+					m.WorkingBlockHeader.Nodes = []headerInfoRPCResult{}
+					first = false
+				}
+				if d.oops != nil {
+					m.WorkingBlockHeader.Down = append(m.WorkingBlockHeader.Down,
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+				} else {
+					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
+				}
+			}
+			m.BlockHeaderSnapshot = BlockHeaderContainer{}
+			// Should have no errors when copying
+			copier.Copy(&m.BlockHeaderSnapshot, &m.WorkingBlockHeader)
+		}
+
+		channels[rpc] = make(chan reply, len(nodeList))
 	}
 }
 
@@ -418,7 +433,6 @@ func (m *monitor) update(params watchParams, superCommittee map[int]committee, r
 			var bhGroup sync.WaitGroup
 			syncGroups[rpc] = &bhGroup
 		}
-		go m.writer(replyChannels[rpc], syncGroups[rpc])
 	}
 
 	for i := 0; i < params.Performance.WorkerPoolSize; i++ {
@@ -428,9 +442,9 @@ func (m *monitor) update(params watchParams, superCommittee map[int]committee, r
 	for _, rpc := range rpcs {
 		switch rpc {
 		case metadataRPC:
-			go m.manager(jobs, params.InspectSchedule.NodeMetadata, nodeList, rpc, syncGroups[rpc])
+			go m.manager(jobs, params.InspectSchedule.NodeMetadata, nodeList, rpc, syncGroups[rpc], replyChannels)
 		case blockHeaderRPC:
-			go m.manager(jobs, params.InspectSchedule.BlockHeader, nodeList, rpc, syncGroups[rpc])
+			go m.manager(jobs, params.InspectSchedule.BlockHeader, nodeList, rpc, syncGroups[rpc], replyChannels)
 		}
 	}
 }
@@ -446,14 +460,14 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	case metadataRPC:
 		oneReport := r{}
 		json.Unmarshal(payload, &oneReport)
-		m.MetadataSnapshot.Nodes = append(m.MetadataSnapshot.Nodes, metadataRPCResult{
+		m.WorkingMetadata.Nodes = append(m.WorkingMetadata.Nodes, metadataRPCResult{
 			oneReport.Result,
 			addr,
 		})
 	case blockHeaderRPC:
 		oneReport := s{}
 		json.Unmarshal(payload, &oneReport)
-		m.BlockHeaderSnapshot.Nodes = append(m.BlockHeaderSnapshot.Nodes, headerInfoRPCResult{
+		m.WorkingBlockHeader.Nodes = append(m.WorkingBlockHeader.Nodes, headerInfoRPCResult{
 			oneReport.Result,
 			addr,
 		})
@@ -461,11 +475,6 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 }
 
 func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline int) {
-	sumCopy := func(prevS, newS any) {
-		for key, value := range newS {
-			prevS[key] = value
-		}
-	}
 	// WARN Pay attention to the work here
 	liviness := func(message string, interval int) {
 		previousSummary := any{}
@@ -508,7 +517,7 @@ See: http://watchdog.hmny.io/report-%s
 					}
 				}
 			}
-			sumCopy(previousSummary, currentSummary)
+			copier.Copy(previousSummary, currentSummary)
 		}
 	}
 	go liviness("Warning", warning)
