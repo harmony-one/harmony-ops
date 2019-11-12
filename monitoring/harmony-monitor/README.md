@@ -17,6 +17,12 @@ inspect-schedule:
   block-header: 15
   node-metadata: 30
 
+# Number of concurrent go threads sending HTTP requests
+# Time in seconds to wait for the HTTP request to succeed
+performance:
+  num-workers: 32
+  http-timeout: 1
+
 # Port for the HTML report
 http-reporter:
   port: 9090
