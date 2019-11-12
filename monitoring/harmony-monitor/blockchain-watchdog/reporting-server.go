@@ -202,16 +202,20 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		cM, _ := json.Marshal(m.consensusProgress)
 		cnsMsg = fmt.Sprintf("Consensus Progress: %s", cM)
 	}
+	totalNoReplyMachines := []noReply{}
+	totalNoReplyMachines = append(totalNoReplyMachines, m.MetadataSnapshot.Down...)
+	totalNoReplyMachines = append(totalNoReplyMachines, m.BlockHeaderSnapshot.Down...)
 	t.ExecuteTemplate(w, "report", v{
 		LeftTitle:  []interface{}{m.chain, cnsMsg},
 		RightTitle: []interface{}{buildVersion, time.Now().Format(time.RFC3339)},
 		Summary:    sum,
-		NoReply:    m.NoReplyMachines,
-		DownMachineCount: linq.From(m.NoReplyMachines).Select(
+		NoReply:    totalNoReplyMachines,
+		DownMachineCount: linq.From(totalNoReplyMachines).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
 	})
 	m.SummarySnapshot = sum
+	m.NoReplySnapshot = totalNoReplyMachines
 }
 
 func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
@@ -309,6 +313,7 @@ type monitor struct {
 		Down  []noReply
 	}
 	SummarySnapshot   map[string]map[string]interface{}
+	NoReplySnapshot []noReply
 	consensusProgress map[string]bool
 }
 
@@ -326,105 +331,107 @@ type reply struct {
 	oops       error
 }
 
-func (m* monitor) worker(jobs chan work, channels map[string](chan reply), group *sync.WaitGroup) {
+func (m* monitor) worker(jobs chan work, channels map[string](chan reply), groups map[string]*sync.WaitGroup) {
 	for j := range jobs {
 		result := reply{address : j.address, rpc : j.rpc}
 		result.rpcResult, result.rpcPayload, result.oops = request(
-			"http://" + j.address, j.rpc, j.body)
+			"http://" + j.address, j.body)
 		channels[j.rpc] <- result
-		group.Done()
+		groups[j.rpc].Done()
 	}
 }
 
 func (m* monitor) writer(data chan reply, group *sync.WaitGroup) {
 	group.Wait()
+	first := true
 	for d := range data {
 		switch d.rpc {
 		case metadataRPC:
-			m.MetadataSnapshot.Down = []noReply{}
-			m.MetadataSnapshot.Nodes = []metadataRPCResult{}
-			for d := range data {
-				if d.oops != nil {
-					m.MetadataSnapshot.Down = append(m.MetadataSnapshot.Down,
-					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
-				} else {
-					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
-				}
+			if first {
+				m.MetadataSnapshot.Down = []noReply{}
+				m.MetadataSnapshot.Nodes = []metadataRPCResult{}
+				first = false
+			}
+			if d.oops == nil {
+				m.MetadataSnapshot.Down = append(m.MetadataSnapshot.Down,
+				noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+			} else {
+				m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
 			}
 		case blockHeaderRPC:
-			m.BlockHeaderSnapshot.Down = []noReply{}
-			m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
-			for d := range data {
-				if d.oops != nil {
-					m.BlockHeaderSnapshot.Down = append(m.BlockHeaderSnapshot.Down,
-					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
-				} else {
-					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
-				}
+			if first {
+				m.BlockHeaderSnapshot.Down = []noReply{}
+				m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
+				first = false
+			}
+			if d.oops == nil {
+				m.BlockHeaderSnapshot.Down = append(m.BlockHeaderSnapshot.Down,
+				noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+			} else {
+				m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
 			}
 	  }
 	}
 }
 
-func (m *monitor) update(schedule InspectSchedule, superCommittee map[int]committee, rpcs []string, opts Performance) {
+func (m* monitor) manager(jobs chan work, interval int, nodeList []string, rpc string, group *sync.WaitGroup) {
+	for now := range time.Tick(time.Duration(interval) * time.Second) {
+		group.Wait()
+		queryID := 0
+		for _, n := range nodeList {
+			requestBody, _ := json.Marshal(map[string]interface{} {
+				"jsonrpc": versionJSONRPC,
+				"id":      strconv.Itoa(queryID),
+				"method":  rpc,
+				"params":  []interface{}{},
+			})
+			jobs <- work {n, rpc, requestBody}
+			queryID++
+			group.Add(1)
+		}
+		switch rpc {
+		case metadataRPC:
+			m.MetadataSnapshot.TS = now
+		case blockHeaderRPC:
+			m.BlockHeaderSnapshot.TS = now
+		}
+	}
+}
+
+func (m *monitor) update(params watchParams, superCommittee map[int]committee, rpcs []string) {
 	nodeList := []string{}
 	for _, v := range superCommittee {
 		nodeList = append(nodeList, v.members...)
 	}
 
-	var group sync.WaitGroup
 	jobs := make(chan work, len(nodeList))
 
-	replyChannels = make(map[string](chan reply))
+	replyChannels := make(map[string](chan reply))
+	syncGroups := make(map[string]*sync.WaitGroup)
 	for _, rpc := range rpcs {
 		replyChannels[rpc] = make(chan reply, len(nodeList))
+		switch rpc {
+		case metadataRPC:
+			var mGroup sync.WaitGroup
+			syncGroups[rpc] = &mGroup
+		case blockHeaderRPC:
+			var bhGroup sync.WaitGroup
+			syncGroups[rpc] = &bhGroup
+		}
+		go m.writer(replyChannels[rpc], syncGroups[rpc])
 	}
-	replyChannel = make(chan reply, len(nodeList))
-	go writer(replyChannel, &group)
 
-	for i := 0; i < opts.WorkerPoolSize; i++ {
-		go worker(jobs, replyChannels)
+	for i := 0; i < params.Performance.WorkerPoolSize; i++ {
+		go m.worker(jobs, replyChannels, syncGroups)
 	}
 
-	for now := range time.Tick(time.Duration(1) * time.Second) {
-		requestBody, _ := json.Marshal(map[string]interface{}{
-			"jsonrpc": versionJSONRPC,
-			"id":      strconv.Itoa(queryID),
-			"method":  rpc,
-			"params":  []interface{}{},
-		})
-
-		go func(n time.Time) {
-			payloadChan := make(chan t, len(nodeList))
-			for _, nodeIP := range nodeList {
-				go func(addr string) {
-					result := t{addr: addr}
-					result.rpcResult, result.rpcPayload, result.oops =
-						request("http://"+addr, requestBody)
-					payloadChan <- result
-				}(nodeIP)
-			}
-			for range nodeList {
-				it := <-payloadChan
-				if it.oops != nil {
-					m.NoReplyMachines = append(
-						m.NoReplyMachines,
-						noReply{it.addr, it.oops.Error(), string(it.rpcPayload)},
-					)
-					continue
-				}
-				m.bytesToNodeMetadata(rpc, it.addr, it.rpcResult)
-			}
-			switch rpc {
-			case blockHeaderRPC:
-				m.lock.Unlock()
-				if len(m.BlockHeaderSnapshot.Nodes) > 0 {
-					m.cond.Broadcast()
-				}
-			}
-			m.MetadataSnapshot.TS = n
-		}(now)
-		queryID++
+	for _, rpc := range rpcs {
+		switch rpc {
+		case metadataRPC:
+			go m.manager(jobs, params.InspectSchedule.NodeMetadata, nodeList, rpc, syncGroups[rpc])
+		case blockHeaderRPC:
+			go m.manager(jobs, params.InspectSchedule.BlockHeader, nodeList, rpc, syncGroups[rpc])
+		}
 	}
 }
 
@@ -463,15 +470,9 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 	liviness := func(message string, interval int) {
 		previousSummary := any{}
 		currentSummary := any{}
-		m.lock.Lock()
-		m.cond.Wait()
 		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, previousSummary)
-		m.lock.Unlock()
 		for range time.Tick(time.Duration(interval) * time.Second) {
-			m.lock.Lock()
-			m.cond.Wait()
 			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary)
-			m.lock.Unlock()
 			for shard, currentDetails := range currentSummary {
 				sName := fmt.Sprintf("shard-%s", shard)
 				nowDets, asrtOk1 := currentDetails.(any)
@@ -515,17 +516,13 @@ See: http://watchdog.hmny.io/report-%s
 }
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
-<<<<<<< HEAD
-	go m.update(instrs.InspectSchedule, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC}, instrs.Performance)
-=======
-	client = &fasthttp.Client{
+	client = fasthttp.Client{
 		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(addr, time.Second * instrs.Performance.HTTPTimeout)
+			return fasthttp.DialTimeout(addr, time.Second * time.Duration(instrs.Performance.HTTPTimeout))
 		},
 		MaxConnsPerHost: 2048,
 	}
-	go m.update(instrs.InspectSchedule, instrs.networkNodes, [blockHeaderRPC, metadataRPC], instrs.Performance.WorkerPoolSize)
->>>>>>> [shard-health] Intermediate commit
+	go m.update(instrs.watchParams, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC})
 	go m.watchShardHealth(
 		instrs.Auth.PagerDuty.EventServiceKey,
 		instrs.Network.TargetChain,
