@@ -6,6 +6,56 @@
 	},
 	"item": [
 		{
+			"name": "hmy_latestHeader",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "ed50e868-8f64-4eeb-9247-4cf135fd0ca7",
+						"exec": [
+							"console.log(\"Request Body\")",
+							"console.log(pm.request.body.raw)",
+							"console.log()",
+							"console.log(\"Response\")",
+							"console.log(pm.response.json())",
+							"",
+							"pm.test(\"Response should not contain errors.\", () => {",
+							"    pm.expect('error' in pm.response.json()).to.equal(false);",
+							"})",
+							"",
+							"pm.test(\"Response should have non-null result field.\", () => {",
+							"    pm.expect('result' in pm.response.json()).to.equal(true);",
+							"    pm.expect(pm.response.json().result).not.equal(null);",
+							"})",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\":\"2.0\", \"method\":\"hmy_latestHeader\", \"params\":[], \"id\":1}"
+				},
+				"url": {
+					"raw": "{{hmy_endpoint_src}}",
+					"host": [
+						"{{hmy_endpoint_src}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
 			"name": "hmy_sendRawTransaction",
 			"event": [
 				{
@@ -139,6 +189,8 @@
 							"console.log(\"Response\")",
 							"console.log(pm.response.json())",
 							"",
+							"// TODO: write more logic to resend and retest Cx if getCxByHash failed",
+							"",
 							"pm.test(\"Response should not contain errors.\", () => {",
 							"    pm.expect('error' in pm.response.json()).to.equal(false);",
 							"})",
@@ -189,6 +241,8 @@
 							"console.log(\"Response\")",
 							"console.log(pm.response.json())",
 							"",
+							"// TODO: write more logic to resend and retest Cx if getCxByHash failed",
+							"",
 							"pm.test(\"Response should not contain errors.\", () => {",
 							"    pm.expect('error' in pm.response.json()).to.equal(false);",
 							"})",
@@ -219,12 +273,12 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_getCXReceiptByHash\",\"params\":[\"{{txHash}}\"],\"id\":1}"
+					"raw": "{\"jsonrpc\":\"2.0\",\"method\":\"hmy_resendCx\",\"params\":[\"{{txHash}}\"],\"id\":1}"
 				},
 				"url": {
-					"raw": "{{hmy_endpoint_dst}}",
+					"raw": "{{hmy_endpoint_src}}",
 					"host": [
-						"{{hmy_endpoint_dst}}"
+						"{{hmy_endpoint_src}}"
 					]
 				}
 			},
