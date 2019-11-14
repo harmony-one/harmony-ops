@@ -167,6 +167,9 @@ func request(node string, requestBody []byte) ([]byte, []byte, error) {
 	}
 	fasthttp.ReleaseRequest(req)
 	body := res.Body()
+	if len(body) == 0 {
+		return nil, requestBody, fmt.Errorf("empty reply received")
+	}
 	result := make([]byte, len(body))
 	copy(result, body)
 	fasthttp.ReleaseResponse(res)
