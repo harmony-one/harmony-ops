@@ -7,7 +7,7 @@ Related internal [gitbook](https://app.gitbook.com/@harmony-one/s/onboarding-wik
 - Make sure that you have `pexpect` module for python (https://pypi.org/project/pexpect/). 
 - Make sure that you have `jq` installed.
 - Make sure to have the CLI binary in this directory with the name `hmy` (or specifiy the binary path as an option).
-- Make sure the CLI version is v113 or newer (that is commit `9e7175544778aa12061cd135e826131fed5f3a0f` or newer of *go-sdk*)
+- Make sure the CLI version is v132 or newer (that is commit `03621a931518dea582d4327671e0add33296a88d` or newer of *go-sdk*)
 
 ## Setup
 The test will require at least 2 keys to accounts that have funds on the network that you are testing. 
@@ -46,10 +46,11 @@ There are some options for the python script, here is the output of the help mes
 ```
 usage: test.py [-h] [--test_dir TEST_DIR] [--iterations ITERATIONS]
                [--rpc_endpoint_src HMY_ENDPOINT_SRC]
-               [--rpc_endpoint_dst HMY_ENDPOINT_DST]
-               [--exp_endpoint HMY_EXP_ENDPOINT] [--delay TXN_DELAY]
-               [--chain_id CHAIN_ID] [--cli_path HMY_BINARY_PATH]
-               [--cli_passphrase PASSPHRASE] [--keystore KEYS_DIR]
+               [--rpc_endpoint_dst HMY_ENDPOINT_DST] [--src_shard SRC_SHARD]
+               [--dst_shard DST_SHARD] [--exp_endpoint HMY_EXP_ENDPOINT]
+               [--delay TXN_DELAY] [--chain_id CHAIN_ID]
+               [--cli_path HMY_BINARY_PATH] [--cli_passphrase PASSPHRASE]
+               [--keystore KEYS_DIR] [--do_staking_test]
 
 Wrapper python script to test API using newman.
 
@@ -65,6 +66,12 @@ optional arguments:
   --rpc_endpoint_dst HMY_ENDPOINT_DST
                         Destination endpoint for Cx. Default is
                         https://api.s1.b.hmny.io/
+  --src_shard SRC_SHARD
+                        The source shard of the Cx. Default assumes associated
+                        shard from src endpoint.
+  --dst_shard DST_SHARD
+                        The destination shard of the Cx. Default assumes
+                        associated shard from dst endpoint.
   --exp_endpoint HMY_EXP_ENDPOINT
                         Default is http://e0.b.hmny.io:5000/
   --delay TXN_DELAY     The time to wait before checking if a Cx/Tx is on the
@@ -75,15 +82,16 @@ optional arguments:
                         ABSOLUTE PATH of CLI binary. Default uses the CLI
                         included in pyhmy module
   --cli_passphrase PASSPHRASE
-                        Passphrase used to unlock the keystore. Default is
-                        'harmony-one'
+                        Passphrase used to unlock the keystore. Default is ''
   --keystore KEYS_DIR   Direcotry of keystore to import. Must follow the
                         format of CLI's keystore. Default is
                         ./TestnetValidatorKeys
+  --do_staking_test     Toggle (on) the staking tests.
 ```
 
 ## Notes
-  - This script makes the assumption that there are only 2 shard and will only send a cross shard transactions between shard 0 and shard 1. 
+  - If no source or destination shard is provided, the script will infer the respective shard from the source and destination endpoints (given that it is a known format -- reference code for details).
+  - The chain_id option can be set to localnet if one needs to run the tests on localnet. This is just a creature comfort as the localnet uses the testnet chain ID
   - The raw transaction used in this test is **always** a cross-shard transaction. 
   - It is recommended to wait around 30 seconds for a Cx to finalize.
   - Each iteration will try the tests **on the same raw transaction**.
