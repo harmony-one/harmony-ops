@@ -372,18 +372,19 @@ func (m* monitor) worker(jobs chan work, channels map[string](chan reply), group
 
 func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
 					rpc string, group *sync.WaitGroup, channels map[string](chan reply)) {
+	requestFields := map[string]interface{} {
+		"jsonrpc": versionJSONRPC,
+		"method":  rpc,
+		"params":  []interface{}{},
+	}
 	for now := range time.Tick(time.Duration(interval) * time.Second) {
 		queryID := 0
-		group.Add(len(nodeList))
 		for _, n := range nodeList {
-			requestBody, _ := json.Marshal(map[string]interface{} {
-				"jsonrpc": versionJSONRPC,
-				"id":      strconv.Itoa(queryID),
-				"method":  rpc,
-				"params":  []interface{}{},
-			})
+			requestFields["id"] = strconv.Itoa(queryID)
+			requestBody, _ := json.Marshal(requestFields)
 			jobs <- work {n, rpc, requestBody}
 			queryID++
+			group.Add(1)
 		}
 		switch rpc {
 		case metadataRPC:
@@ -430,7 +431,6 @@ func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
 			}
 			m.use()
 			m.BlockHeaderSnapshot = BlockHeaderContainer{}
-			// Should have no errors when copying
 			copier.Copy(&m.BlockHeaderSnapshot, &m.WorkingBlockHeader)
 			m.done()
 		}
