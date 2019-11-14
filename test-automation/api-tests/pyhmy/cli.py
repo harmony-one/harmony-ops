@@ -81,6 +81,14 @@ class HmyCLI:
                 name, address = columns
                 self._addresses[name.strip()] = address
 
+    def check_address(self, address) -> bool:
+        """
+        :param address: A 'one1...' address.
+        :return: T/F If the address is in the CLI's keystore.
+        """
+        self._sync_addresses()
+        return address in self._addresses.values()
+
     def get_address(self, name) -> str:
         """
         :param name: The alias of a key used in the CLI's keystore.
@@ -92,7 +100,7 @@ class HmyCLI:
             self._sync_addresses()
             return self._addresses.get(name, None)
 
-    def remove_address(self, name) -> None:
+    def remove_account(self, name) -> None:
         """
         :param name: The alias of a key used in the CLI's keystore.
         """

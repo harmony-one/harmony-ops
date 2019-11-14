@@ -51,9 +51,9 @@ sleep $wait
 echo "Testing Cx from s0 to s1"
 python3 test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" \
     --rpc_endpoint_dst="http://localhost:9501/" --keystore=./LocalnetValidatorKeys/ \
-    --chain_id="localnet" --delay=${delay} --iterations=${iters}
+    --chain_id="localnet" --do_staking_test --delay=${delay} --iterations=${iters}
 
 echo "Testing Cx from s1 to s0"
 python3 test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9501/" \
     --rpc_endpoint_dst="http://localhost:9500/" --keystore=./LocalnetValidatorKeys/ \
-    --chain_id="localnet" --delay=${delay} --iterations=${iters}
+    --chain_id="localnet" --do_staking_test --delay=${delay} --iterations=${iters}

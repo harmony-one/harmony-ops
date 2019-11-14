@@ -209,7 +209,7 @@ def test_keys_mnemonics():
 
         try:
             hmy = pexpect.spawn('./hmy', ['keys', 'add', address_name, '--recover', '--passphrase'], env=ENVIRONMENT)
-            hmy.expect("Enter passphrase for account\r\n")
+            hmy.expect("Enter passphrase\r\n")
             hmy.sendline("")
             hmy.expect("Repeat the passphrase:\r\n")
             hmy.sendline("")
