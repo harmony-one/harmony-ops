@@ -165,6 +165,9 @@ func request(node string, requestBody []byte) ([]byte, []byte, error) {
 	if c != 200 {
 		return nil, requestBody, fmt.Errorf("http status code not 200, received: %d", c)
 	}
+	if len(res.Body()) == 0 {
+		return nil, requestBody, fmt.Errorf("empty reply received")
+	}
 	fasthttp.ReleaseRequest(req)
 	body := res.Body()
 	result := make([]byte, len(body))
