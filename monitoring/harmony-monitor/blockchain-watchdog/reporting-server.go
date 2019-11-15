@@ -57,12 +57,7 @@ var (
 	nodeMetadataCSVHeader      = []string{"IP"}
 	headerInformationCSVHeader = []string{"IP"}
 	post                       = []byte("POST")
-	client                     = &fasthttp.Client{
-		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(addr, time.Second*15)
-		},
-		MaxConnsPerHost: 2048,
-	}
+	client                     fasthttp.Client
 )
 
 func identity(x interface{}) interface{} {
@@ -189,7 +184,9 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		NoReply               []noReply
 		DownMachineCount      int
 	}
+	m.use()
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	m.done()
 	leaders := make(map[string][]string)
 	linq.From(sum[metaSumry]).ForEach(func(v interface{}) {
 		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string]interface{})["records"]).Where(func(n interface{}) bool {
@@ -205,21 +202,29 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 			sum[headerSumry][i].(any)["shard-leader"] = leaders[i]
 		}
 	}
+	m.use()
 	cnsMsg := "Consensus Progress not known yet"
 	if len(m.consensusProgress) != 0 {
 		cM, _ := json.Marshal(m.consensusProgress)
 		cnsMsg = fmt.Sprintf("Consensus Progress: %s", cM)
 	}
+	totalNoReplyMachines := []noReply{}
+	totalNoReplyMachines = append(totalNoReplyMachines, m.MetadataSnapshot.Down...)
+	totalNoReplyMachines = append(totalNoReplyMachines, m.BlockHeaderSnapshot.Down...)
+	m.done()
 	t.ExecuteTemplate(w, "report", v{
 		LeftTitle:  []interface{}{m.chain, cnsMsg},
 		RightTitle: []interface{}{buildVersion, time.Now().Format(time.RFC3339)},
 		Summary:    sum,
-		NoReply:    m.NoReplyMachines,
-		DownMachineCount: linq.From(m.NoReplyMachines).Select(
+		NoReply:    totalNoReplyMachines,
+		DownMachineCount: linq.From(totalNoReplyMachines).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
 	})
-	m.SummarySnapshot = sum
+	m.use()
+	m.summaryCopy(sum)
+	m.NoReplySnapshot = append([]noReply{}, totalNoReplyMachines...)
+	m.done()
 }
 
 func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
@@ -237,6 +242,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				http.Error(w, "shard not chosen in query param", http.StatusBadRequest)
 				return
 			}
+			m.use()
 			for _, v := range m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{}) {
 				row := []string{
 					v.(headerInfoRPCResult).IP,
@@ -253,6 +259,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				}
 				records = append(records, row)
 			}
+			m.done()
 		case nodeMetadataReport:
 			filename = nodeMetadataReport + ".csv"
 			records = append(records, nodeMetadataCSVHeader)
@@ -262,6 +269,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				http.Error(w, "version not chosen in query param", http.StatusBadRequest)
 				return
 			}
+			m.use()
 			for _, v := range m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{}) {
 				row := []string{
 					v.(metadataRPCResult).IP,
@@ -274,6 +282,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				}
 				records = append(records, row)
 			}
+			m.done()
 		}
 	default:
 		http.Error(w, "report not chosen in query param", http.StatusBadRequest)
@@ -288,6 +297,37 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (m *monitor) use() {
+	m.inUse.Wait()
+	m.inUse.Add(1)
+}
+
+func (m *monitor) done() {
+	m.inUse.Done()
+}
+
+func (m *monitor) summaryCopy(newData map[string]map[string]interface{}) {
+	m.SummarySnapshot = make(map[string]map[string]interface{})
+	for key, value := range newData {
+		m.SummarySnapshot[key] = make(map[string]interface{})
+		for k, v := range value {
+			m.SummarySnapshot[key][k] = v
+		}
+	}
+}
+
+func (m *monitor) metadataCopy(newData MetadataContainer) {
+	m.MetadataSnapshot.TS = newData.TS
+	m.MetadataSnapshot.Nodes = append([]metadataRPCResult{}, newData.Nodes...)
+	m.MetadataSnapshot.Down = append([]noReply{}, newData.Down...)
+}
+
+func (m *monitor) blockHeaderCopy(newData BlockHeaderContainer) {
+	m.BlockHeaderSnapshot.TS = newData.TS
+	m.BlockHeaderSnapshot.Nodes = append([]headerInfoRPCResult{}, newData.Nodes...)
+	m.BlockHeaderSnapshot.Down = append([]noReply{}, newData.Down...)
+}
+
 type metadataRPCResult struct {
 	Payload nodeMetadata
 	IP      string
@@ -297,91 +337,160 @@ type headerInfoRPCResult struct {
 	Payload headerInformation
 	IP      string
 }
+
 type noReply struct {
 	IP            string
 	FailureReason string
 	RPCPayload    string
 }
 
-type monitor struct {
-	chain            string
-	MetadataSnapshot struct {
-		TS    time.Time
-		Nodes []metadataRPCResult
-	}
-	BlockHeaderSnapshot struct {
-		TS    time.Time
-		Nodes []headerInfoRPCResult
-	}
-	SummarySnapshot   map[string]map[string]interface{}
-	NoReplyMachines   []noReply
-	lock              *sync.Mutex
-	cond              *sync.Cond
-	consensusProgress map[string]bool
+type MetadataContainer struct {
+	TS    time.Time
+	Nodes []metadataRPCResult
+	Down  []noReply
 }
 
-func (m *monitor) update(
-	rpc string, every int, superCommittee map[int]committee,
-) {
-	type t struct {
-		addr       string
-		rpcPayload []byte
-		rpcResult  []byte
-		oops       error
-	}
+type BlockHeaderContainer struct {
+	TS    time.Time
+	Nodes []headerInfoRPCResult
+	Down  []noReply
+}
 
+type monitor struct {
+	chain               string
+	inUse               sync.WaitGroup
+	WorkingMetadata     MetadataContainer
+	WorkingBlockHeader  BlockHeaderContainer
+	MetadataSnapshot    MetadataContainer
+	BlockHeaderSnapshot BlockHeaderContainer
+	SummarySnapshot     map[string]map[string]interface{}
+	NoReplySnapshot     []noReply
+	consensusProgress   map[string]bool
+}
+
+type work struct {
+	address string
+	rpc     string
+	body    []byte
+}
+
+type reply struct {
+	address    string
+	rpc        string
+	rpcPayload []byte
+	rpcResult  []byte
+	oops       error
+}
+
+func (m* monitor) worker(jobs chan work, channels map[string](chan reply), groups map[string]*sync.WaitGroup) {
+	for j := range jobs {
+		result := reply{address : j.address, rpc : j.rpc}
+		result.rpcResult, result.rpcPayload, result.oops = request(
+			"http://" + j.address, j.body)
+		channels[j.rpc] <- result
+		groups[j.rpc].Done()
+	}
+}
+
+func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
+					rpc string, group *sync.WaitGroup, channels map[string](chan reply)) {
+	requestFields := map[string]interface{} {
+		"jsonrpc": versionJSONRPC,
+		"method":  rpc,
+		"params":  []interface{}{},
+	}
+	for now := range time.Tick(time.Duration(interval) * time.Second) {
+		queryID := 0
+		for _, n := range nodeList {
+			requestFields["id"] = strconv.Itoa(queryID)
+			requestBody, _ := json.Marshal(requestFields)
+			jobs <- work {n, rpc, requestBody}
+			queryID++
+			group.Add(1)
+		}
+		switch rpc {
+		case metadataRPC:
+			m.WorkingMetadata.TS = now
+		case blockHeaderRPC:
+			m.WorkingBlockHeader.TS = now
+		}
+		group.Wait()
+		close(channels[rpc])
+
+		first := true
+		switch rpc {
+		case metadataRPC:
+			for d := range channels[rpc] {
+				if first {
+					m.WorkingMetadata.Down = []noReply{}
+					m.WorkingMetadata.Nodes = []metadataRPCResult{}
+					first = false
+				}
+				if d.oops != nil {
+					m.WorkingMetadata.Down = append(m.WorkingMetadata.Down,
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+				} else {
+					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
+				}
+			}
+			m.use()
+			m.metadataCopy(m.WorkingMetadata)
+			m.done()
+		case blockHeaderRPC:
+			for d := range channels[rpc] {
+				if first {
+					m.WorkingBlockHeader.Down = []noReply{}
+					m.WorkingBlockHeader.Nodes = []headerInfoRPCResult{}
+					first = false
+				}
+				if d.oops != nil {
+					m.WorkingBlockHeader.Down = append(m.WorkingBlockHeader.Down,
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+				} else {
+					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
+				}
+			}
+			m.use()
+			m.blockHeaderCopy(m.WorkingBlockHeader)
+			m.done()
+		}
+		channels[rpc] = make(chan reply, len(nodeList))
+	}
+}
+
+func (m *monitor) update(params watchParams, superCommittee map[int]committee, rpcs []string) {
 	nodeList := []string{}
 	for _, v := range superCommittee {
 		nodeList = append(nodeList, v.members...)
 	}
 
-	for now := range time.Tick(time.Duration(every) * time.Second) {
-		m.NoReplyMachines = []noReply{}
+	jobs := make(chan work, len(nodeList))
+
+	replyChannels := make(map[string](chan reply))
+	syncGroups := make(map[string]*sync.WaitGroup)
+	for _, rpc := range rpcs {
+		replyChannels[rpc] = make(chan reply, len(nodeList))
 		switch rpc {
 		case metadataRPC:
-			m.MetadataSnapshot.Nodes = []metadataRPCResult{}
+			var mGroup sync.WaitGroup
+			syncGroups[rpc] = &mGroup
 		case blockHeaderRPC:
-			m.lock.Lock()
-			m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
+			var bhGroup sync.WaitGroup
+			syncGroups[rpc] = &bhGroup
 		}
-		requestBody, _ := json.Marshal(map[string]interface{}{
-			"jsonrpc": versionJSONRPC,
-			"id":      strconv.Itoa(queryID),
-			"method":  rpc,
-			"params":  []interface{}{},
-		})
+	}
 
-		go func(n time.Time) {
-			payloadChan := make(chan t, len(nodeList))
-			for _, nodeIP := range nodeList {
-				go func(addr string) {
-					result := t{addr: addr}
-					result.rpcResult, result.rpcPayload, result.oops =
-						request("http://"+addr, requestBody)
-					payloadChan <- result
-				}(nodeIP)
-			}
-			for range nodeList {
-				it := <-payloadChan
-				if it.oops != nil {
-					m.NoReplyMachines = append(
-						m.NoReplyMachines,
-						noReply{it.addr, it.oops.Error(), string(it.rpcPayload)},
-					)
-					continue
-				}
-				m.bytesToNodeMetadata(rpc, it.addr, it.rpcResult)
-			}
-			switch rpc {
-			case blockHeaderRPC:
-				m.lock.Unlock()
-				if len(m.BlockHeaderSnapshot.Nodes) > 0 {
-					m.cond.Broadcast()
-				}
-			}
-			m.MetadataSnapshot.TS = n
-		}(now)
-		queryID++
+	for i := 0; i < params.Performance.WorkerPoolSize; i++ {
+		go m.worker(jobs, replyChannels, syncGroups)
+	}
+
+	for _, rpc := range rpcs {
+		switch rpc {
+		case metadataRPC:
+			go m.manager(jobs, params.InspectSchedule.NodeMetadata, nodeList, rpc, syncGroups[rpc], replyChannels)
+		case blockHeaderRPC:
+			go m.manager(jobs, params.InspectSchedule.BlockHeader, nodeList, rpc, syncGroups[rpc], replyChannels)
+		}
 	}
 }
 
@@ -396,14 +505,14 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	case metadataRPC:
 		oneReport := r{}
 		json.Unmarshal(payload, &oneReport)
-		m.MetadataSnapshot.Nodes = append(m.MetadataSnapshot.Nodes, metadataRPCResult{
+		m.WorkingMetadata.Nodes = append(m.WorkingMetadata.Nodes, metadataRPCResult{
 			oneReport.Result,
 			addr,
 		})
 	case blockHeaderRPC:
 		oneReport := s{}
 		json.Unmarshal(payload, &oneReport)
-		m.BlockHeaderSnapshot.Nodes = append(m.BlockHeaderSnapshot.Nodes, headerInfoRPCResult{
+		m.WorkingBlockHeader.Nodes = append(m.WorkingBlockHeader.Nodes, headerInfoRPCResult{
 			oneReport.Result,
 			addr,
 		})
@@ -420,15 +529,13 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 	liviness := func(message string, interval int) {
 		previousSummary := any{}
 		currentSummary := any{}
-		m.lock.Lock()
-		m.cond.Wait()
+		m.use()
 		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, previousSummary)
-		m.lock.Unlock()
+		m.done()
 		for range time.Tick(time.Duration(interval) * time.Second) {
-			m.lock.Lock()
-			m.cond.Wait()
+			m.use()
 			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary)
-			m.lock.Unlock()
+			m.done()
 			for shard, currentDetails := range currentSummary {
 				sName := fmt.Sprintf("shard-%s", shard)
 				nowDets, asrtOk1 := currentDetails.(any)
@@ -441,6 +548,7 @@ func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline 
 							elapsed := int64(nowTS.Sub(thenTS).Seconds())
 							nowC := latestCount.(uint64)
 							prevC := prevCount.(uint64)
+							consensusProg := true
 							if !(nowC > prevC) && int(elapsed) >= interval {
 								name := fmt.Sprintf(nameFMT, chain)
 								notify(pdServiceKey,
@@ -456,10 +564,11 @@ See: http://watchdog.hmny.io/report-%s
 
 --%s
 `, message, shard, prevC, thenTS, nowC, nowTS, elapsed, chain, name))
-								m.consensusProgress[sName] = false
-							} else {
-								m.consensusProgress[sName] = true
+								consensusProg = false
 							}
+							m.use()
+							m.consensusProgress[sName] = consensusProg
+							m.done()
 						}
 					}
 				}
@@ -472,11 +581,13 @@ See: http://watchdog.hmny.io/report-%s
 }
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
-	go m.update(
-		metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.superCommittee)
-	go m.update(
-		blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.superCommittee,
-	)
+	client = fasthttp.Client{
+		Dial: func(addr string) (net.Conn, error) {
+			return fasthttp.DialTimeout(addr, time.Second * time.Duration(instrs.Performance.HTTPTimeout))
+		},
+		MaxConnsPerHost: 2048,
+	}
+	go m.update(instrs.watchParams, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC})
 	go m.watchShardHealth(
 		instrs.Auth.PagerDuty.EventServiceKey,
 		instrs.Network.TargetChain,

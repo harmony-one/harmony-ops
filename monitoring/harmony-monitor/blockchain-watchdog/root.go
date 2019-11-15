@@ -200,6 +200,10 @@ type watchParams struct {
 		BlockHeader  int `yaml:"block-header"`
 		NodeMetadata int `yaml:"node-metadata"`
 	} `yaml:"inspect-schedule"`
+	Performance struct {
+		WorkerPoolSize int `yaml:"num-workers"`
+		HTTPTimeout    int `yaml:"http-timeout"`
+	} `yaml:"performance"`
 	HTTPReporter struct {
 		Port int `yaml:"port"`
 	} `yaml:"http-reporter"`
@@ -265,25 +269,35 @@ func newInstructions(yamlPath string) (*instruction, error) {
 }
 
 func (w *watchParams) sanityCheck() error {
+	errList := []string{}
 	if w.Network.RPCPort == 0 {
-		return errors.New("Missing RPCPort under Network in yaml config")
+		errList = append(errList, "Missing public-rpc under network-config in yaml config")
 	}
 	if w.InspectSchedule.BlockHeader == 0 {
-		return errors.New("Missing BlockHeader under InspectSchedule in yaml config")
+		errList = append(errList, "Missing block-header under inspect-schedule in yaml config")
 	}
 	if w.InspectSchedule.NodeMetadata == 0 {
-		return errors.New("Missing NodeMetadata under InspectSchedule in yaml config")
+		errList = append(errList, "Missing node-metadata under inspect-schedule in yaml config")
+	}
+	if w.Performance.WorkerPoolSize == 0 {
+		errList = append(errList, "Missing num-workers under performance in yaml config")
+	}
+	if w.Performance.HTTPTimeout == 0 {
+		errList = append(errList, "Missing http-timeout under performance in yaml config")
 	}
 	if w.HTTPReporter.Port == 0 {
-		return errors.New("Missing Port under HTTPReporter in yaml config")
+		errList = append(errList, "Missing port under http-reporter in yaml config")
 	}
 	if w.ShardHealthReporting.Consensus.Warning == 0 {
-		return errors.New("Missing Warning under ShardHealthReporting, Consensus in yaml config")
+		errList = append(errList, "Missing warmomg under shard-health-reporting, consensus in yaml config")
 	}
 	if w.ShardHealthReporting.Consensus.Redline == 0 {
-		return errors.New("Missing Redline under ShardHealthReporting, Consensus in yaml config")
+		errList = append(errList, "Missing Redline under shard-health-reporting, consensus in yaml config")
 	}
-	return nil
+	if len(errList) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(errList, "\n"))
 }
 
 func versionS() string {
