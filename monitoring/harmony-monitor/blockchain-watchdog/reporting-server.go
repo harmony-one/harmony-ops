@@ -14,7 +14,6 @@ import (
 
 	"github.com/ahmetb/go-linq"
 	"github.com/valyala/fasthttp"
-	"github.com/jinzhu/copier"
 )
 
 const (
@@ -220,10 +219,8 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		).Distinct().Count(),
 	})
 	m.use()
-	m.SummarySnapshot = make(map[string]map[string]interface{})
-	copier.Copy(&m.SummarySnapshot, &sum)
-	m.NoReplySnapshot = []noReply{}
-	copier.Copy(&m.NoReplySnapshot, totalNoReplyMachines)
+	m.summaryCopy(sum)
+	m.NoReplySnapshot = append([]noReply{}, totalNoReplyMachines...)
 	m.done()
 }
 
@@ -304,6 +301,28 @@ func (m *monitor) use() {
 
 func (m *monitor) done() {
 	m.inUse.Done()
+}
+
+func (m *monitor) summaryCopy(newData map[string]map[string]interface{}) {
+	m.SummarySnapshot = make(map[string]map[string]interface{})
+	for key, value := range newData {
+		m.SummarySnapshot[key] = make(map[string]interface{})
+		for k, v := range value {
+			m.SummarySnapshot[key][k] = v
+		}
+	}
+}
+
+func (m *monitor) metadataCopy(newData MetadataContainer) {
+	m.MetadataSnapshot.TS = newData.TS
+	m.MetadataSnapshot.Nodes = append([]metadataRPCResult{}, newData.Nodes...)
+	m.MetadataSnapshot.Down = append([]noReply{}, newData.Down...)
+}
+
+func (m *monitor) blockHeaderCopy(newData BlockHeaderContainer) {
+	m.BlockHeaderSnapshot.TS = newData.TS
+	m.BlockHeaderSnapshot.Nodes = append([]headerInfoRPCResult{}, newData.Nodes...)
+	m.BlockHeaderSnapshot.Down = append([]noReply{}, newData.Down...)
 }
 
 type metadataRPCResult struct {
@@ -412,8 +431,7 @@ func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
 				}
 			}
 			m.use()
-			m.MetadataSnapshot = MetadataContainer{}
-			copier.Copy(&m.MetadataSnapshot, &m.WorkingMetadata)
+			m.metadataCopy(m.WorkingMetadata)
 			m.done()
 		case blockHeaderRPC:
 			for d := range channels[rpc] {
@@ -430,8 +448,7 @@ func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
 				}
 			}
 			m.use()
-			m.BlockHeaderSnapshot = BlockHeaderContainer{}
-			copier.Copy(&m.BlockHeaderSnapshot, &m.WorkingBlockHeader)
+			m.blockHeaderCopy(m.WorkingBlockHeader)
 			m.done()
 		}
 		channels[rpc] = make(chan reply, len(nodeList))
@@ -500,6 +517,11 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 }
 
 func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline int) {
+	sumCopy := func(prevS, newS any) {
+		for key, value := range newS {
+			prevS[key] = value
+		}
+	}
 	// WARN Pay attention to the work here
 	liviness := func(message string, interval int) {
 		previousSummary := any{}
@@ -548,7 +570,7 @@ See: http://watchdog.hmny.io/report-%s
 					}
 				}
 			}
-			copier.Copy(previousSummary, currentSummary)
+			sumCopy(previousSummary, currentSummary)
 		}
 	}
 	go liviness("Warning", warning)

@@ -9,7 +9,6 @@ require (
 	github.com/ahmetb/go-linq/v3 v3.1.0 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/harmony-one/go-sdk v0.0.0-20190917171649-83ae0c1dddc7
-	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/takama/daemon v0.11.0
 	github.com/valyala/fasthttp v1.2.0
