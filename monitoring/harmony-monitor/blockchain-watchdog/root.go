@@ -266,13 +266,14 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		byShard[id] = committee{file, ipList}
 	}
 	dups := []string{}
-	nodeList := make(map[string]bool)
-	for _, s := range byShard {
+	nodeList := make(map[string]string)
+	for i, s := range byShard {
 		for _, m := range s.members {
 			if _, check := nodeList[m]; check {
-				dups = append(dups, m)
+				dups = append(dups, strconv.FormatInt(int64(i), 10) + ": " + m)
+				dups = append(dups, nodeList[m] + ": " + m)
 			} else {
-				nodeList[m] = true
+				nodeList[m] = strconv.FormatInt(int64(i), 10)
 			}
 		}
 	}
