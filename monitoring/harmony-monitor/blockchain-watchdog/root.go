@@ -265,6 +265,20 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		}
 		byShard[id] = committee{file, ipList}
 	}
+	dups := []string{}
+	nodeList := make(map[string]bool)
+	for _, s := range byShard {
+		for _, m := range s.members {
+			if _, check := nodeList[m]; check {
+				dups = append(dups, m)
+			} else {
+				nodeList[m] = true
+			}
+		}
+	}
+	if len(dups) > 0  {
+		return nil, errors.New("Duplicate IPs detected. " + strings.Join(dups, "\n"))
+	}
 	return &instruction{t, byShard}, nil
 }
 
