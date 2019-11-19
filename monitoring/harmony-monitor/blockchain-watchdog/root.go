@@ -278,7 +278,7 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		}
 	}
 	if len(dups) > 0  {
-		return nil, errors.New("Duplicate IPs detected. " + strings.Join(dups, "\n"))
+		return nil, errors.New("Duplicate IPs detected.\n" + strings.Join(dups, "\n"))
 	}
 	return &instruction{t, byShard}, nil
 }
