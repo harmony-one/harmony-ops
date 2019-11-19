@@ -3,12 +3,13 @@ import argparse
 import json
 import os
 import random
+import re
 import subprocess
 import sys
 import time
-import re
 
 import pyhmy
+import requests
 
 ACC_NAMES_ADDED = []
 
@@ -43,8 +44,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--keystore", dest="keys_dir", default="TestnetValidatorKeys",
                         help=f"Direcotry of keystore to import. Must follow the format of CLI's keystore. "
                              f"Default is ./TestnetValidatorKeys", type=str)
-    parser.add_argument("--do_staking_test", dest="do_staking_test", action='store_true', default=False,
-                        help="Toggle (on) the staking tests.")
+    parser.add_argument("--ignore_regression_test", dest="ignore_regression_test", action='store_true', default=False,
+                        help="Disable the regression tests.")
+    parser.add_argument("--ignore_staking_test", dest="ignore_staking_test", action='store_true', default=False,
+                        help="Disable the staking tests.")
     return parser.parse_args()
 
 
@@ -69,19 +72,98 @@ def load_keys() -> None:
         for f in key_content:
             if f.startswith("."):
                 continue
-            if os.path.isabs(args.keys_dir):
-                key_file_path = f"{args.keys_dir}/{key}/{f}"
-            else:
-                key_file_path = f"{os.getcwd()}/{args.keys_dir}/{key}/{f}"
+            key_file_path = f"{os.path.abspath(args.keys_dir)}/{key}/{f}"
             try:
                 response = CLI.single_call(f"keys import-ks {key_file_path} {new_account_name} "
                                            f"--passphrase={args.passphrase}").strip()
                 if f"Imported keystore given account alias of `{new_account_name}`" == response:
                     ACC_NAMES_ADDED.append(new_account_name)
                     break
-            except RuntimeError as e:
+            except RuntimeError:
                 pass  # It's okay if import fails, just try next file in key's dir.
     assert len(ACC_NAMES_ADDED) > 1, "Must load at least 2 keys and must match CLI's keystore format"
+
+
+def is_after_epoch(n):
+    url = 'http://localhost:9500/'
+    payload = "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_latestHeader\",\n    \"params\": " \
+              "[  ],\n    \"id\": 1\n}"
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    try:
+        response = requests.request('POST', url, headers=headers, data=payload, allow_redirects=False, timeout=3)
+        body = json.loads(response.content)
+        return body["result"]["epoch"] > n
+    except (requests.ConnectionError, KeyError):
+        return False
+
+
+def create_validator():
+    print("== Creating validators ==")
+
+    bls_keys_for_new_val = [
+        "1480fca328daaddd3487195c5500969ecccbb806b6bf464734e0e3ad18c64badfae8578d76e2e9281b6a3645d056960a",
+        "9d657b1854d6477dba8bca9606f6ac884df308558f2b3b545fc76a9ef02abc87d3518cf1134d21acf03036cea2820f02",
+        "e2c13c84c8f2396cf7180d5026e048e59ec770a2851003f1f2ab764a79c07463681ed7ddfe62bc4d440526a270891c86",
+        "249976f984f30306f800ef42fb45272b391cfdd17f966e093a9f711e30f66f77ecda6c367bf79afc9fa31a1789e9ee8e"
+    ]
+
+    # Sourced from harmony/test/config/local-resharding.txt (Keys must be in provided keystore).
+    foundational_node_data = [
+        ("one1ghkz3frhske7emk79p7v2afmj4a5t0kmjyt4s5",
+         "eca09c1808b729ca56f1b5a6a287c6e1c3ae09e29ccf7efa35453471fcab07d9f73cee249e2b91f5ee44eb9618be3904"),
+        ("one1d7jfnr6yraxnrycgaemyktkmhmajhp8kl0yahv",
+         "f47238daef97d60deedbde5302d05dea5de67608f11f406576e363661f7dcbc4a1385948549b31a6c70f6fde8a391486"),
+        ("one1r4zyyjqrulf935a479sgqlpa78kz7zlcg2jfen",
+         "fc4b9c535ee91f015efff3f32fbb9d32cdd9bfc8a837bb3eee89b8fff653c7af2050a4e147ebe5c7233dc2d5df06ee0a"),
+        ("one1p7ht2d4kl8ve7a8jxw746yfnx4wnfxtp8jqxwe",
+         "ca86e551ee42adaaa6477322d7db869d3e203c00d7b86c82ebee629ad79cb6d57b8f3db28336778ec2180e56a8e07296"),
+        ("one1z05g55zamqzfw9qs432n33gycdmyvs38xjemyl",
+         "95117937cd8c09acd2dfae847d74041a67834ea88662a7cbed1e170350bc329e53db151e5a0ef3e712e35287ae954818"),
+        ("one1ljznytjyn269azvszjlcqvpcj6hjm822yrcp2e",
+         "68ae289d73332872ec8d04ac256ca0f5453c88ad392730c5741b6055bc3ec3d086ab03637713a29f459177aaa8340615"),
+        ("one1uyshu2jgv8w465yc8kkny36thlt2wvel89tcmg",
+         "a547a9bf6fdde4f4934cde21473748861a3cc0fe8bbb5e57225a29f483b05b72531f002f8187675743d819c955a86100"),
+        ("one103q7qe5t2505lypvltkqtddaef5tzfxwsse4z7",
+         "678ec9670899bf6af85b877058bea4fc1301a5a3a376987e826e3ca150b80e3eaadffedad0fedfa111576fa76ded980c"),
+        ("one1658znfwf40epvy7e46cqrmzyy54h4n0qa73nep",
+         "576d3c48294e00d6be4a22b07b66a870ddee03052fe48a5abbd180222e5d5a1f8946a78d55b025de21635fd743bbad90"),
+        ("one1d2rngmem4x2c6zxsjjz29dlah0jzkr0k2n88wc",
+         "16513c487a6bb76f37219f3c2927a4f281f9dd3fd6ed2e3a64e500de6545cf391dd973cc228d24f9bd01efe94912e714")
+    ]
+
+    added_validators = []
+
+    while not is_after_epoch(1):
+        print("Waiting for epoch 1...")
+        time.sleep(5)
+
+    for key in bls_keys_for_new_val:
+        account_name = f"_Test_key_{random.randint(-1e6, 1e6)}"
+        CLI.single_call(f"hmy keys add {account_name}")
+        address = CLI.get_address(account_name)
+        added_validators.append(address)
+        staking_command = f"hmy staking create-validator --amount 1 " \
+                          f"--validator-addr {address} " \
+                          f"--bls-pubkeys {key} --identity foo --details bar --name baz " \
+                          f"--max-change-rate 10 --max-rate 10 --max-total-delegation 10 " \
+                          f"--min-self-delegation 1 --rate 10 --security-contact Leo  " \
+                          f"--website harmony.one "
+        ACC_NAMES_ADDED.append(account_name)
+        print(f"Staking command response for {address}: ", CLI.single_call(staking_command))
+
+    for address, key in foundational_node_data:
+        added_validators.append(address)
+        staking_command = f"hmy staking create-validator --amount 1 " \
+                          f"--validator-addr {address} " \
+                          f"--bls-pubkeys {key} --identity foo --details bar --name baz " \
+                          f"--max-change-rate 10 --max-rate 10 --max-total-delegation 10 " \
+                          f"--min-self-delegation 1 --rate 10 --security-contact Leo  " \
+                          f"--website harmony.one "
+        print(f"Staking command response for {address}: ", CLI.single_call(staking_command))
+
+    print("Validators added: ", added_validators)
 
 
 def bls_generator(count):
@@ -95,8 +177,8 @@ def bls_generator(count):
         yield json.loads(response)
 
 
-def cli_staking_test():  # TODO: improve staking tests
-    print("Running CLI staking tests...")
+def create_validator_many_keys():
+    print("== Running CLI staking tests ==")
     bls_keys = [d for d in bls_generator(50)]
 
     for acc in ACC_NAMES_ADDED:
@@ -126,20 +208,20 @@ def cli_staking_test():  # TODO: improve staking tests
     sys.exit(-1)
 
 
-def get_raw_txn(cli, passphrase, chain_id, node, src_shard, dst_shard) -> str:
+def get_raw_txn(passphrase, chain_id, node, src_shard, dst_shard) -> str:
     """
     Must be cross shard transaction for tests.
 
     If importing keys using 'import-ks', no passphrase is needed.
     """
-    print("Getting RawTxn...")
+    print("== Getting raw transaction ==")
     assert len(ACC_NAMES_ADDED) > 1, "Must load at least 2 keys and must match CLI's keystore format"
     for acc_name in ACC_NAMES_ADDED:
         balances = get_balance(acc_name, node)
-        from_addr = cli.get_address(acc_name)
+        from_addr = CLI.get_address(acc_name)
         to_addr_candidates = ACC_NAMES_ADDED.copy()
         to_addr_candidates.remove(acc_name)
-        to_addr = cli.get_address(random.choice(to_addr_candidates))
+        to_addr = CLI.get_address(random.choice(to_addr_candidates))
         if balances[src_shard]["amount"] >= 1e-9:
             print(f"Raw transaction details:\n"
                   f"\tNode: {node}\n"
@@ -147,7 +229,7 @@ def get_raw_txn(cli, passphrase, chain_id, node, src_shard, dst_shard) -> str:
                   f"\tTo: {to_addr}\n"
                   f"\tFrom-shard: {src_shard}\n"
                   f"\tTo-shard: {dst_shard}")
-            response = cli.single_call(f"hmy --node={node} transfer --from={from_addr} --to={to_addr} "
+            response = CLI.single_call(f"hmy --node={node} transfer --from={from_addr} --to={to_addr} "
                                        f"--from-shard={src_shard} --to-shard={dst_shard} --amount={1e-9} "
                                        f"--chain-id={chain_id} --dry-run")
             print(f"\tTransaction for {chain_id}")
@@ -175,7 +257,7 @@ def get_shard_from_endpoint(endpoint):
 def setup_newman_no_explorer(test_json, global_json, env_json):
     source_shard = args.src_shard if args.src_shard else get_shard_from_endpoint(args.hmy_endpoint_src)
     destination_shard = args.dst_shard if args.dst_shard else get_shard_from_endpoint(args.hmy_endpoint_dst)
-    raw_txn = get_raw_txn(CLI, passphrase=args.passphrase, chain_id=args.chain_id,
+    raw_txn = get_raw_txn(passphrase=args.passphrase, chain_id=args.chain_id,
                           node=args.hmy_endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
 
     if str(source_shard) not in args.hmy_endpoint_src:
@@ -202,7 +284,7 @@ def setup_newman_only_explorer(test_json, global_json, env_json):
 
     source_shard = args.src_shard if args.src_shard else get_shard_from_endpoint(args.hmy_endpoint_src)
     destination_shard = args.dst_shard if args.dst_shard else get_shard_from_endpoint(args.hmy_endpoint_dst)
-    raw_txn = get_raw_txn(CLI, passphrase=args.passphrase, chain_id=args.chain_id,
+    raw_txn = get_raw_txn(passphrase=args.passphrase, chain_id=args.chain_id,
                           node=args.hmy_endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
 
     if str(source_shard) not in args.hmy_endpoint_src:
@@ -233,7 +315,7 @@ def setup_newman_default(test_json, global_json, env_json):
 
     source_shard = args.src_shard if args.src_shard else get_shard_from_endpoint(args.hmy_endpoint_src)
     destination_shard = args.dst_shard if args.dst_shard else get_shard_from_endpoint(args.hmy_endpoint_dst)
-    raw_txn = get_raw_txn(CLI, passphrase=args.passphrase, chain_id=args.chain_id,
+    raw_txn = get_raw_txn(passphrase=args.passphrase, chain_id=args.chain_id,
                           node=args.hmy_endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
 
     if str(source_shard) not in args.hmy_endpoint_src:
@@ -265,45 +347,48 @@ if __name__ == "__main__":
     if args.chain_id not in {"mainnet", "testnet", "pangaea"}:
         args.chain_id = "testnet"
     assert os.path.isdir(args.keys_dir), "Could not find keystore directory"
-    test_dir = args.test_dir
 
-    with open(f"{test_dir}/test.json", 'r') as f:
-        test_json = json.load(f)
-    with open(f"{test_dir}/global.json", 'r') as f:
-        global_json = json.load(f)
-    with open(f"{test_dir}/env.json", 'r') as f:
-        env_json = json.load(f)
     CLI = pyhmy.HmyCLI(environment=pyhmy.get_environment(), hmy_binary_path=args.hmy_binary_path)
+    exit_code = 0
     print(f"CLI Version: {CLI.version}")
 
     try:
         load_keys()
 
-        if args.do_staking_test:
-            cli_staking_test()
+        if not args.ignore_staking_test:
+            create_validator()
+            create_validator_many_keys()
 
-        # TODO: add new rpc tests
-        if "Harmony API Tests - no-explorer" in test_json["info"]["name"]:
-            setup_newman_no_explorer(test_json, global_json, env_json)
-        elif "Harmony API Tests - only-explorer" in test_json["info"]["name"]:
-            setup_newman_only_explorer(test_json, global_json, env_json)
-        else:
-            setup_newman_default(test_json, global_json, env_json)
+        if not args.ignore_regression_test:
+            with open(f"{args.test_dir}/test.json", 'r') as f:
+                test_json = json.load(f)
+            with open(f"{args.test_dir}/global.json", 'r') as f:
+                global_json = json.load(f)
+            with open(f"{args.test_dir}/env.json", 'r') as f:
+                env_json = json.load(f)
 
-        with open(f"{test_dir}/global.json", 'w') as f:
-            json.dump(global_json, f)
-        with open(f"{test_dir}/env.json", 'w') as f:
-            json.dump(env_json, f)
+            if "Harmony API Tests - no-explorer" in test_json["info"]["name"]:
+                setup_newman_no_explorer(test_json, global_json, env_json)
+            elif "Harmony API Tests - only-explorer" in test_json["info"]["name"]:
+                setup_newman_only_explorer(test_json, global_json, env_json)
+            else:
+                setup_newman_default(test_json, global_json, env_json)
 
-        for i in range(args.iterations):
-            print(f"\n\tIteration {i+1} out of {args.iterations}\n")
-            proc = subprocess.Popen(["newman", "run", f"{test_dir}/test.json",
-                                     "-e", f"{test_dir}/env.json",
-                                     "-g", f"{test_dir}/global.json"])
-            proc.wait()
-            if proc.returncode == 0:
-                print(f"\n\tSucceeded in {i+1} attempt(s)\n")
-                break
+            with open(f"{args.test_dir}/global.json", 'w') as f:
+                json.dump(global_json, f)
+            with open(f"{args.test_dir}/env.json", 'w') as f:
+                json.dump(env_json, f)
+
+            for i in range(args.iterations):
+                print(f"\n\tIteration {i+1} out of {args.iterations}\n")
+                proc = subprocess.Popen(["newman", "run", f"{args.test_dir}/test.json",
+                                         "-e", f"{args.test_dir}/env.json",
+                                         "-g", f"{args.test_dir}/global.json"])
+                proc.wait()
+                if proc.returncode == 0:
+                    print(f"\n\tSucceeded in {i+1} attempt(s)\n")
+                    break
+                exit_code = proc.returncode
 
     except (RuntimeError, KeyboardInterrupt) as err:
         print("Removing imported keys from CLI's keystore...")
@@ -314,4 +399,4 @@ if __name__ == "__main__":
     print("Removing imported keys from CLI's keystore...")
     for acc_name in ACC_NAMES_ADDED:
         CLI.remove_account(acc_name)
-    sys.exit(proc.returncode)
+    sys.exit(exit_code)

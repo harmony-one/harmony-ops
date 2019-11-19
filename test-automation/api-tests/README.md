@@ -50,7 +50,8 @@ usage: test.py [-h] [--test_dir TEST_DIR] [--iterations ITERATIONS]
                [--dst_shard DST_SHARD] [--exp_endpoint HMY_EXP_ENDPOINT]
                [--delay TXN_DELAY] [--chain_id CHAIN_ID]
                [--cli_path HMY_BINARY_PATH] [--cli_passphrase PASSPHRASE]
-               [--keystore KEYS_DIR] [--do_staking_test]
+               [--keystore KEYS_DIR] [--ignore_regression_test]
+               [--ignore_staking_test]
 
 Wrapper python script to test API using newman.
 
@@ -86,7 +87,10 @@ optional arguments:
   --keystore KEYS_DIR   Direcotry of keystore to import. Must follow the
                         format of CLI's keystore. Default is
                         ./TestnetValidatorKeys
-  --do_staking_test     Toggle (on) the staking tests.
+  --ignore_regression_test
+                        Disable the regression tests.
+  --ignore_staking_test
+                        Disable the staking tests.
 ```
 
 ## Notes
