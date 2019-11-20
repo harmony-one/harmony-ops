@@ -20,6 +20,9 @@ Make sure that the keystore follows the follow structure:
 │       └── one1est2gxcvavmtnzc7mhd73gzadm3xxcv5zczdtw.key
 ``` 
 
+## Announcement
+**If you get that you cannot decrypt the keystore (and you are sure that the passphrase is correct), go to the CLI's keystore at `~/.hmy_cli/account-keys` and delete the files that start with `_Test_key_`.**
+
 ## Running the test
 Example command for testnet test (option default is for testnet).
 ```bash
