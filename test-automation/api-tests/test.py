@@ -5,6 +5,7 @@ import os
 import random
 import re
 import subprocess
+import shutil
 import sys
 import time
 
@@ -12,6 +13,7 @@ import pyhmy
 import requests
 
 ACC_NAMES_ADDED = []
+ACC_NAME_PREFIX = "_Test_key_"
 
 
 def parse_args() -> argparse.Namespace:
@@ -67,34 +69,45 @@ def load_keys() -> None:
         if not os.path.isdir(f"{args.keys_dir}/{key}"):
             continue
         key_content = os.listdir(f"{args.keys_dir}/{key}")
-        new_account_name = f"_Test_key_{random_num}_{i}"
-        CLI.remove_account(new_account_name)
-        for f in key_content:
-            if f.startswith("."):
+        account_name = f"{ACC_NAME_PREFIX}{random_num}_{i}"
+        CLI.remove_account(account_name)
+        for file_name in key_content:
+            if not file_name.endswith(".key"):  # Strong assumption about key file, some valid files may be ignored.
                 continue
-            key_file_path = f"{os.path.abspath(args.keys_dir)}/{key}/{f}"
+            from_key_file_path = f"{os.path.abspath(args.keys_dir)}/{key}/{file_name}"
+            to_key_file_path = f"{CLI.keystore_path}/{account_name}"
+            if not os.path.isdir(to_key_file_path):
+                os.mkdir(to_key_file_path)
+            shutil.copy(from_key_file_path, to_key_file_path)
             try:
-                response = CLI.single_call(f"keys import-ks {key_file_path} {new_account_name} "
-                                           f"--passphrase={args.passphrase}").strip()
-                if f"Imported keystore given account alias of `{new_account_name}`" == response:
-                    ACC_NAMES_ADDED.append(new_account_name)
-                    break
-            except RuntimeError:
-                pass  # It's okay if import fails, just try next file in key's dir.
+                address = CLI.get_address(account_name)
+                names_with_address = CLI.get_accounts(address)
+                if len(names_with_address) > 1:  # Remove duplicate accounts as passphrase may fail.
+                    for name in names_with_address:
+                        if not name.startswith(ACC_NAME_PREFIX):
+                            print(f"[!] Removing {name} ({address}) from keystore as it conflicts with imported key")
+                            CLI.remove_account(name)
+            except AttributeError:
+                print("[!] pyhmy is out of date. Upgrade with:\n\t python3 -m pip install pyhmy --upgrade\n")
+            ACC_NAMES_ADDED.append(account_name)
     assert len(ACC_NAMES_ADDED) > 1, "Must load at least 2 keys and must match CLI's keystore format"
 
 
 def is_after_epoch(n):
     url = 'http://localhost:9500/'
-    payload = "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"hmy_latestHeader\",\n    \"params\": " \
-              "[  ],\n    \"id\": 1\n}"
+    payload = """{
+        "jsonrpc": "2.0",
+        "method": "hmy_latestHeader",
+        "params": [  ],
+        "id": 1
+    }"""
     headers = {
         'Content-Type': 'application/json'
     }
     try:
         response = requests.request('POST', url, headers=headers, data=payload, allow_redirects=False, timeout=3)
         body = json.loads(response.content)
-        return body["result"]["epoch"] > n
+        return int(body["result"]["epoch"]) > n
     except (requests.ConnectionError, KeyError):
         return False
 
@@ -135,13 +148,18 @@ def create_validator():
 
     added_validators = []
 
-    while not is_after_epoch(1):
+    while not is_after_epoch(0):
         print("Waiting for epoch 1...")
         time.sleep(5)
 
     for key in bls_keys_for_new_val:
-        account_name = f"_Test_key_{random.randint(-1e6, 1e6)}"
-        CLI.single_call(f"hmy keys add {account_name}")
+        account_name = f"{ACC_NAME_PREFIX}{random.randint(-1e6, 1e6)}"
+        proc = CLI.expect_call(f"hmy keys add {account_name} --passphrase")
+        proc.expect("Enter passphrase\r\n")
+        proc.sendline(f"{args.passphrase}")
+        proc.expect("Repeat the passphrase:\r\n")
+        proc.sendline(f"{args.passphrase}")
+        proc.wait()
         address = CLI.get_address(account_name)
         added_validators.append(address)
         staking_command = f"hmy staking create-validator --amount 1 " \
@@ -149,7 +167,7 @@ def create_validator():
                           f"--bls-pubkeys {key} --identity foo --details bar --name baz " \
                           f"--max-change-rate 10 --max-rate 10 --max-total-delegation 10 " \
                           f"--min-self-delegation 1 --rate 10 --security-contact Leo  " \
-                          f"--website harmony.one "
+                          f"--website harmony.one --passphrase={args.passphrase}"
         ACC_NAMES_ADDED.append(account_name)
         print(f"Staking command response for {address}: ", CLI.single_call(staking_command))
 
@@ -160,7 +178,7 @@ def create_validator():
                           f"--bls-pubkeys {key} --identity foo --details bar --name baz " \
                           f"--max-change-rate 10 --max-rate 10 --max-total-delegation 10 " \
                           f"--min-self-delegation 1 --rate 10 --security-contact Leo  " \
-                          f"--website harmony.one "
+                          f"--website harmony.one --passphrase={args.passphrase}"
         print(f"Staking command response for {address}: ", CLI.single_call(staking_command))
 
     print("Validators added: ", added_validators)
@@ -194,7 +212,7 @@ def create_validator_many_keys():
                               f"--max-change-rate 10 --max-rate 10 --max-total-delegation 10 " \
                               f"--min-self-delegation 1 --rate 10 --security-contact Leo  " \
                               f"--website harmony.one --node={args.hmy_endpoint_src} " \
-                              f"--chain-id={args.chain_id}"
+                              f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
             response = CLI.single_call(staking_command)
             print(f"\nPassed creating a validator with {i} bls key(s)")
             print(f"\tCLI command: {staking_command}")
@@ -231,7 +249,7 @@ def get_raw_txn(passphrase, chain_id, node, src_shard, dst_shard) -> str:
                   f"\tTo-shard: {dst_shard}")
             response = CLI.single_call(f"hmy --node={node} transfer --from={from_addr} --to={to_addr} "
                                        f"--from-shard={src_shard} --to-shard={dst_shard} --amount={1e-9} "
-                                       f"--chain-id={chain_id} --dry-run")
+                                       f"--chain-id={chain_id} --dry-run --passphrase={passphrase}")
             print(f"\tTransaction for {chain_id}")
             response_lines = response.split("\n")
             assert len(response_lines) == 17, 'CLI output for transaction dry-run is not recognized, check CLI version.'
@@ -343,6 +361,7 @@ def setup_newman_default(test_json, global_json, env_json):
 
 
 if __name__ == "__main__":
+    print("\n\t== Starting Tests ==\n")
     args = parse_args()
     if args.chain_id not in {"mainnet", "testnet", "pangaea"}:
         args.chain_id = "testnet"
