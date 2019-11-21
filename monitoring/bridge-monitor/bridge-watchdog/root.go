@@ -148,7 +148,7 @@ func (service *Service) monitorNetwork() error {
 
 			totalBalance := normed.Add(ethSiteBal)
 			diff := totalBalance.Sub(expectedBalance).Abs()
-			if reportCounter > 30 {
+			if reportCounter > 6 {
 				stdLog.Printf(`
 Expected Balance: %s
 
