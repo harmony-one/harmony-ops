@@ -78,12 +78,13 @@ func (service *Service) monitorNetwork() error {
 		expectedBalance := NewDecFromBigInt(big.NewInt(expectedBal))
 		threshold := NewDecFromBigInt(big.NewInt(10))
 		base := NewDecFromBigInt(big.NewInt(100000000))
+		lastDiff := ZeroDec()
 		tryAgainCounter := 0
 		etherFailCounter := 0
 		reportCounter := 0
 		wifiDowntime := time.Time{}
 
-		for range time.Tick(time.Duration(60) * time.Second) {
+		for range time.Tick(time.Duration(200) * time.Second) {
 			// Track 30 minutes regardless of success
 			reportCounter++
 			// If EtherSite fetch fail, wait 10 iterations
@@ -159,23 +160,28 @@ Deviation: %s
 			}
 			// Check if below threshold
 			if diff.GT(threshold) {
-			 	// Send PagerDuty message
-			 	e := notify(pdServiceKey, fmt.Sprintf(`
-						Mismatch detected!
+				if !diff.Equal(lastDiff) {
+				 	// Send PagerDuty message
+				 	e := notify(pdServiceKey, fmt.Sprintf(`
+Mismatch detected!
 
-						BNB Value: %s
+BNB Value: %s
 
-						EtherScan Value: %s
+EtherScan Value: %s
 
-						Expected Balance: %s
+Expected Balance: %s
 
-						Calculated Balance: %s = (%s / %s) + %s
+Calculated Balance: %s = (%s / %s) + %s
 
-						Deviation: %s
-						`, normed, ethSiteBal, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff))
+Deviation: %s
+`, normed, ethSiteBal, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff))
 					if e != nil {
 						stdLog.Println(e)
 					}
+					lastDiff = diff
+				}
+			} else {
+				lastDiff = ZeroDec()
 			}
 		}
 	}()
