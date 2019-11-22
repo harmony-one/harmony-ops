@@ -165,8 +165,8 @@ def create_validator():
         staking_command = f"hmy staking create-validator --amount 1 " \
                           f"--validator-addr {address} " \
                           f"--bls-pubkeys {key} --identity foo --details bar --name baz " \
-                          f"--max-change-rate 10 --max-rate 10 --max-total-delegation 10 " \
-                          f"--min-self-delegation 1 --rate 10 --security-contact Leo  " \
+                          f"--max-change-rate 0.1 --max-rate 0.2 --max-total-delegation 10 " \
+                          f"--min-self-delegation 1 --rate 0.1 --security-contact Leo  " \
                           f"--website harmony.one --passphrase={args.passphrase}"
         ACC_NAMES_ADDED.append(account_name)
         print(f"Staking command response for {address}: ", CLI.single_call(staking_command))
@@ -176,8 +176,8 @@ def create_validator():
         staking_command = f"hmy staking create-validator --amount 1 " \
                           f"--validator-addr {address} " \
                           f"--bls-pubkeys {key} --identity foo --details bar --name baz " \
-                          f"--max-change-rate 10 --max-rate 10 --max-total-delegation 10 " \
-                          f"--min-self-delegation 1 --rate 10 --security-contact Leo  " \
+                          f"--max-change-rate 0.1 --max-rate 0.2 --max-total-delegation 10 " \
+                          f"--min-self-delegation 1 --rate 0.1 --security-contact Leo  " \
                           f"--website harmony.one --passphrase={args.passphrase}"
         print(f"Staking command response for {address}: ", CLI.single_call(staking_command))
 
@@ -209,8 +209,8 @@ def create_validator_many_keys():
             bls_key_string = ','.join(el["public-key"] for el in bls_keys[:i])
             staking_command = f"hmy staking create-validator --amount 1 --validator-addr {address} " \
                               f"--bls-pubkeys {bls_key_string} --identity foo --details bar --name baz " \
-                              f"--max-change-rate 10 --max-rate 10 --max-total-delegation 10 " \
-                              f"--min-self-delegation 1 --rate 10 --security-contact Leo  " \
+                              f"--max-change-rate 0.1 --max-rate 0.2 --max-total-delegation 10 " \
+                              f"--min-self-delegation 1 --rate 0.1 --security-contact Leo  " \
                               f"--website harmony.one --node={args.hmy_endpoint_src} " \
                               f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
             response = CLI.single_call(staking_command)
