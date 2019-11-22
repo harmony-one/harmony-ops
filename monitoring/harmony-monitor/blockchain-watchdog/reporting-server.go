@@ -84,7 +84,8 @@ func init() {
 
 func blockHeaderSummary(
 	headers []headerInfoRPCResult,
-	includeRecords, includeTS bool,
+	ts time.Time,
+	includeRecords bool,
 	sum map[string]interface{},
 ) {
 	linq.From(headers).GroupBy(
@@ -114,11 +115,8 @@ func blockHeaderSummary(
 		if includeRecords {
 			sum[shardID].(any)["records"] = value.(linq.Group).Group
 		}
-		if includeTS {
-			sum[shardID].(any)[timestamp] = time.Unix(linq.From(value.(linq.Group).Group).Select(
-				func(c interface{}) interface{} {
-					return c.(headerInfoRPCResult).Payload.UnixTime
-				}).Distinct().Max().(int64), 0)
+		if !ts.IsZero() {
+			sum[shardID].(any)[timestamp] = ts
 		}
 	})
 }
@@ -141,7 +139,7 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
 	})
-	blockHeaderSummary(headers, true, false, sum[headerSumry])
+	blockHeaderSummary(headers, time.Time{}, true, sum[headerSumry])
 	return sum
 }
 
@@ -392,8 +390,72 @@ func (m* monitor) worker(jobs chan work, channels map[string](chan reply), group
 	}
 }
 
+func (m* monitor) shardMonitor(ready chan bool, warning, redline int, pdServiceKey, chain string) {
+	type a struct {
+		blockHeight uint64
+		timeStamp   time.Time
+		warningSent bool
+		lastRedline time.Time
+	}
+	lastSuccess := make(map[string]a)
+	for range ready {
+		current := any{}
+		m.use()
+		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, m.BlockHeaderSnapshot.TS, false, current)
+		currTime := m.BlockHeaderSnapshot.TS
+		m.done()
+		for s, curr := range current {
+			currHeight := curr.(any)[blockMax].(uint64)
+			if last, exists := lastSuccess[s]; exists {
+				if !(currHeight > last.blockHeight) {
+					elapsedTime := int64(currTime.Sub(last.timeStamp).Seconds())
+					if elapsedTime > int64(warning) && !last.warningSent {
+						name := fmt.Sprintf(nameFMT, chain)
+						notify(pdServiceKey, fmt.Sprintf(`
+Warning: Liviness problem on shard %s
+
+Block height stuck at %d starting at %s
+
+Time since last update: %d
+
+See: http://watchdog.hmny.io/report-%s
+
+--%s
+`, s, currHeight, last.timeStamp, elapsedTime, chain, name))
+						lastSuccess[s] = a{currHeight, last.timeStamp, true, time.Time{}}
+					} else if elapsedTime > int64(redline) {
+						if last.lastRedline.IsZero() || (!last.lastRedline.IsZero() && int64(currTime.Sub(last.lastRedline).Seconds()) > int64(redline)) {
+							name := fmt.Sprintf(nameFMT, chain)
+							notify(pdServiceKey, fmt.Sprintf(`
+REDLINE: Liviness problem on shard %s
+
+Block height stuck at %d starting at %s
+
+Time since last update: %d
+
+See: http://watchdog.hmny.io/report-%s
+
+--%s
+`, s, currHeight, last.timeStamp, elapsedTime, chain, name))
+						lastSuccess[s] = a{currHeight, last.timeStamp, true, currTime}
+						}
+						m.use()
+						m.consensusProgress[fmt.Sprintf("shard-%s", s)] = false
+						m.done()
+					}
+					continue
+				}
+			}
+			lastSuccess[s] = a{currHeight, currTime, false, time.Time{}}
+			m.use()
+			m.consensusProgress[fmt.Sprintf("shard-%s", s)] = true
+			m.done()
+		}
+	}
+}
+
 func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
-					rpc string, group *sync.WaitGroup, channels map[string](chan reply)) {
+					rpc string, group *sync.WaitGroup, channels map[string](chan reply), monitor chan bool) {
 	requestFields := map[string]interface{} {
 		"jsonrpc": versionJSONRPC,
 		"method":  rpc,
@@ -453,6 +515,7 @@ func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
 			m.use()
 			m.blockHeaderCopy(m.WorkingBlockHeader)
 			m.done()
+			monitor <- true
 		}
 		channels[rpc] = make(chan reply, len(nodeList))
 	}
@@ -487,9 +550,17 @@ func (m *monitor) update(params watchParams, superCommittee map[int]committee, r
 	for _, rpc := range rpcs {
 		switch rpc {
 		case metadataRPC:
-			go m.manager(jobs, params.InspectSchedule.NodeMetadata, nodeList, rpc, syncGroups[rpc], replyChannels)
+			go m.manager(jobs, params.InspectSchedule.NodeMetadata, nodeList, rpc, syncGroups[rpc], replyChannels, nil)
 		case blockHeaderRPC:
-			go m.manager(jobs, params.InspectSchedule.BlockHeader, nodeList, rpc, syncGroups[rpc], replyChannels)
+			healthMonitorChan := make(chan bool)
+			go m.manager(jobs, params.InspectSchedule.BlockHeader, nodeList, rpc, syncGroups[rpc], replyChannels, healthMonitorChan)
+			go m.shardMonitor(
+				healthMonitorChan,
+				params.ShardHealthReporting.Consensus.Warning,
+				params.ShardHealthReporting.Consensus.Redline,
+				params.Auth.PagerDuty.EventServiceKey,
+				params.Network.TargetChain,
+			)
 		}
 	}
 }
@@ -519,67 +590,6 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	}
 }
 
-func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline int) {
-	sumCopy := func(prevS, newS any) {
-		for key, value := range newS {
-			prevS[key] = value
-		}
-	}
-	// WARN Pay attention to the work here
-	liviness := func(message string, interval int) {
-		previousSummary := any{}
-		currentSummary := any{}
-		m.use()
-		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, previousSummary)
-		m.done()
-		for range time.Tick(time.Duration(interval) * time.Second) {
-			m.use()
-			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary)
-			m.done()
-			for shard, currentDetails := range currentSummary {
-				sName := fmt.Sprintf("shard-%s", shard)
-				nowDets, asrtOk1 := currentDetails.(any)
-				thenDets, asrtOk2 := previousSummary[shard].(any)
-				if asrtOk1 && asrtOk2 {
-					if latestCount, ok := nowDets[blockMax]; ok {
-						if prevCount, ok := thenDets[blockMax]; ok {
-							thenTS := thenDets[timestamp].(time.Time)
-							nowTS := nowDets[timestamp].(time.Time)
-							elapsed := int64(nowTS.Sub(thenTS).Seconds())
-							nowC := latestCount.(uint64)
-							prevC := prevCount.(uint64)
-							consensusProg := true
-							if !(nowC > prevC) && int(elapsed) >= interval {
-								name := fmt.Sprintf(nameFMT, chain)
-								notify(pdServiceKey,
-									fmt.Sprintf(`
-%s: Liviness problem on shard %s
-
-previous height %d at %s
-current height %d at %s
-
-Difference in seconds: %d
-
-See: http://watchdog.hmny.io/report-%s
-
---%s
-`, message, shard, prevC, thenTS, nowC, nowTS, elapsed, chain, name))
-								consensusProg = false
-							}
-							m.use()
-							m.consensusProgress[sName] = consensusProg
-							m.done()
-						}
-					}
-				}
-			}
-			sumCopy(previousSummary, currentSummary)
-		}
-	}
-	go liviness("Warning", warning)
-	// go liviness("Redline", redline)
-}
-
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	client = fasthttp.Client{
 		Dial: func(addr string) (net.Conn, error) {
@@ -588,12 +598,6 @@ func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 		MaxConnsPerHost: 2048,
 	}
 	go m.update(instrs.watchParams, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC})
-	go m.watchShardHealth(
-		instrs.Auth.PagerDuty.EventServiceKey,
-		instrs.Network.TargetChain,
-		instrs.ShardHealthReporting.Consensus.Warning,
-		instrs.ShardHealthReporting.Consensus.Redline,
-	)
 	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download", m.produceCSV)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
