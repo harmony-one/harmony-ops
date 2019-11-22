@@ -267,7 +267,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			m.use()
-			// FIXME: Idk what happened, heres a bandaid
+			// FIXME: Bandaid
 			if m.SummarySnapshot[metaSumry][vrs[0]] != nil {
 				for _, v := range m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{}) {
 					row := []string{
@@ -399,6 +399,7 @@ func (m* monitor) shardMonitor(ready chan bool, warning, redline int, pdServiceK
 		warningSent bool
 		lastRedline time.Time
 	}
+	// https://golang.org/pkg/time/#Time.Format
 	timeFormat := "15:04:05 Jan _2 MST"
 	lastSuccess := make(map[string]a)
 	for range ready {
@@ -413,7 +414,6 @@ func (m* monitor) shardMonitor(ready chan bool, warning, redline int, pdServiceK
 			if last, exists := lastSuccess[s]; exists {
 				if !(currHeight > last.blockHeight) {
 					elapsedTime := int64(currTime.Sub(last.timeStamp).Seconds())
-					fmt.Println(elapsedTime)
 					name := fmt.Sprintf(nameFMT, chain)
 					header := curr.(any)["latest-block"].(headerInfoRPCResult)
 					message := fmt.Sprintf(`
