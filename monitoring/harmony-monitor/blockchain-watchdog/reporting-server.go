@@ -84,7 +84,6 @@ func init() {
 
 func blockHeaderSummary(
 	headers []headerInfoRPCResult,
-	ts time.Time,
 	includeRecords bool,
 	sum map[string]interface{},
 ) {
@@ -114,9 +113,9 @@ func blockHeaderSummary(
 		}
 		if includeRecords {
 			sum[shardID].(any)["records"] = value.(linq.Group).Group
-		}
-		if !ts.IsZero() {
-			sum[shardID].(any)[timestamp] = ts
+			sum[shardID].(any)["latest-block"] = linq.From(value.(linq.Group).Group).FirstWith(func (c interface{}) bool {
+				return c.(headerInfoRPCResult).Payload.BlockNumber == block.Max()
+			})
 		}
 	})
 }
@@ -139,7 +138,7 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
 	})
-	blockHeaderSummary(headers, time.Time{}, true, sum[headerSumry])
+	blockHeaderSummary(headers, true, sum[headerSumry])
 	return sum
 }
 
@@ -268,17 +267,20 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			m.use()
-			for _, v := range m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{}) {
-				row := []string{
-					v.(metadataRPCResult).IP,
-					v.(metadataRPCResult).Payload.BLSPublicKey,
-					v.(metadataRPCResult).Payload.Version,
-					v.(metadataRPCResult).Payload.NetworkType,
-					v.(metadataRPCResult).Payload.ChainID,
-					strconv.FormatBool(v.(metadataRPCResult).Payload.IsLeader),
-					strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ShardID), 10),
+			// FIXME: Idk what happened, heres a bandaid
+			if m.SummarySnapshot[metaSumry][vrs[0]] != nil {
+				for _, v := range m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{}) {
+					row := []string{
+						v.(metadataRPCResult).IP,
+						v.(metadataRPCResult).Payload.BLSPublicKey,
+						v.(metadataRPCResult).Payload.Version,
+						v.(metadataRPCResult).Payload.NetworkType,
+						v.(metadataRPCResult).Payload.ChainID,
+						strconv.FormatBool(v.(metadataRPCResult).Payload.IsLeader),
+						strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ShardID), 10),
+						}
+					records = append(records, row)
 				}
-				records = append(records, row)
 			}
 			m.done()
 		}
@@ -397,58 +399,71 @@ func (m* monitor) shardMonitor(ready chan bool, warning, redline int, pdServiceK
 		warningSent bool
 		lastRedline time.Time
 	}
+	timeFormat := "15:04:05 Jan _2 MST"
 	lastSuccess := make(map[string]a)
 	for range ready {
 		current := any{}
 		m.use()
-		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, m.BlockHeaderSnapshot.TS, false, current)
+		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, true, current)
 		currTime := m.BlockHeaderSnapshot.TS
 		m.done()
 		for s, curr := range current {
+			progress := true
 			currHeight := curr.(any)[blockMax].(uint64)
 			if last, exists := lastSuccess[s]; exists {
 				if !(currHeight > last.blockHeight) {
 					elapsedTime := int64(currTime.Sub(last.timeStamp).Seconds())
-					if elapsedTime > int64(warning) && !last.warningSent {
-						name := fmt.Sprintf(nameFMT, chain)
-						notify(pdServiceKey, fmt.Sprintf(`
-Warning: Liviness problem on shard %s
+					fmt.Println(elapsedTime)
+					name := fmt.Sprintf(nameFMT, chain)
+					header := curr.(any)["latest-block"].(headerInfoRPCResult)
+					message := fmt.Sprintf(`
+Liviness problem on shard %s
 
 Block height stuck at %d starting at %s
 
-Time since last update: %d
+Block Hash: %s
+
+Leader: %s
+
+ViewID: %d
+
+Epoch: %d
+
+Block Timestamp: %s
+
+LastCommitSig: %s
+
+LastCommitBitmap: %s
+
+Time since last new block: %d seconds
 
 See: http://watchdog.hmny.io/report-%s
 
 --%s
-`, s, currHeight, last.timeStamp, elapsedTime, chain, name))
+`, s, currHeight, last.timeStamp.Format(timeFormat),
+header.Payload.BlockHash, header.Payload.Leader, header.Payload.ViewID,
+header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
+header.Payload.LastCommitBitmap, elapsedTime, chain, name)
+					if elapsedTime > int64(warning) && !last.warningSent {
+						notify(pdServiceKey, message)
 						lastSuccess[s] = a{currHeight, last.timeStamp, true, time.Time{}}
+						progress = false
 					} else if elapsedTime > int64(redline) {
 						if last.lastRedline.IsZero() || (!last.lastRedline.IsZero() && int64(currTime.Sub(last.lastRedline).Seconds()) > int64(redline)) {
-							name := fmt.Sprintf(nameFMT, chain)
-							notify(pdServiceKey, fmt.Sprintf(`
-REDLINE: Liviness problem on shard %s
-
-Block height stuck at %d starting at %s
-
-Time since last update: %d
-
-See: http://watchdog.hmny.io/report-%s
-
---%s
-`, s, currHeight, last.timeStamp, elapsedTime, chain, name))
+							notify(pdServiceKey, message)
 						lastSuccess[s] = a{currHeight, last.timeStamp, true, currTime}
 						}
-						m.use()
-						m.consensusProgress[fmt.Sprintf("shard-%s", s)] = false
-						m.done()
+						progress = false
 					}
+					m.use()
+					m.consensusProgress[fmt.Sprintf("shard-%s", s)] = progress
+					m.done()
 					continue
 				}
 			}
 			lastSuccess[s] = a{currHeight, currTime, false, time.Time{}}
 			m.use()
-			m.consensusProgress[fmt.Sprintf("shard-%s", s)] = true
+			m.consensusProgress[fmt.Sprintf("shard-%s", s)] = progress
 			m.done()
 		}
 	}
