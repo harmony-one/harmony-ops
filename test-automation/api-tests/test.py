@@ -410,10 +410,10 @@ if __name__ == "__main__":
                                          "-e", f"{args.test_dir}/env.json",
                                          "-g", f"{args.test_dir}/global.json"])
                 proc.wait()
+                exit_code = proc.returncode
                 if proc.returncode == 0:
                     print(f"\n\tSucceeded in {i+1} attempt(s)\n")
                     break
-                exit_code = proc.returncode
 
     except (RuntimeError, KeyboardInterrupt) as err:
         print("Removing imported keys from CLI's keystore...")
