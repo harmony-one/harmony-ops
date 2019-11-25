@@ -48,6 +48,7 @@ python3 test.py --rpc_endpoint_src=https://api.s0.t.hmny.io/ --rpc_endpoint_dst=
 There are some options for the python script, here is the output of the help message:
 ```
 usage: test.py [-h] [--test_dir TEST_DIR] [--iterations ITERATIONS]
+               [--start_epoch START_EPOCH]
                [--rpc_endpoint_src HMY_ENDPOINT_SRC]
                [--rpc_endpoint_dst HMY_ENDPOINT_DST] [--src_shard SRC_SHARD]
                [--dst_shard DST_SHARD] [--exp_endpoint HMY_EXP_ENDPOINT]
@@ -64,6 +65,8 @@ optional arguments:
   --iterations ITERATIONS
                         Number of attempts for a successful test. Default is
                         5.
+  --start_epoch START_EPOCH
+                        The minimum epoch before starting tests. Default is 1.
   --rpc_endpoint_src HMY_ENDPOINT_SRC
                         Source endpoint for Cx. Default is
                         https://api.s0.b.hmny.io/
