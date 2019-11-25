@@ -22,6 +22,8 @@ def parse_args() -> argparse.Namespace:
                         help="Path to test directory. Default is './tests/default'", type=str)
     parser.add_argument("--iterations", dest="iterations", default=5,
                         help="Number of attempts for a successful test. Default is 5.", type=int)
+    parser.add_argument("--start_epoch", dest="start_epoch", default=1,
+                        help="The minimum epoch before starting tests. Default is 1.", type=int)
     parser.add_argument("--rpc_endpoint_src", dest="hmy_endpoint_src", default="https://api.s0.b.hmny.io/",
                         help="Source endpoint for Cx. Default is https://api.s0.b.hmny.io/", type=str)
     parser.add_argument("--rpc_endpoint_dst", dest="hmy_endpoint_dst", default="https://api.s1.b.hmny.io/",
@@ -240,7 +242,7 @@ def get_raw_txn(passphrase, chain_id, node, src_shard, dst_shard) -> str:
         to_addr_candidates = ACC_NAMES_ADDED.copy()
         to_addr_candidates.remove(acc_name)
         to_addr = CLI.get_address(random.choice(to_addr_candidates))
-        if balances[src_shard]["amount"] >= 1e-9:
+        if balances[src_shard]["amount"] >= 5:  # Ensure enough funds (even with high gas fees).
             print(f"Raw transaction details:\n"
                   f"\tNode: {node}\n"
                   f"\tFrom: {from_addr}\n"
@@ -361,8 +363,8 @@ def setup_newman_default(test_json, global_json, env_json):
 
 
 if __name__ == "__main__":
-    print("\n\t== Starting Tests ==\n")
     args = parse_args()
+    print("\n\t== Starting Tests ==\n")
     if args.chain_id not in {"mainnet", "testnet", "pangaea"}:
         args.chain_id = "testnet"
     assert os.path.isdir(args.keys_dir), "Could not find keystore directory"
@@ -373,6 +375,10 @@ if __name__ == "__main__":
 
     try:
         load_keys()
+
+        print(f"Waiting for epoch {args.start_epoch} (or later)")
+        while not is_after_epoch(args.start_epoch-1):
+            time.sleep(5)
 
         if not args.ignore_staking_test:
             create_validator()
