@@ -34,9 +34,9 @@ def parse_args() -> argparse.Namespace:
                         help=f"The destination shard of the Cx. Default assumes associated shard from dst endpoint.")
     parser.add_argument("--exp_endpoint", dest="hmy_exp_endpoint", default="http://e0.b.hmny.io:5000/",
                         help="Default is http://e0.b.hmny.io:5000/", type=str)
-    parser.add_argument("--delay", dest="txn_delay", default=30,
+    parser.add_argument("--delay", dest="txn_delay", default=45,
                         help="The time to wait before checking if a Cx/Tx is on the blockchain. "
-                             "Default is 30 seconds. (Input is in seconds)", type=int)
+                             "Default is 45 seconds. (Input is in seconds)", type=int)
     parser.add_argument("--chain_id", dest="chain_id", default="testnet",
                         help="Chain ID for the CLI. Default is 'testnet'", type=str)
     parser.add_argument("--cli_path", dest="hmy_binary_path", default=None,
@@ -96,7 +96,7 @@ def load_keys() -> None:
 
 
 def is_after_epoch(n):
-    url = 'http://localhost:9500/'
+    url = args.hmy_endpoint_src
     payload = """{
         "jsonrpc": "2.0",
         "method": "hmy_latestHeader",

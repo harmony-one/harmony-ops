@@ -4,7 +4,8 @@ Related internal [gitbook](https://app.gitbook.com/@harmony-one/s/onboarding-wik
 
 - Make sure newman (and by extention node.js) is installed, do `npm install -g newman` (https://www.npmjs.com/package/newman)
 - Make sure that you are using python 3. 
-- Make sure that you have `pexpect` module for python (https://pypi.org/project/pexpect/). 
+- Make sure that you have `pyhmy` module for python3 [here](https://pypi.org/project/pyhmy/). 
+- Make sure that you have `requests` module for python3 [here](https://pypi.org/project/requests/).
 - Make sure that you have `jq` installed.
 - Make sure to have the CLI binary in this directory with the name `hmy` (or specifiy the binary path as an option).
 - Make sure the CLI version is v132 or newer (that is commit `03621a931518dea582d4327671e0add33296a88d` or newer of *go-sdk*)
@@ -20,9 +21,6 @@ Make sure that the keystore follows the follow structure:
 │       └── one1est2gxcvavmtnzc7mhd73gzadm3xxcv5zczdtw.key
 ``` 
 
-## Announcement
-**If you get that you cannot decrypt the keystore (and you are sure that the passphrase is correct), go to the CLI's keystore at `~/.hmy_cli/account-keys` and delete the files that start with `_Test_key_`.**
-
 ## Running the test
 Example command for testnet test (option default is for testnet).
 ```bash
@@ -34,9 +32,14 @@ Example command for localnet test (no explorer tests):
 python3 test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" --rpc_endpoint_dst="http://localhost:9501/" --keystore=./LocalnetValidatorKeys/ --chain_id="localnet"
 ```
 
+Example command for (testnet) no-explorer no staking test
+```bash
+python3 test.py --test_dir=./tests/no-explorer/ --keystore=<TestnetValidatorKeys_DIR> --ignore_staking_test
+```
+
 Example command for (testnet) explorer only test:
 ```bash
-python3 test.py --test_dir=./tests/only-explorer/
+python3 test.py --test_dir=./tests/only-explorer/ --keystore=<TestnetValidatorKeys_DIR>
 ```
 
 Example command for mainnet test (no explorer tests):
@@ -105,8 +108,10 @@ optional arguments:
   - The raw transaction used in this test is **always** a cross-shard transaction. 
   - It is recommended to wait around 30 seconds for a Cx to finalize.
   - Each iteration will try the tests **on the same raw transaction**.
+  - **If you get that you cannot decrypt the keystore (and you are sure that the passphrase is correct), go to the CLI's keystore at `~/.hmy_cli/account-keys` and delete the files that start with `_Test_key_`.**
 
 ## Bugs
+  - Staking tests do **not** currently work, add the option --ignore_staking_test to ignore those tests.
   - `hmy_getFilterChanges` is not being tested because of unknown params.
   - `hmy_getLogs` is not being tested because of unknown params. 
 
