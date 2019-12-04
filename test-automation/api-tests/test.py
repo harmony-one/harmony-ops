@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
                         help=f"Passphrase used to unlock the keystore. "
                              f"Default is ''", type=str)
     parser.add_argument("--keystore", dest="keys_dir", default="TestnetValidatorKeys",
-                        help=f"Direcotry of keystore to import. Must follow the format of CLI's keystore. "
+                        help=f"Directory of keystore to import. Must follow the format of CLI's keystore. "
                              f"Default is ./TestnetValidatorKeys", type=str)
     parser.add_argument("--ignore_regression_test", dest="ignore_regression_test", action='store_true', default=False,
                         help="Disable the regression tests.")
@@ -114,14 +114,13 @@ def is_after_epoch(n):
         return False
 
 
-def create_validator():
+def create_validator() -> list:
     print("== Creating validators ==")
 
     bls_keys_for_new_val = [
         "1480fca328daaddd3487195c5500969ecccbb806b6bf464734e0e3ad18c64badfae8578d76e2e9281b6a3645d056960a",
         "9d657b1854d6477dba8bca9606f6ac884df308558f2b3b545fc76a9ef02abc87d3518cf1134d21acf03036cea2820f02",
         "e2c13c84c8f2396cf7180d5026e048e59ec770a2851003f1f2ab764a79c07463681ed7ddfe62bc4d440526a270891c86",
-        "249976f984f30306f800ef42fb45272b391cfdd17f966e093a9f711e30f66f77ecda6c367bf79afc9fa31a1789e9ee8e"
     ]
 
     # Sourced from harmony/test/config/local-resharding.txt (Keys must be in provided keystore).
@@ -184,7 +183,7 @@ def create_validator():
         print(f"Staking command response for {address}: ", CLI.single_call(staking_command))
 
     print("Validators added: ", added_validators)
-
+    return added_validators
 
 def bls_generator(count):
     for _ in range(count):
@@ -199,14 +198,14 @@ def bls_generator(count):
 
 def create_validator_many_keys():
     print("== Running CLI staking tests ==")
-    bls_keys = [d for d in bls_generator(50)]
+    bls_keys = [d for d in bls_generator(10)]
 
     for acc in ACC_NAMES_ADDED:
         balance = get_balance(acc, args.hmy_endpoint_src)
         if balance[0]["amount"] < 1:
             continue
         address = CLI.get_address(acc)
-        key_counts = [1, 10, 50]
+        key_counts = [1, 10]
         for i in key_counts:
             bls_key_string = ','.join(el["public-key"] for el in bls_keys[:i])
             staking_command = f"hmy staking create-validator --amount 1 --validator-addr {address} " \
@@ -227,6 +226,102 @@ def create_validator_many_keys():
     print("Failed CLI staking test.")
     sys.exit(-1)
 
+def edit_validator(address):
+    print("== Editing Validator ==")
+
+    old_bls_key = "1480fca328daaddd3487195c5500969ecccbb806b6bf464734e0e3ad18c64badfae8578d76e2e9281b6a3645d056960a"
+    new_bls_key = "249976f984f30306f800ef42fb45272b391cfdd17f966e093a9f711e30f66f77ecda6c367bf79afc9fa31a1789e9ee8e"
+    staking_command = f"hmy staking edit-validator --validator-addr {address} " \
+                  f"--identity foo --details bar --name baz " \
+                  f"--max-total-delegation 10 " \
+                  f"--min-self-delegation 1 --rate 0.1 --security-contact Leo  " \
+                  f"--website harmony.one --node={args.hmy_endpoint_src} " \
+                  f"--remove-bls-key {old_bls_key} --add-bls-key {new_bls_key} " \
+                  f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
+    response = CLI.single_call(staking_command)
+    print(f"\tStaking transaction response: {response}")
+
+    print(f"Sleeping {args.txn_delay} seconds for finality...\n")
+    time.sleep(args.txn_delay)
+
+def create_delegator(address) -> str:
+    print("== Creating Delegator ==")
+    account_name = f"{ACC_NAME_PREFIX}delegator"
+    proc = CLI.expect_call(f"hmy keys add {account_name} --passphrase")
+    proc.expect("Enter passphrase\r\n")
+    proc.sendline(f"{args.passphrase}")
+    proc.expect("Repeat the passphrase:\r\n")
+    proc.sendline(f"{args.passphrase}")
+    proc.wait()
+    ACC_NAMES_ADDED.append(account_name)
+    delegator_address = CLI.get_address(account_name)
+    staking_command = f"hmy staking delegate --validator-addr {address} " \
+                  f"--delegator-addr {delegator_address} --amount 1 " \
+                  f"--node={args.hmy_endpoint_src} " \
+                  f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
+    response = CLI.single_call(staking_command)
+    print(f"\tDelegator transaction response: {response}")
+
+    print(f"Sleeping {args.txn_delay} seconds for finality...\n")
+    time.sleep(args.txn_delay)
+
+    return delegator_address
+
+def undelegate(v_address, d_address):
+    print("== Undelegate ==")
+    staking_command = f"hmy staking undelegate --validator-addr {v_address} " \
+                  f"--delegator-addr {d_address} --amount 1 " \
+                  f"--node={args.hmy_endpoint_src} " \
+                  f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
+    response = CLI.single_call(staking_command)
+    print(f"\tUndelegate transaction response: {response}")
+
+    print(f"Sleeping {args.txn_delay} seconds for finality...\n")
+    time.sleep(args.txn_delay)
+
+def collect_rewards(address):
+    print("== Collecting Rewards ==")
+    staking_command = f"hmy staking collect-rewards --delegator-addr {address} " \
+                  f"--node={args.hmy_endpoint_src} " \
+                  f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
+    response = CLI.single_call(staking_command)
+    print(f"\tCollect rewards transaction response: {response}")
+
+    print(f"Sleeping {args.txn_delay} seconds for finality...\n")
+    time.sleep(args.txn_delay)
+
+def get_validators():
+    print("== Listing All Active Validators ==")
+    staking_command = f"hmy blockchain validator all-active " \
+                  f"--node={args.hmy_endpoint_src} "
+    response = CLI.single_call(staking_command)
+    print(f"\tValidator transaction response: {response}")
+
+    print("== Listing History of All Validators ==")
+    staking_command = f"hmy blockchain validator all " \
+                  f"--node={args.hmy_endpoint_src} "
+    response = CLI.single_call(staking_command)
+    print(f"\tValidator transaction response: {response}")
+
+def get_validator_info(v_addr):
+    print("== Getting Validator Info ==")
+    staking_command = f"hmy blockchain validator information {v_addr} " \
+                  f"--node={args.hmy_endpoint_src}"
+    response = CLI.single_call(staking_command)
+    print(f"\tValidator info transaction response: {response}")
+
+def get_delegator_info(v_addr, d_addr):
+    print("== Getting Delegator Info by Delegator ==")
+    staking_command = f"hmy blockchain delegation by-delegator {d_addr} " \
+                  f"--node={args.hmy_endpoint_src}"
+    response = CLI.single_call(staking_command)
+    print(f"\tDelegator info transaction response: {response} ")
+
+    print("== Getting Delegator Info by Validator ==")
+    staking_command = f"hmy blockchain delegation by-validator {v_addr} " \
+                  f"--node={args.hmy_endpoint_src}"
+    response = CLI.single_call(staking_command)
+    print(f"\tDelegator info transaction response: {response}")
 
 def get_raw_txn(passphrase, chain_id, node, src_shard, dst_shard) -> str:
     """
@@ -381,8 +476,15 @@ if __name__ == "__main__":
             time.sleep(5)
 
         if not args.ignore_staking_test:
-            create_validator()
+            test_validators = create_validator()
             create_validator_many_keys()
+            edit_validator(test_validators[0])
+            delegator = create_delegator(test_validators[0])
+            undelegate(test_validators[0], delegator)
+            collect_rewards(delegator)
+            get_validators()
+            get_validator_info(test_validators[0])
+            get_delegator_info(test_validators[0], delegator)
 
         if not args.ignore_regression_test:
             with open(f"{args.test_dir}/test.json", 'r') as f:
