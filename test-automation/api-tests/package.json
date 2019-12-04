@@ -1,0 +1,15 @@
+{
+  "name": "harmony-ops-test-js",
+  "version": "1.0.0",
+  "description": "Staking Tests - js version of test.py",
+  "main": "test.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "github.com/mattlockyer",
+  "license": "ISC",
+  "dependencies": {
+    "@harmony-js/core": "^0.1.32",
+    "tslib": "^1.10.0"
+  }
+}

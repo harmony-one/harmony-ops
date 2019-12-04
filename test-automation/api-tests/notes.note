@@ -1,0 +1,4 @@
+
+# running python tests (matt setup)
+
+python3 test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" --rpc_endpoint_dst="http://localhost:9501/" --keystore=./LocalnetValidatorKeys/ --chain_id="localnet" --cli_path ~/Projects/harmony/go-sdk/dist/hmy
