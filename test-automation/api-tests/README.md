@@ -3,23 +3,23 @@
 Related internal [gitbook](https://app.gitbook.com/@harmony-one/s/onboarding-wiki/developers/api-test-automation)
 
 - Make sure newman (and by extention node.js) is installed, do `npm install -g newman` (https://www.npmjs.com/package/newman)
-- Make sure that you are using python 3. 
-- Make sure that you have `pyhmy` module for python3 [here](https://pypi.org/project/pyhmy/). 
+- Make sure that you are using python 3.
+- Make sure that you have `pyhmy` module for python3 [here](https://pypi.org/project/pyhmy/).
 - Make sure that you have `requests` module for python3 [here](https://pypi.org/project/requests/).
 - Make sure that you have `jq` installed.
 - Make sure to have the CLI binary in this directory with the name `hmy` (or specifiy the binary path as an option).
 - Make sure the CLI version is v132 or newer (that is commit `03621a931518dea582d4327671e0add33296a88d` or newer of *go-sdk*)
 
 ## Setup
-The test will require at least 2 keys to accounts that have funds on the network that you are testing. 
+The test will require at least 2 keys to accounts that have funds on the network that you are testing.
 Make sure that the keystore follows the follow structure:
 ```
-├── Keystore_Direcotry
+├── Keystore_Directory
 │   ├── s0
 │   │   └── one103q7qe5t2505lypvltkqtddaef5tzfxwsse4z7.key
 │   └── s1
 │       └── one1est2gxcvavmtnzc7mhd73gzadm3xxcv5zczdtw.key
-``` 
+```
 
 ## Running the test
 Example command for testnet test (option default is for testnet).
@@ -93,7 +93,7 @@ optional arguments:
                         included in pyhmy module
   --cli_passphrase PASSPHRASE
                         Passphrase used to unlock the keystore. Default is ''
-  --keystore KEYS_DIR   Direcotry of keystore to import. Must follow the
+  --keystore KEYS_DIR   Directory of keystore to import. Must follow the
                         format of CLI's keystore. Default is
                         ./TestnetValidatorKeys
   --ignore_regression_test
@@ -105,7 +105,7 @@ optional arguments:
 ## Notes
   - If no source or destination shard is provided, the script will infer the respective shard from the source and destination endpoints (given that it is a known format -- reference code for details).
   - The chain_id option can be set to localnet if one needs to run the tests on localnet. This is just a creature comfort as the localnet uses the testnet chain ID
-  - The raw transaction used in this test is **always** a cross-shard transaction. 
+  - The raw transaction used in this test is **always** a cross-shard transaction.
   - It is recommended to wait around 30 seconds for a Cx to finalize.
   - Each iteration will try the tests **on the same raw transaction**.
   - **If you get that you cannot decrypt the keystore (and you are sure that the passphrase is correct), go to the CLI's keystore at `~/.hmy_cli/account-keys` and delete the files that start with `_Test_key_`.**
@@ -113,7 +113,7 @@ optional arguments:
 ## Bugs
   - Staking tests do **not** currently work, add the option --ignore_staking_test to ignore those tests.
   - `hmy_getFilterChanges` is not being tested because of unknown params.
-  - `hmy_getLogs` is not being tested because of unknown params. 
+  - `hmy_getLogs` is not being tested because of unknown params.
 
 ## Adding tests
   - To run your own collection (or an updated version of the collection above) export the collection, global variables, and environment variables to `<test_dir>/test.json`, `<test_dir>/global.json`, and `<test_dir>/env.json` respectively. For more details on how to export a test, reference [here](https://kb.datamotion.com/?ht_kb=postman-instructions-for-exporting-and-importing#how-to-export-a-collection-from-postman). For more details on how to export global variables, reference [here](https://learning.getpostman.com/docs/postman/environments_and_globals/manage_globals/). For more details on how to export environment variables, reference [here](https://learning.getpostman.com/docs/postman/environments_and_globals/manage_environments/)
