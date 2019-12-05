@@ -428,7 +428,7 @@ header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
 header.Payload.LastCommitBitmap, elapsedTime, chain, name)
 					if elapsedTime > int64(warning) || (!last.lastSent.IsZero() && int64(currTime.Sub(last.lastSent).Seconds()) > int64(warning)) {
 						incidentKey := fmt.Sprintf("Shard %s consensus stuck!", s)
-						notify(pdServiceKey, incidentKey, message)
+						notify(pdServiceKey, incidentKey, chain, message)
 						lastSuccess[s] = a{currHeight, last.timeStamp, currTime}
 						m.use()
 						m.consensusProgress[fmt.Sprintf("shard-%s", s)] = false
@@ -450,7 +450,7 @@ func (m *monitor) epochMonitor(ready chan bool, warning int, pdServiceKey, chain
 		ts       time.Time
 		lastSent time.Time
 	}
-	baseMsg := "Epoch desync detected!\r"
+	baseMsg := "Epoch desync detected!\n\n"
 	endMsg := fmt.Sprintf(`
 See: http://watchdog.hmny.io/report-%s
 
@@ -484,11 +484,12 @@ See: http://watchdog.hmny.io/report-%s
 				(lastMatch.lastSent.IsZero() || int64(currTime.Sub(lastMatch.lastSent).Seconds()) > int64(warning)) {
 				fullMsg := baseMsg
 				for shard, epoch := range epochList {
-					fullMsg = fullMsg + fmt.Sprintf("Shard %s: %d\r", shard, epoch)
+					fullMsg = fullMsg + fmt.Sprintf("Shard %s: %d\n\n", shard, epoch)
 				}
-				fullMsg = fullMsg + fmt.Sprintf("Time since last sync: %d seconds\r",  elapsedTime) + endMsg
-				notify(pdServiceKey, "Epoch desync", fullMsg)
+				fullMsg = fullMsg + fmt.Sprintf("Time since last sync: %d seconds\n\n",  elapsedTime) + endMsg
+				notify(pdServiceKey, "Epoch desync", chain, fullMsg)
 				lastMatch.lastSent = currTime
+				fmt.Println(fullMsg)
 			}
 			continue
 		}
