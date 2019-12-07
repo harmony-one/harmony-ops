@@ -123,6 +123,8 @@ optional arguments:
 
 ## Running Tests
 
+Make sure your Harmony localNet environment is running and then try the following command.
+
 ```
-RPC_SRC="http://localhost:9500" RPC_DST="http://localhost:9501" node test.js
+RPC_SRC="http://localhost:9500" node test.js
 ```

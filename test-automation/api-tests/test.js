@@ -2,8 +2,15 @@ const { Harmony } = require('@harmony-js/core');    // import the Account class
 const {Account} = require('@harmony-js/account');
 const { ChainID, ChainType } = require('@harmony-js/utils');
 const { StakingFactory } = require('@harmony-js/staking');
+const { spawn } = require( 'child_process' );
 
+/********************************
 
+Testing the harmony js sdk
+
+@todo for portions that are not finished I have added a "useHMY" to the test to use the CLI (unfinished)
+@todo verify the api calls are successful by checking delegations and balances
+********************************/
 
 
 // env vars
@@ -103,21 +110,25 @@ const createRandomAccounts = () => {
 
 /********************************
 Test 1 - Create Validators
+
+JS SDK not finished
+
+flag useHMY (called at bottom) uses the command line (not finished)
 ********************************/
 const createValidator = async (useHMY = false) => {
   if (useHMY) {
-    const { spawn } = require( 'child_process' );
-    const ls = spawn( 'hmy staking create-validator', [ '--amount 1' ] );
-  
-    ls.stdout.on( 'data', data => {
+    try {
+      const hmy = spawn( 'hmy staking create-validator', [ '--amount 3' ] );
+    } catch (e) {
+      console.log(e)
+    }
+    hmy.stdout.on( 'data', data => {
         console.log( `stdout: ${data}` );
     });
-  
-    ls.stderr.on( 'data', data => {
+    hmy.stderr.on( 'data', data => {
         console.log( `stderr: ${data}` );
     });
-  
-    ls.on( 'close', code => {
+    hmy.on( 'close', code => {
         console.log( `child process exited with code ${code}` );
     });
   } else {
@@ -285,7 +296,7 @@ const collectRewards = async () => {
 
 const tests = (async() => {
   createRandomAccounts()
-  await createValidator(true)
+  //await createValidator(true)
   await sleep(1000)
   await delegate()
   await sleep(1000)
