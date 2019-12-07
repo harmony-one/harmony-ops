@@ -435,7 +435,7 @@ LastCommitSig: %s
 
 LastCommitBitmap: %s
 
-Time since last new block: %d seconds
+Time since last new block: %d seconds (%f minutes)
 
 See: http://watchdog.hmny.io/report-%s
 
@@ -443,7 +443,7 @@ See: http://watchdog.hmny.io/report-%s
 `, s, currHeight, last.timeStamp.Format(timeFormat),
 header.Payload.BlockHash, header.Payload.Leader, header.Payload.ViewID,
 header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
-header.Payload.LastCommitBitmap, elapsedTime, chain, name)
+header.Payload.LastCommitBitmap, elapsedTime, currTime.Sub(last.timeStamp).Minutes(), chain, name)
 					if elapsedTime > int64(warning) && !last.warningSent {
 						notify(pdServiceKey, message)
 						lastSuccess[s] = a{currHeight, last.timeStamp, true, time.Time{}}
