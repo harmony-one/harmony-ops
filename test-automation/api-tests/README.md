@@ -117,3 +117,12 @@ optional arguments:
 
 ## Adding tests
   - To run your own collection (or an updated version of the collection above) export the collection, global variables, and environment variables to `<test_dir>/test.json`, `<test_dir>/global.json`, and `<test_dir>/env.json` respectively. For more details on how to export a test, reference [here](https://kb.datamotion.com/?ht_kb=postman-instructions-for-exporting-and-importing#how-to-export-a-collection-from-postman). For more details on how to export global variables, reference [here](https://learning.getpostman.com/docs/postman/environments_and_globals/manage_globals/). For more details on how to export environment variables, reference [here](https://learning.getpostman.com/docs/postman/environments_and_globals/manage_environments/)
+
+
+# JS Tests
+
+## Running Tests
+
+```
+RPC_SRC="http://localhost:9500" RPC_DST="http://localhost:9501" node test.js
+```

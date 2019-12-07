@@ -4,3 +4,5 @@ harmony-watchdogd
 *.yaml
 bnbcli
 bridge-watchd
+*.note
+node_modules

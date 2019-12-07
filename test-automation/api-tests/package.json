@@ -11,5 +11,8 @@
   "dependencies": {
     "@harmony-js/core": "^0.1.32",
     "tslib": "^1.10.0"
+  },
+  "engines": {
+    "node": ">=10"
   }
 }
