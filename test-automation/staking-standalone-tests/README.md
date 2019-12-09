@@ -6,6 +6,7 @@ an account that has sufficient funds.
 ## Dependencies & Setup
 * Python3
 * `pyhmy` module for python3 [here](https://pypi.org/project/pyhmy/). Can be installed with `python3 -m pip install pyhmy`. *A force upgrade could be needed, do so with `python3 -m pip install pyhmy --upgrade`*.
+* `requests` module for python3 [here](https://pypi.org/project/requests/). Can be installed with `python3 -m pip install requests`.
 * `./jq` found [here](https://stedolan.github.io/jq/).
 * The [Harmony CLI binary](https://docs.harmony.one/home/command-line-interface/using-the-harmony-cli-tool) version 164 or newer (version can be check with `./hmy version`). *By default, the test script assumes that the binary is placed in this directory, but an explicit path to the binary can be set via an option.*
 * The main Harmony repo cloned to `$(go env GOPATH)/src/github.com/harmony-one/harmony`.
