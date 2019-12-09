@@ -2,6 +2,7 @@
 import argparse
 import os
 import random
+import inspect
 import re
 import shutil
 import time
@@ -41,14 +42,24 @@ def check_balance(name):
     return json.loads(CLI.single_call(f"hmy --node={args.endpoint} balances {address}"))
 
 
-def bls_generator(count, key_path="/tmp/file.key"):
-    for _ in range(count):
-        proc = CLI.expect_call(f"hmy keys generate-bls-key --bls-file-path {key_path}", timeout=3)
-        proc.expect("Enter passphrase:\r\n")
-        proc.sendline("")
-        proc.expect("Repeat the passphrase:\r\n")
-        proc.sendline("")
-        yield json.loads(proc.read().decode().strip())
+def bls_generator(count, key_dir="/tmp", filter_fn=None):
+    assert os.path.isabs(key_dir)
+    if filter_fn is not None:
+        assert callable(filter_fn)
+        assert len(inspect.signature(filter_fn).parameters) == 1, "filter function must have 1 argument"
+
+    for i in range(count):
+        while True:
+            proc = CLI.expect_call(f"hmy keys generate-bls-key --bls-file-path {key_dir}/{ACC_NAME_PREFIX}bls{i}.key",
+                                   timeout=3)
+            proc.expect("Enter passphrase:\r\n")
+            proc.sendline("")
+            proc.expect("Repeat the passphrase:\r\n")
+            proc.sendline("")
+            bls_key = json.loads(proc.read().decode().strip())
+            if filter_fn is None or filter_fn(bls_key):
+                break
+        yield bls_key
 
 
 @announce
@@ -112,15 +123,16 @@ def staking_delegation(val_name, del_name):
 
     val_address = CLI.get_address(val_name)
     del_address = CLI.get_address(del_name)
-    bls_key_path = f"{os.getcwd()}/staking_delegation_test_bls.key"
     SAVED_ITEM_PATHS.append(f"{CLI.keystore_path}/{val_name}")
     SAVED_ITEM_PATHS.append(f"{CLI.keystore_path}/{del_name}")
-    SAVED_ITEM_PATHS.append(bls_key_path)
     print(f"{COLOR.HEADER}Validator address: {val_address}")
     print(f"Delegator address: {del_address}{COLOR.ENDC}\n")
 
     # Create a new validator with a fresh BLS key.
-    bls_key = list(bls_generator(1, bls_key_path))[0]
+    shard_count = len(get_sharding_structure(args.endpoint)['result'])
+    bls_key = list(bls_generator(1, os.getcwd(), filter_fn=lambda k: int(k["public-key"], 16) % shard_count == 0))[0]
+    bls_key_path = bls_key["encrypted-private-key-path"]
+    SAVED_ITEM_PATHS.append(bls_key_path)
     print(f"{COLOR.OKGREEN}New BLS key:{COLOR.ENDC}\n{json.dumps(bls_key, indent=4)}\n")
     proc = CLI.expect_call(f"hmy --node={args.endpoint} staking create-validator --validator-addr {val_address} "
                            f"--name {val_name} --identity test_account --website harmony.one "
@@ -216,7 +228,6 @@ if __name__ == "__main__":
     assert int(version_str) >= 164, "CLI binary is the wrong version."
     assert os.path.isfile(CLI.hmy_binary_path), "CLI binary is not found, specify it with option."
     assert is_active_shard(args.endpoint), "The shard endpoint is NOT active."
-    z = list(bls_generator(1))
 
     faucet_acc_name = import_faucet_account()
     check_faucet_account(faucet_acc_name)

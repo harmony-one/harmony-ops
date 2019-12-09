@@ -17,6 +17,20 @@ class COLOR:
     UNDERLINE = '\033[4m'
 
 
+def get_sharding_structure(endpoint):
+    payload = """{
+           "jsonrpc": "2.0",
+           "method": "hmy_getShardingStructure",
+           "params": [  ],
+           "id": 1
+       }"""
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    response = requests.request('POST', endpoint, headers=headers, data=payload, allow_redirects=False, timeout=3)
+    return json.loads(response.content)
+
+
 def is_active_shard(endpoint, delay_tolerance=45):
     """
     :param endpoint: The endpoint of the SHARD to check
@@ -70,9 +84,11 @@ def announce(fn):
     """
     Simple decorator to announce (via printing) that a function has been called.
     """
+
     def wrap(*args):
         print(f"{COLOR.OKBLUE}{COLOR.BOLD}Running: {fn.__name__}{args}{COLOR.ENDC}")
         return fn(*args)
+
     return wrap
 
 
@@ -81,6 +97,7 @@ def test(fn):
     Test function wrapper.
     :return If the test passed or not.
     """
+
     def wrap(*args):
         print(f"\n\t{COLOR.HEADER}== Start test: {fn.__name__} =={COLOR.ENDC}\n")
         if fn(*args):
@@ -89,4 +106,5 @@ def test(fn):
         else:
             print(f"\n\t{COLOR.FAIL}{COLOR.UNDERLINE}== FAILED test: {fn.__name__} =={COLOR.ENDC}\n")
             return False
+
     return wrap
