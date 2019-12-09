@@ -113,7 +113,7 @@ func blockHeaderSummary(
 		}
 		if includeRecords {
 			sum[shardID].(any)["records"] = value.(linq.Group).Group
-			sum[shardID].(any)["latest-block"] = linq.From(value.(linq.Group).Group).FirstWith(func (c interface{}) bool {
+			sum[shardID].(any)["latest-block"] = linq.From(value.(linq.Group).Group).FirstWith(func(c interface{}) bool {
 				return c.(headerInfoRPCResult).Payload.BlockNumber == block.Max()
 			})
 		}
@@ -278,7 +278,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 						v.(metadataRPCResult).Payload.ChainID,
 						strconv.FormatBool(v.(metadataRPCResult).Payload.IsLeader),
 						strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ShardID), 10),
-						}
+					}
 					records = append(records, row)
 				}
 			}
@@ -382,17 +382,17 @@ type reply struct {
 	oops       error
 }
 
-func (m* monitor) worker(jobs chan work, channels map[string](chan reply), groups map[string]*sync.WaitGroup) {
+func (m *monitor) worker(jobs chan work, channels map[string](chan reply), groups map[string]*sync.WaitGroup) {
 	for j := range jobs {
-		result := reply{address : j.address, rpc : j.rpc}
+		result := reply{address: j.address, rpc: j.rpc}
 		result.rpcResult, result.rpcPayload, result.oops = request(
-			"http://" + j.address, j.body)
+			"http://"+j.address, j.body)
 		channels[j.rpc] <- result
 		groups[j.rpc].Done()
 	}
 }
 
-func (m* monitor) shardMonitor(ready chan bool, warning, redline int, pdServiceKey, chain string) {
+func (m *monitor) shardMonitor(ready chan bool, warning, redline int, pdServiceKey, chain string) {
 	type a struct {
 		blockHeight uint64
 		timeStamp   time.Time
@@ -441,9 +441,9 @@ See: http://watchdog.hmny.io/report-%s
 
 --%s
 `, s, currHeight, last.timeStamp.Format(timeFormat),
-header.Payload.BlockHash, header.Payload.Leader, header.Payload.ViewID,
-header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
-header.Payload.LastCommitBitmap, elapsedTime, currTime.Sub(last.timeStamp).Minutes(), chain, name)
+						header.Payload.BlockHash, header.Payload.Leader, header.Payload.ViewID,
+						header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
+						header.Payload.LastCommitBitmap, elapsedTime, currTime.Sub(last.timeStamp).Minutes(), chain, name)
 					if elapsedTime > int64(warning) && !last.warningSent {
 						notify(pdServiceKey, message)
 						lastSuccess[s] = a{currHeight, last.timeStamp, true, time.Time{}}
@@ -451,7 +451,7 @@ header.Payload.LastCommitBitmap, elapsedTime, currTime.Sub(last.timeStamp).Minut
 					} else if elapsedTime > int64(redline) {
 						if last.lastRedline.IsZero() || (!last.lastRedline.IsZero() && int64(currTime.Sub(last.lastRedline).Seconds()) > int64(redline)) {
 							notify(pdServiceKey, message)
-						lastSuccess[s] = a{currHeight, last.timeStamp, true, currTime}
+							lastSuccess[s] = a{currHeight, last.timeStamp, true, currTime}
 						}
 						progress = false
 					}
@@ -469,9 +469,9 @@ header.Payload.LastCommitBitmap, elapsedTime, currTime.Sub(last.timeStamp).Minut
 	}
 }
 
-func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
-					rpc string, group *sync.WaitGroup, channels map[string](chan reply), monitor chan bool) {
-	requestFields := map[string]interface{} {
+func (m *monitor) manager(jobs chan work, interval int, nodeList []string,
+	rpc string, group *sync.WaitGroup, channels map[string](chan reply), monitor chan bool) {
+	requestFields := map[string]interface{}{
 		"jsonrpc": versionJSONRPC,
 		"method":  rpc,
 		"params":  []interface{}{},
@@ -481,7 +481,7 @@ func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
 		for _, n := range nodeList {
 			requestFields["id"] = strconv.Itoa(queryID)
 			requestBody, _ := json.Marshal(requestFields)
-			jobs <- work {n, rpc, requestBody}
+			jobs <- work{n, rpc, requestBody}
 			queryID++
 			group.Add(1)
 		}
@@ -608,12 +608,12 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	client = fasthttp.Client{
 		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(addr, time.Second * time.Duration(instrs.Performance.HTTPTimeout))
+			return fasthttp.DialTimeout(addr, time.Second*time.Duration(instrs.Performance.HTTPTimeout))
 		},
 		MaxConnsPerHost: 2048,
 	}
 	go m.update(instrs.watchParams, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC})
 	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
-	http.HandleFunc("/report-download", m.produceCSV)
+	http.HandleFunc("/report-download-"+instrs.Network.TargetChain, m.produceCSV)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
 }
