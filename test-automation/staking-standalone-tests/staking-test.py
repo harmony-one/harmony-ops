@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import datetime
-import json
 import os
 import random
 import re
@@ -9,27 +7,17 @@ import shutil
 import time
 
 import pyhmy
+from utils import *
 
-ACC_NAME_PREFIX = "_Staking_test_key_"
+ACC_NAME_PREFIX = "_Staking_test_"
 SAVED_ITEM_PATHS = []
-GAS_OVERHEAD = 10  # in $one
+GAS_OVERHEAD = 1  # in $one
 
 # Constants for the test, amounts are in $one
 MAX_TOTAL_DELEGATION = 30
 MIN_SELF_DELEGATION = 2
 AMOUNT = 3
 DELEGATE = random.randint(1, 10)
-
-
-class COLOR:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
 
 def parse_args():
@@ -48,19 +36,23 @@ def parse_args():
     return parser.parse_args()
 
 
-def cleanup_and_save():
-    save_dir = f"saved-test-items-{datetime.datetime.utcnow()}"
-    os.mkdir(save_dir)
-    for path in SAVED_ITEM_PATHS:
-        shutil.move(path, save_dir)
-    with open(f"{save_dir}/pw.txt", "w") as f:
-        f.write("Passphrase:")
-    shutil.make_archive(save_dir, "tar")
-    shutil.rmtree(save_dir)
+def check_balance(name):
+    address = CLI.get_address(name)
+    return json.loads(CLI.single_call(f"hmy --node={args.endpoint} balances {address}"))
 
 
+def bls_generator(count, key_path="/tmp/file.key"):
+    for _ in range(count):
+        proc = CLI.expect_call(f"hmy keys generate-bls-key --bls-file-path {key_path}", timeout=3)
+        proc.expect("Enter passphrase:\r\n")
+        proc.sendline("")
+        proc.expect("Repeat the passphrase:\r\n")
+        proc.sendline("")
+        yield json.loads(proc.read().decode().strip())
+
+
+@announce
 def import_faucet_account():
-    print(f"{COLOR.OKBLUE}Importing key...{COLOR.ENDC}")
     assert os.path.isabs(args.faucet_keystore_file), "Keystore file path must be absolute"
     account_name = f"{ACC_NAME_PREFIX}faucet"
     CLI.remove_account(account_name)
@@ -72,34 +64,31 @@ def import_faucet_account():
     return account_name
 
 
+@announce
 def check_faucet_account(account_name):
-    print(f"{COLOR.OKBLUE}Validating imported key...{COLOR.ENDC}")
-    account_address = CLI.get_address(account_name)
-    balances = json.loads(CLI.single_call(f"hmy --node={args.endpoint} balances {account_address}"))
     min_funds = MAX_TOTAL_DELEGATION + 2 * GAS_OVERHEAD
-    if balances[0]["amount"] < min_funds:  # For now, force funds to be in shard 0 for test.
-        raise ValueError(f"Provided keystore does not have at least {min_funds} on shard 0")
+    if check_balance(account_name)[0]["amount"] < min_funds:  # For now, force funds to be in shard 0 for test.
+        raise ValueError(f"Provided keystore does not have at least {min_funds} on shard 0 ({args.endpoint})")
     return True
 
 
+@announce
 def fund_account(from_account_name, to_account_name, amount):
     """
     Assumes from_account has funds on shard 0.
     Assumes from_account has been imported with default passphrase.
     """
-    print(f"{COLOR.OKBLUE}Funding {to_account_name}{COLOR.ENDC}")
     from_address = CLI.get_address(from_account_name)
     to_address = CLI.get_address(to_account_name)
     CLI.single_call(f"hmy --node={args.endpoint} transfer --from {from_address} --to {to_address} "
                     f"--from-shard 0 --to-shard 0 --amount {amount} --chain-id {args.chain_id} "
                     f"--wait-for-confirm=45", timeout=40)
-    balances = json.loads(CLI.single_call(f"hmy --node={args.endpoint} balances {to_address}"))
     print(f"{COLOR.OKGREEN}Balances for {to_account_name} ({to_address}):{COLOR.ENDC}")
-    print(f"{json.dumps(balances, indent=4)}\n")
+    print(f"{json.dumps(check_balance(to_account_name), indent=4)}\n")
 
 
+@announce
 def setup_staking_delegation_test(funding_account):
-    print(f"{COLOR.OKBLUE}{COLOR.BOLD}Setting up staking delegation test{COLOR.ENDC}")
     val_acc_name = f"{ACC_NAME_PREFIX}delegation-test-validator"
     CLI.remove_account(val_acc_name)
     CLI.single_call(f"hmy keys add {val_acc_name}")
@@ -116,33 +105,29 @@ def setup_staking_delegation_test(funding_account):
     return val_acc_name, del_acc_name
 
 
-def do_staking_delegation_test(val_name, del_name):
-    print(f"\t{COLOR.OKBLUE}{COLOR.BOLD}== Start staking delegation test =={COLOR.ENDC}")
+@test
+def staking_delegation(val_name, del_name):
+    assert check_balance(val_name)[0]["amount"] >= max(AMOUNT, MIN_SELF_DELEGATION)
+    assert check_balance(del_name)[0]["amount"] >= DELEGATE
 
     val_address = CLI.get_address(val_name)
     del_address = CLI.get_address(del_name)
     bls_key_path = f"{os.getcwd()}/staking_delegation_test_bls.key"
-    assert os.path.abspath(bls_key_path)
     SAVED_ITEM_PATHS.append(f"{CLI.keystore_path}/{val_name}")
     SAVED_ITEM_PATHS.append(f"{CLI.keystore_path}/{del_name}")
     SAVED_ITEM_PATHS.append(bls_key_path)
-    print(f"\n{COLOR.HEADER}Validator address: {val_address}")
+    print(f"{COLOR.HEADER}Validator address: {val_address}")
     print(f"Delegator address: {del_address}{COLOR.ENDC}\n")
 
-    proc = CLI.expect_call(f"hmy keys generate-bls-key --bls-file-path {bls_key_path}", timeout=3)
-    proc.expect("Enter passphrase:\r\n")
-    proc.sendline("")
-    proc.expect("Repeat the passphrase:\r\n")
-    proc.sendline("")
-    bls_keys = json.loads(proc.read().decode().strip().replace('\r', '').replace('\n', ''))
-    print(f"{COLOR.OKGREEN}New BLS key:{COLOR.ENDC}\n{json.dumps(bls_keys, indent=4)}\n")
-
+    # Create a new validator with a fresh BLS key.
+    bls_key = list(bls_generator(1, bls_key_path))[0]
+    print(f"{COLOR.OKGREEN}New BLS key:{COLOR.ENDC}\n{json.dumps(bls_key, indent=4)}\n")
     proc = CLI.expect_call(f"hmy --node={args.endpoint} staking create-validator --validator-addr {val_address} "
                            f"--name {val_name} --identity test_account --website harmony.one "
                            f"--security-contact Daniel-VDM --details none --rate 0.1 --max-rate 0.9 "
                            f"--max-change-rate 0.05 --min-self-delegation {MIN_SELF_DELEGATION} "
                            f"--max-total-delegation {MAX_TOTAL_DELEGATION} "
-                           f"--amount {AMOUNT} --bls-pubkeys {bls_keys['public-key']} "
+                           f"--amount {AMOUNT} --bls-pubkeys {bls_key['public-key']} "
                            f"--chain-id {args.chain_id}")
     proc.expect("Enter the absolute path to the encrypted bls private key file:\r\n")
     proc.sendline(bls_key_path)
@@ -151,25 +136,29 @@ def do_staking_delegation_test(val_name, del_name):
     proc.expect("Repeat the bls passphrase:\r\n")
     proc.sendline("")
     txn = json.loads(proc.read().decode().replace('\r', '').replace('\n', ''))
-
     print(f"{COLOR.OKGREEN}Created validator {val_address}:{COLOR.ENDC}\n{json.dumps(txn, indent=4)}\n")
     print(f"{COLOR.OKBLUE}Sleeping 25 seconds for finality...{COLOR.ENDC}\n")
     time.sleep(25)
 
+    # Check the create-validator staking transaction.
     transaction = json.loads(CLI.single_call(f"hmy --node={args.endpoint} blockchain "
-                                             f"transaction-by-hash {txn['transaction-receipt']}"))
+                                             f"transaction-receipt {txn['transaction-receipt']}"))
     print(f"{COLOR.OKGREEN}Create validator transaction:{COLOR.ENDC}\n{json.dumps(transaction, indent=4)}\n")
-    # TODO: validate transaction
+    # TODO: validate staking transaction
 
+    # Check if new validator is on the blockchain.
     response = json.loads(CLI.single_call(f"hmy --node={args.endpoint} blockchain validator all"))
     print(f"{COLOR.OKGREEN}Current validators:{COLOR.ENDC}\n{json.dumps(response, indent=4)}\n")
     if val_address not in response["result"]:
-        RuntimeError(f"Newly added validator ({val_address}) is not on blockchain.")
+        print(f"Newly added validator ({val_address}) is not on blockchain.")
+        return False
 
+    # Check if new validator information matches the create-validator command.
     response = json.loads(CLI.single_call(f"hmy --node={args.endpoint} blockchain validator information {val_address}"))
     print(f"{COLOR.OKGREEN}Added validator information:{COLOR.ENDC}\n{json.dumps(response, indent=4)}\n")
-    # TODO: check if information is matches
+    # TODO: check if information matches the create-validator command.
 
+    # Delegate to the new validator.
     txn = json.loads(CLI.single_call(f"hmy --node={args.endpoint} staking delegate --delegator-addr {del_address} "
                                      f"--validator-addr {val_address} --amount {DELEGATE} --chain-id {args.chain_id}"))
     print(f"{COLOR.OKGREEN}Delegated {DELEGATE} $ONE from {del_address} to {val_address}:{COLOR.ENDC}")
@@ -177,11 +166,13 @@ def do_staking_delegation_test(val_name, del_name):
     print(f"{COLOR.OKBLUE}Sleeping 25 seconds for finality...{COLOR.ENDC}\n")
     time.sleep(25)
 
+    # Check the delegation staking transaction.
     transaction = json.loads(CLI.single_call(f"hmy --node={args.endpoint} blockchain "
-                                             f"transaction-by-hash {txn['transaction-receipt']}"))
+                                             f"transaction-receipt {txn['transaction-receipt']}"))
     print(f"{COLOR.OKGREEN}Delegate transaction:{COLOR.ENDC}\n{json.dumps(transaction, indent=4)}\n")
     # TODO: validate transaction
 
+    # Check if the delegation is on the blockchain.
     validator_delegation = json.loads(CLI.single_call(f"hmy --node={args.endpoint} blockchain "
                                                       f"delegation by-validator {val_address}"))
     delegator_delegation = json.loads(CLI.single_call(f"hmy --node={args.endpoint} blockchain "
@@ -190,18 +181,32 @@ def do_staking_delegation_test(val_name, del_name):
     print(f"{COLOR.OKGREEN}Delegation (by delegator):{COLOR.ENDC}\n{json.dumps(delegator_delegation, indent=4)}\n")
     # TODO: check if information is matches
 
+    # Delegator account collects rewards, TODO: wait until there are rewards (or timeout fail).
     txn = json.loads(CLI.single_call(f"hmy --node={args.endpoint} staking collect-rewards "
                                      f"--delegator-addr {del_address} --chain-id {args.chain_id}"))
     print(f"{COLOR.OKGREEN}Collected reward:{COLOR.ENDC}\n{json.dumps(txn, indent=4)}\n")
     print(f"{COLOR.OKBLUE}Sleeping 25 seconds for finality...{COLOR.ENDC}\n")
     time.sleep(25)
 
+    # Check the delegator reward collection.
     transaction = json.loads(CLI.single_call(f"hmy --node={args.endpoint} blockchain "
-                                             f"transaction-by-hash {txn['transaction-receipt']}"))
+                                             f"transaction-receipt {txn['transaction-receipt']}"))
     print(f"{COLOR.OKGREEN}Rewards transaction:{COLOR.ENDC}\n{json.dumps(transaction, indent=4)}\n")
     # TODO: validate transaction
 
-    print(f"\t{COLOR.HEADER}{COLOR.UNDERLINE}== Passed test! =={COLOR.ENDC}")
+    return True
+
+
+@announce
+def cleanup_and_save():
+    save_dir = f"saved-test-items-{datetime.datetime.utcnow()}"
+    os.mkdir(save_dir)
+    for path in SAVED_ITEM_PATHS:
+        shutil.move(path, save_dir)
+    with open(f"{save_dir}/pw.txt", "w") as f:
+        f.write("Passphrase:")
+    shutil.make_archive(save_dir, "tar")
+    shutil.rmtree(save_dir)
 
 
 if __name__ == "__main__":
@@ -210,11 +215,13 @@ if __name__ == "__main__":
     version_str = re.search('version v.*-', CLI.version).group(0).split('-')[0].replace("version v", "")
     assert int(version_str) >= 164, "CLI binary is the wrong version."
     assert os.path.isfile(CLI.hmy_binary_path), "CLI binary is not found, specify it with option."
+    assert is_active_shard(args.endpoint), "The shard endpoint is NOT active."
+    z = list(bls_generator(1))
 
-    faucet_account_name = import_faucet_account()
-    check_faucet_account(faucet_account_name)
+    faucet_acc_name = import_faucet_account()
+    check_faucet_account(faucet_acc_name)
 
-    val_account_name, del_account_name = setup_staking_delegation_test(faucet_account_name)
-    do_staking_delegation_test(val_account_name, del_account_name)
+    v_acc_name, d_acc_name = setup_staking_delegation_test(faucet_acc_name)
+    staking_delegation(v_acc_name, d_acc_name)
 
     cleanup_and_save()
