@@ -181,46 +181,24 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		NoReply               []noReply
 		DownMachineCount      int
 	}
-	m.use()
-	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
-	m.done()
-	leaders := make(map[string][]string)
-	linq.From(sum[metaSumry]).ForEach(func(v interface{}) {
-		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string]interface{})["records"]).Where(func(n interface{}) bool {
-			return n.(metadataRPCResult).Payload.IsLeader
-		}).ForEach(func(n interface{}) {
-			shardID := strconv.FormatUint(uint64(n.(metadataRPCResult).Payload.ShardID), 10)
-			leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
-		})
-	})
-	for i, _ := range leaders {
-		// FIXME: Remove when hmy_getNodeMetadata RPC is fixed & deployed
-		if sum[headerSumry][i] != nil {
-			sum[headerSumry][i].(any)["shard-leader"] = leaders[i]
-		}
-	}
-	m.use()
+	report := m.networkSnapshot()
 	cnsMsg := "Consensus Progress not known yet"
-	if len(m.consensusProgress) != 0 {
+	if len(report.ConsensusProgress) != 0 {
 		cM, _ := json.Marshal(m.consensusProgress)
 		cnsMsg = fmt.Sprintf("Consensus Progress: %s", cM)
 	}
-	totalNoReplyMachines := []noReply{}
-	totalNoReplyMachines = append(totalNoReplyMachines, m.MetadataSnapshot.Down...)
-	totalNoReplyMachines = append(totalNoReplyMachines, m.BlockHeaderSnapshot.Down...)
-	m.done()
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:  []interface{}{m.chain, cnsMsg},
-		RightTitle: []interface{}{buildVersion, time.Now().Format(time.RFC3339)},
-		Summary:    sum,
-		NoReply:    totalNoReplyMachines,
-		DownMachineCount: linq.From(totalNoReplyMachines).Select(
+		LeftTitle:  []interface{}{report.Chain, cnsMsg},
+		RightTitle: []interface{}{report.Build, time.Now().Format(time.RFC3339)},
+		Summary:    report.Summary,
+		NoReply:    report.NoReplies,
+		DownMachineCount: linq.From(report.NoReplies).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
 	})
 	m.use()
-	m.summaryCopy(sum)
-	m.NoReplySnapshot = append([]noReply{}, totalNoReplyMachines...)
+	m.summaryCopy(report.Summary)
+	m.NoReplySnapshot = append([]noReply{}, report.NoReplies...)
 	m.done()
 }
 
@@ -240,7 +218,8 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			m.use()
-			for _, v := range m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{}) {
+			records := m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{})
+			for _, v := range records {
 				row := []string{
 					v.(headerInfoRPCResult).IP,
 					v.(headerInfoRPCResult).Payload.BlockHash,
@@ -269,7 +248,8 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 			m.use()
 			// FIXME: Bandaid
 			if m.SummarySnapshot[metaSumry][vrs[0]] != nil {
-				for _, v := range m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{}) {
+				recs := m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{})
+				for _, v := range recs {
 					row := []string{
 						v.(metadataRPCResult).IP,
 						v.(metadataRPCResult).Payload.BLSPublicKey,
@@ -382,7 +362,9 @@ type reply struct {
 	oops       error
 }
 
-func (m *monitor) worker(jobs chan work, channels map[string](chan reply), groups map[string]*sync.WaitGroup) {
+func (m *monitor) worker(
+	jobs chan work, channels map[string](chan reply), groups map[string]*sync.WaitGroup,
+) {
 	for j := range jobs {
 		result := reply{address: j.address, rpc: j.rpc}
 		result.rpcResult, result.rpcPayload, result.oops = request(
@@ -392,7 +374,9 @@ func (m *monitor) worker(jobs chan work, channels map[string](chan reply), group
 	}
 }
 
-func (m *monitor) shardMonitor(ready chan bool, warning, redline int, pdServiceKey, chain string) {
+func (m *monitor) shardMonitor(
+	ready chan bool, warning, redline int, pdServiceKey, chain string,
+) {
 	type a struct {
 		blockHeight uint64
 		timeStamp   time.Time
@@ -443,13 +427,16 @@ See: http://watchdog.hmny.io/report-%s
 `, s, currHeight, last.timeStamp.Format(timeFormat),
 						header.Payload.BlockHash, header.Payload.Leader, header.Payload.ViewID,
 						header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
-						header.Payload.LastCommitBitmap, elapsedTime, currTime.Sub(last.timeStamp).Minutes(), chain, name)
+						header.Payload.LastCommitBitmap, elapsedTime,
+						currTime.Sub(last.timeStamp).Minutes(), chain, name,
+					)
 					if elapsedTime > int64(warning) && !last.warningSent {
 						notify(pdServiceKey, message)
 						lastSuccess[s] = a{currHeight, last.timeStamp, true, time.Time{}}
 						progress = false
 					} else if elapsedTime > int64(redline) {
-						if last.lastRedline.IsZero() || (!last.lastRedline.IsZero() && int64(currTime.Sub(last.lastRedline).Seconds()) > int64(redline)) {
+						if last.lastRedline.IsZero() || (!last.lastRedline.IsZero() &&
+							int64(currTime.Sub(last.lastRedline).Seconds()) > int64(redline)) {
 							notify(pdServiceKey, message)
 							lastSuccess[s] = a{currHeight, last.timeStamp, true, currTime}
 						}
@@ -469,8 +456,11 @@ See: http://watchdog.hmny.io/report-%s
 	}
 }
 
-func (m *monitor) manager(jobs chan work, interval int, nodeList []string,
-	rpc string, group *sync.WaitGroup, channels map[string](chan reply), monitor chan bool) {
+func (m *monitor) manager(
+	jobs chan work, interval int, nodeList []string,
+	rpc string, group *sync.WaitGroup,
+	channels map[string](chan reply), monitor chan bool,
+) {
 	requestFields := map[string]interface{}{
 		"jsonrpc": versionJSONRPC,
 		"method":  rpc,
@@ -478,10 +468,10 @@ func (m *monitor) manager(jobs chan work, interval int, nodeList []string,
 	}
 	for now := range time.Tick(time.Duration(interval) * time.Second) {
 		queryID := 0
-		for _, n := range nodeList {
+		for n := range nodeList {
 			requestFields["id"] = strconv.Itoa(queryID)
 			requestBody, _ := json.Marshal(requestFields)
-			jobs <- work{n, rpc, requestBody}
+			jobs <- work{nodeList[n], rpc, requestBody}
 			queryID++
 			group.Add(1)
 		}
@@ -536,14 +526,15 @@ func (m *monitor) manager(jobs chan work, interval int, nodeList []string,
 	}
 }
 
-func (m *monitor) update(params watchParams, superCommittee map[int]committee, rpcs []string) {
+func (m *monitor) update(
+	params watchParams, superCommittee map[int]committee, rpcs []string,
+) {
 	nodeList := []string{}
 	for _, v := range superCommittee {
 		nodeList = append(nodeList, v.members...)
 	}
 
 	jobs := make(chan work, len(nodeList))
-
 	replyChannels := make(map[string](chan reply))
 	syncGroups := make(map[string]*sync.WaitGroup)
 	for _, rpc := range rpcs {
@@ -565,10 +556,16 @@ func (m *monitor) update(params watchParams, superCommittee map[int]committee, r
 	for _, rpc := range rpcs {
 		switch rpc {
 		case metadataRPC:
-			go m.manager(jobs, params.InspectSchedule.NodeMetadata, nodeList, rpc, syncGroups[rpc], replyChannels, nil)
+			go m.manager(
+				jobs, params.InspectSchedule.NodeMetadata, nodeList,
+				rpc, syncGroups[rpc], replyChannels, nil,
+			)
 		case blockHeaderRPC:
 			healthMonitorChan := make(chan bool)
-			go m.manager(jobs, params.InspectSchedule.BlockHeader, nodeList, rpc, syncGroups[rpc], replyChannels, healthMonitorChan)
+			go m.manager(
+				jobs, params.InspectSchedule.BlockHeader, nodeList, rpc,
+				syncGroups[rpc], replyChannels, healthMonitorChan,
+			)
 			go m.shardMonitor(
 				healthMonitorChan,
 				params.ShardHealthReporting.Consensus.Warning,
@@ -605,6 +602,50 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	}
 }
 
+type networkReport struct {
+	Build             string                            `json:"watchdog-build-version"`
+	Chain             string                            `json:"chain-name"`
+	ConsensusProgress map[string]bool                   `json:"consensus-liviness"`
+	Summary           map[string]map[string]interface{} `json:"summary-maps"`
+	NoReplies         []noReply                         `json:"no-reply-machines"`
+}
+
+func (m *monitor) networkSnapshot() networkReport {
+	m.use()
+	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	m.done()
+	leaders := make(map[string][]string)
+	linq.From(sum[metaSumry]).ForEach(func(v interface{}) {
+		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string]interface{})["records"]).
+			Where(func(n interface{}) bool { return n.(metadataRPCResult).Payload.IsLeader }).
+			ForEach(func(n interface{}) {
+				shardID := strconv.FormatUint(uint64(n.(metadataRPCResult).Payload.ShardID), 10)
+				leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
+			})
+	})
+	for i := range leaders {
+		// FIXME: Remove when hmy_getNodeMetadata RPC is fixed & deployed
+		if sum[headerSumry][i] != nil {
+			sum[headerSumry][i].(any)["shard-leader"] = leaders[i]
+		}
+	}
+	cnsProgressCpy := map[string]bool{}
+	m.use()
+	for key, value := range m.consensusProgress {
+		cnsProgressCpy[key] = value
+	}
+	totalNoReplyMachines := []noReply{}
+	totalNoReplyMachines = append(
+		append(totalNoReplyMachines, m.MetadataSnapshot.Down...), m.BlockHeaderSnapshot.Down...,
+	)
+	m.done()
+	return networkReport{buildVersion, m.chain, cnsProgressCpy, sum, totalNoReplyMachines}
+}
+
+func (m *monitor) networkSnapshotJSON(w http.ResponseWriter, req *http.Request) {
+	json.NewEncoder(w).Encode(m.networkSnapshot())
+}
+
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	client = fasthttp.Client{
 		Dial: func(addr string) (net.Conn, error) {
@@ -615,5 +656,6 @@ func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	go m.update(instrs.watchParams, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC})
 	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download-"+instrs.Network.TargetChain, m.produceCSV)
+	http.HandleFunc("/network-"+instrs.Network.TargetChain, m.networkSnapshotJSON)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
 }
