@@ -374,9 +374,13 @@ func (m *monitor) worker(
 	}
 }
 
+<<<<<<< HEAD
 func (m *monitor) shardMonitor(
 	ready chan bool, warning int, pdServiceKey, chain string,
 ) {
+=======
+func (m* monitor) shardMonitor(ready chan bool, warning int, pdServiceKey, chain string) {
+>>>>>>> f7d8c6689d9c9a04c99dc65057dd617e8253a349
 	type a struct {
 		blockHeight uint64
 		timeStamp   time.Time
