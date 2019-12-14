@@ -210,8 +210,10 @@ type watchParams struct {
 	ShardHealthReporting struct {
 		Consensus struct {
 			Warning int `yaml:"warning"`
-			Redline int `yaml:"redline"`
 		} `yaml:"consensus"`
+		Epoch struct {
+			Warning int `yaml:"warning"`
+		} `yaml:"epoch-sync"`
 	} `yaml:"shard-health-reporting"`
 	DistributionFiles struct {
 		MachineIPList []string `yaml:"machine-ip-list"`
@@ -304,10 +306,10 @@ func (w *watchParams) sanityCheck() error {
 		errList = append(errList, "Missing port under http-reporter in yaml config")
 	}
 	if w.ShardHealthReporting.Consensus.Warning == 0 {
-		errList = append(errList, "Missing warmomg under shard-health-reporting, consensus in yaml config")
+		errList = append(errList, "Missing warning under shard-health-reporting, consensus in yaml config")
 	}
-	if w.ShardHealthReporting.Consensus.Redline == 0 {
-		errList = append(errList, "Missing Redline under shard-health-reporting, consensus in yaml config")
+	if w.ShardHealthReporting.Epoch.Warning == 0 {
+		errList = append(errList, "Missing warning under shard-health-reporting, epoch in yaml config")
 	}
 	if len(errList) == 0 {
 		return nil

@@ -30,8 +30,9 @@ http-reporter:
 # Numbers assumed as seconds
 shard-health-reporting:
   consensus:
-    warning: 40
-    redline: 300
+    warning: 70
+  epoch:
+    warning: 180
 
 # Needs to be an absolute file path
 # NOTE: The ending of the basename of the file

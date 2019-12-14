@@ -375,13 +375,12 @@ func (m *monitor) worker(
 }
 
 func (m *monitor) shardMonitor(
-	ready chan bool, warning, redline int, pdServiceKey, chain string,
+	ready chan bool, warning int, pdServiceKey, chain string,
 ) {
 	type a struct {
 		blockHeight uint64
 		timeStamp   time.Time
-		warningSent bool
-		lastRedline time.Time
+		lastSent    time.Time
 	}
 	// https://golang.org/pkg/time/#Time.Format
 	timeFormat := "15:04:05 Jan _2 MST"
@@ -393,7 +392,6 @@ func (m *monitor) shardMonitor(
 		currTime := m.BlockHeaderSnapshot.TS
 		m.done()
 		for s, curr := range current {
-			progress := true
 			currHeight := curr.(any)[blockMax].(uint64)
 			if last, exists := lastSuccess[s]; exists {
 				if !(currHeight > last.blockHeight) {
@@ -425,46 +423,84 @@ See: http://watchdog.hmny.io/report-%s
 
 --%s
 `, s, currHeight, last.timeStamp.Format(timeFormat),
-						header.Payload.BlockHash, header.Payload.Leader, header.Payload.ViewID,
-						header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
-						header.Payload.LastCommitBitmap, elapsedTime,
-						currTime.Sub(last.timeStamp).Minutes(), chain, name,
-					)
-					if elapsedTime > int64(warning) {
-						progress = false
+header.Payload.BlockHash, header.Payload.Leader, header.Payload.ViewID,
+header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
+header.Payload.LastCommitBitmap, elapsedTime, chain, name)
+					if elapsedTime > int64(warning) || (!last.lastSent.IsZero() && int64(currTime.Sub(last.lastSent).Seconds()) > int64(warning)) {
+						incidentKey := fmt.Sprintf("Shard %s consensus stuck!", s)
+						notify(pdServiceKey, incidentKey, message)
+						lastSuccess[s] = a{currHeight, last.timeStamp, currTime}
+						m.use()
+						m.consensusProgress[fmt.Sprintf("shard-%s", s)] = false
+						m.done()
 					}
-					if elapsedTime > int64(warning) && !last.warningSent {
-						notify(pdServiceKey, message)
-						lastSuccess[s] = a{currHeight, last.timeStamp, true, time.Time{}}
-						progress = false
-					} else if elapsedTime > int64(redline) {
-						if last.lastRedline.IsZero() || (!last.lastRedline.IsZero() &&
-							int64(currTime.Sub(last.lastRedline).Seconds()) > int64(redline)) {
-							notify(pdServiceKey, message)
-							lastSuccess[s] = a{currHeight, last.timeStamp, true, currTime}
-						}
-						progress = false
-					}
-					m.use()
-					m.consensusProgress[fmt.Sprintf("shard-%s", s)] = progress
-					m.done()
 					continue
 				}
 			}
-			lastSuccess[s] = a{currHeight, currTime, false, time.Time{}}
+			lastSuccess[s] = a{currHeight, currTime, time.Time{}}
 			m.use()
-			m.consensusProgress[fmt.Sprintf("shard-%s", s)] = progress
+			m.consensusProgress[fmt.Sprintf("shard-%s", s)] = true
 			m.done()
 		}
 	}
 }
 
-func (m *monitor) manager(
-	jobs chan work, interval int, nodeList []string,
-	rpc string, group *sync.WaitGroup,
-	channels map[string](chan reply), monitor chan bool,
-) {
-	requestFields := map[string]interface{}{
+func (m *monitor) epochMonitor(ready chan bool, warning int, pdServiceKey, chain string) {
+	type b struct {
+		ts       time.Time
+		lastSent time.Time
+	}
+	baseMsg := "Epoch desync detected!\r"
+	endMsg := fmt.Sprintf(`
+See: http://watchdog.hmny.io/report-%s
+
+--%s
+`, chain, fmt.Sprintf(nameFMT, chain))
+	lastMatch := b{time.Now(), time.Time{}}
+	for range ready {
+		fmt.Println(time.Now())
+		current := any{}
+		m.use()
+		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, true, current)
+		currTime := m.BlockHeaderSnapshot.TS
+		m.done()
+		epochList := make(map[string]uint64)
+		for s, c := range current {
+			epochList[s] = c.(any)["epoch-max"].(uint64)
+		}
+		mismatch := false
+		for _, e := range epochList {
+			for _, e1 := range epochList {
+				if e != e1 {
+					mismatch = true
+				}
+			}
+		}
+		elapsedTime := int64(currTime.Sub(lastMatch.ts).Seconds())
+		fmt.Println(mismatch)
+		fmt.Println(elapsedTime)
+		if mismatch {
+			if elapsedTime > int64(warning) &&
+				(lastMatch.lastSent.IsZero() || int64(currTime.Sub(lastMatch.lastSent).Seconds()) > int64(warning)) {
+				fullMsg := baseMsg
+				for shard, epoch := range epochList {
+					fullMsg = fullMsg + fmt.Sprintf("Shard %s: %d\r", shard, epoch)
+				}
+				fullMsg = fullMsg + fmt.Sprintf("Time since last sync: %d seconds\r",  elapsedTime) + endMsg
+				notify(pdServiceKey, "Epoch desync", fullMsg)
+				lastMatch.lastSent = currTime
+			}
+			continue
+		}
+		lastMatch.ts = currTime
+		lastMatch.lastSent = time.Time{}
+	}
+}
+
+func (m* monitor) manager(jobs chan work, interval int, nodeList []string,
+					rpc string, group *sync.WaitGroup, channels map[string](chan reply),
+					consensus, epoch chan bool) {
+	requestFields := map[string]interface{} {
 		"jsonrpc": versionJSONRPC,
 		"method":  rpc,
 		"params":  []interface{}{},
@@ -523,7 +559,8 @@ func (m *monitor) manager(
 			m.use()
 			m.blockHeaderCopy(m.WorkingBlockHeader)
 			m.done()
-			monitor <- true
+			consensus <- true
+			epoch <- true
 		}
 		channels[rpc] = make(chan reply, len(nodeList))
 	}
@@ -559,20 +596,20 @@ func (m *monitor) update(
 	for _, rpc := range rpcs {
 		switch rpc {
 		case metadataRPC:
-			go m.manager(
-				jobs, params.InspectSchedule.NodeMetadata, nodeList,
-				rpc, syncGroups[rpc], replyChannels, nil,
-			)
+			go m.manager(jobs, params.InspectSchedule.NodeMetadata, nodeList, rpc, syncGroups[rpc], replyChannels, nil, nil)
 		case blockHeaderRPC:
-			healthMonitorChan := make(chan bool)
-			go m.manager(
-				jobs, params.InspectSchedule.BlockHeader, nodeList, rpc,
-				syncGroups[rpc], replyChannels, healthMonitorChan,
-			)
+			consensusChan := make(chan bool)
+			epochChan := make(chan bool)
+			go m.manager(jobs, params.InspectSchedule.BlockHeader, nodeList, rpc, syncGroups[rpc], replyChannels, consensusChan, epochChan)
 			go m.shardMonitor(
-				healthMonitorChan,
+				consensusChan,
 				params.ShardHealthReporting.Consensus.Warning,
-				params.ShardHealthReporting.Consensus.Redline,
+				params.Auth.PagerDuty.EventServiceKey,
+				params.Network.TargetChain,
+			)
+			go m.epochMonitor(
+				epochChan,
+				params.ShardHealthReporting.Epoch.Warning,
 				params.Auth.PagerDuty.EventServiceKey,
 				params.Network.TargetChain,
 			)
