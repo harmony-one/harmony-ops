@@ -218,8 +218,8 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			m.use()
-			records := m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{})
-			for _, v := range records {
+			sum := m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{})
+			for _, v := range sum {
 				row := []string{
 					v.(headerInfoRPCResult).IP,
 					v.(headerInfoRPCResult).Payload.BlockHash,
