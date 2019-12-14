@@ -430,6 +430,9 @@ See: http://watchdog.hmny.io/report-%s
 						header.Payload.LastCommitBitmap, elapsedTime,
 						currTime.Sub(last.timeStamp).Minutes(), chain, name,
 					)
+					if elapsedTime > int64(warning) {
+						progress = false
+					}
 					if elapsedTime > int64(warning) && !last.warningSent {
 						notify(pdServiceKey, message)
 						lastSuccess[s] = a{currHeight, last.timeStamp, true, time.Time{}}
