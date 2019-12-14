@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-func reportPage() string {
+func reportPage(chain string) string {
 	// Keep in mind that need extra % infront of % to escape fmt
 	return fmt.Sprintf(`
 <!DOCTYPE html>
@@ -164,7 +164,7 @@ hr:after {
             <h3>
               Block Header <span><a href="#top-of-page">(Top)</a></span>
             </h3>
-            <a href="/report-download?report=%s&shard={{$key}}">Download CSV</a>
+            <a href="/report-download-%s?report=%s&shard={{$key}}">Download CSV</a>
           </div>
           <div class="flex-row">
             <p> shard: {{ $key }} </p>
@@ -228,7 +228,7 @@ hr:after {
             <h3>
               Node Metadata <span><a href="#top-of-page">(Top)</a></span>
            </h3>
-            <a href="/report-download?report=%s&vrs={{$key}}">Download CSV</a>
+            <a href="/report-download-%s?report=%s&vrs={{$key}}">Download CSV</a>
           </div>
           <div class="flex-row">
             <p> build version: {{ $key }} </p>
@@ -269,5 +269,5 @@ setInterval(() => window.location.reload(true),  1000 * 120);
 </script>
   </body>
 </html>
-`, blockHeaderReport, nodeMetadataReport)
+`, chain, blockHeaderReport, chain, nodeMetadataReport)
 }

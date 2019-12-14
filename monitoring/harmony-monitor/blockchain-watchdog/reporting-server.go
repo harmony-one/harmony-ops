@@ -169,7 +169,7 @@ func request(node string, requestBody []byte) ([]byte, []byte, error) {
 }
 
 func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
-	t, e := template.New("report").Parse(reportPage())
+	t, e := template.New("report").Parse(reportPage(m.chain))
 	if e != nil {
 		fmt.Println(e)
 		http.Error(w, "could not generate page:"+e.Error(), http.StatusInternalServerError)
