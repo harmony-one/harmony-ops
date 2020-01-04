@@ -55,7 +55,7 @@ echo "Sleeping ${wait} seconds to generate some funds..."
 sleep $wait
 
 python3 -m pip install requests
-python3 -m pip install pyhmy
+python3 -m pip install pyhmy==0.11
 
 echo "Testing Cx from s0 to s1"
 if [ "$doStaking" == "true" ]; then
