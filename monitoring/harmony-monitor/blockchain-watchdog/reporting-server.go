@@ -25,6 +25,7 @@ const (
 	blockHeaderRPC     = "hmy_latestHeader"
 	blockHeaderReport  = "block-header"
 	nodeMetadataReport = "node-metadata"
+	timeFormat         = "15:04:05 Jan _2 MST" // https://golang.org/pkg/time/#Time.Format
 )
 
 type nodeMetadata struct {
@@ -375,16 +376,14 @@ func (m *monitor) worker(
 }
 
 func (m *monitor) shardMonitor(
-	ready chan bool, warning, redline int, pdServiceKey, chain string,
+	ready chan bool, warning uint64, pdServiceKey, chain string,
 ) {
 	type a struct {
 		blockHeight uint64
 		timeStamp   time.Time
-		warningSent bool
-		lastRedline time.Time
+		lastSent    time.Time
 	}
-	// https://golang.org/pkg/time/#Time.Format
-	timeFormat := "15:04:05 Jan _2 MST"
+
 	lastSuccess := make(map[string]a)
 	for range ready {
 		current := any{}
@@ -393,15 +392,15 @@ func (m *monitor) shardMonitor(
 		currTime := m.BlockHeaderSnapshot.TS
 		m.done()
 		for s, curr := range current {
-			progress := true
 			currHeight := curr.(any)[blockMax].(uint64)
 			if last, exists := lastSuccess[s]; exists {
 				if !(currHeight > last.blockHeight) {
-					elapsedTime := int64(currTime.Sub(last.timeStamp).Seconds())
-					name := fmt.Sprintf(nameFMT, chain)
-					header := curr.(any)["latest-block"].(headerInfoRPCResult)
-					message := fmt.Sprintf(`
-Liviness problem on shard %s
+					timeSinceLastSuccess := currTime.Sub(last.timeStamp)
+					if uint64(timeSinceLastSuccess.Seconds()) > warning {
+						if last.lastSent.IsZero() || uint64(currTime.Sub(last.lastSent).Seconds()) > warning {
+							blockHeader := curr.(any)["latest-block"].(headerInfoRPCResult)
+							message := fmt.Sprintf(`
+Consensus stuck on shard %s!
 
 Block height stuck at %d starting at %s
 
@@ -424,37 +423,27 @@ Time since last new block: %d seconds (%f minutes)
 See: http://watchdog.hmny.io/report-%s
 
 --%s
-`, s, currHeight, last.timeStamp.Format(timeFormat),
-						header.Payload.BlockHash, header.Payload.Leader, header.Payload.ViewID,
-						header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
-						header.Payload.LastCommitBitmap, elapsedTime,
-						currTime.Sub(last.timeStamp).Minutes(), chain, name,
-					)
-					if elapsedTime > int64(warning) {
-						progress = false
-					}
-					if elapsedTime > int64(warning) && !last.warningSent {
-						notify(pdServiceKey, message)
-						lastSuccess[s] = a{currHeight, last.timeStamp, true, time.Time{}}
-						progress = false
-					} else if elapsedTime > int64(redline) {
-						if last.lastRedline.IsZero() || (!last.lastRedline.IsZero() &&
-							int64(currTime.Sub(last.lastRedline).Seconds()) > int64(redline)) {
-							notify(pdServiceKey, message)
-							lastSuccess[s] = a{currHeight, last.timeStamp, true, currTime}
+`,
+								s, currHeight, last.timeStamp.Format(timeFormat),
+								blockHeader.Payload.BlockHash, blockHeader.Payload.Leader, blockHeader.Payload.ViewID,
+								blockHeader.Payload.Epoch, blockHeader.Payload.Timestamp, blockHeader.Payload.LastCommitSig,
+								blockHeader.Payload.LastCommitBitmap, timeSinceLastSuccess.Seconds(),
+								timeSinceLastSuccess.Minutes(), chain, fmt.Sprintf(nameFMT, chain),
+							)
+							incidentKey := fmt.Sprintf("Shard %s consensus stuck!", s)
+							notify(pdServiceKey, incidentKey, chain, message, true)
 						}
-						progress = false
+						m.use()
+						m.consensusProgress[fmt.Sprintf("shard-%s", s)] = false
+						m.done()
 					}
-					m.use()
-					m.consensusProgress[fmt.Sprintf("shard-%s", s)] = progress
-					m.done()
 					continue
 				}
+				lastSuccess[s] = a{currHeight, currTime, time.Time{}}
+				m.use()
+				m.consensusProgress[fmt.Sprintf("shard-%s", s)] = true
+				m.done()
 			}
-			lastSuccess[s] = a{currHeight, currTime, false, time.Time{}}
-			m.use()
-			m.consensusProgress[fmt.Sprintf("shard-%s", s)] = progress
-			m.done()
 		}
 	}
 }
@@ -571,8 +560,7 @@ func (m *monitor) update(
 			)
 			go m.shardMonitor(
 				healthMonitorChan,
-				params.ShardHealthReporting.Consensus.Warning,
-				params.ShardHealthReporting.Consensus.Redline,
+				uint64(params.ShardHealthReporting.Consensus.Warning),
 				params.Auth.PagerDuty.EventServiceKey,
 				params.Network.TargetChain,
 			)
