@@ -66,10 +66,35 @@ func identity(x interface{}) interface{} {
 }
 
 const (
-	metaSumry   = "node-metadata"
-	headerSumry = "block-header"
-	blockMax    = "block-max"
-	timestamp   = "timestamp"
+	metaSumry               = "node-metadata"
+	headerSumry             = "block-header"
+	blockMax                = "block-max"
+	timestamp               = "timestamp"
+	consensusWarningMessage = `
+Consensus stuck on shard %s!
+
+Block height stuck at %d starting at %s
+
+Block Hash: %s
+
+Leader: %s
+
+ViewID: %d
+
+Epoch: %d
+
+Block Timestamp: %s
+
+LastCommitSig: %s
+
+LastCommitBitmap: %s
+
+Time since last new block: %d seconds (%f minutes)
+
+See: http://watchdog.hmny.io/report-%s
+
+--%s
+`
 )
 
 func init() {
@@ -366,85 +391,108 @@ func (m *monitor) worker(
 	}
 }
 
-func (m *monitor) shardMonitor(
-	ready chan bool, warning uint64, pdServiceKey, chain string,
-) {
-	type a struct {
-		blockHeight uint64
-		timeStamp   time.Time
-		lastSent    time.Time
+func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
+	jobs := make(chan work, len(nodeList))
+	replyChannels := make(map[string](chan reply))
+	syncGroups := make(map[string]*sync.WaitGroup)
+
+	replyChannels[blockHeaderRPC] = make(chan reply, len(nodeList))
+	var bhGroup sync.WaitGroup
+	syncGroups[blockHeaderRPC] = &bhGroup
+
+	for i := 0; i < poolSize; i++ {
+		go m.worker(jobs, replyChannels, syncGroups)
 	}
 
-	lastSuccess := make(map[string]a)
-	for range ready {
-		current := any{}
-		m.inUse.Lock()
-		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, true, current)
-		currTime := m.BlockHeaderSnapshot.TS
-		stdlog.Print(m.consensusProgress)
-		stdlog.Printf("Total no reply nodes: %d", len(m.BlockHeaderSnapshot.Down))
-		m.inUse.Unlock()
-		for s, curr := range current {
-			currHeight := curr.(any)[blockMax].(uint64)
-			if last, exists := lastSuccess[s]; exists {
-				if !(currHeight > last.blockHeight) {
-					timeSinceLastSuccess := currTime.Sub(last.timeStamp)
-					if uint64(timeSinceLastSuccess.Seconds()) > warning {
-						if last.lastSent.IsZero() || uint64(currTime.Sub(last.lastSent).Seconds()) > warning {
-							blockHeader := curr.(any)["latest-block"].(headerInfoRPCResult)
-							message := fmt.Sprintf(`
-Consensus stuck on shard %s!
+	requestFields := map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"method":  blockHeaderRPC,
+		"params":  []interface{}{},
+	}
 
-Block height stuck at %d starting at %s
+	type s struct {
+		Result headerInformation `json:"result"`
+	}
 
-Block Hash: %s
+	type lastSuccessfulBlock struct {
+		Height uint64
+		TS     time.Time
+	}
 
-Leader: %s
+	lastShardData := make(map[string]lastSuccessfulBlock)
+	consensusStatus := make(map[string]bool)
 
-ViewID: %d
+	for now := range time.Tick(time.Duration(interval) * time.Second) {
+		queryID := 0
+		for n := range nodeList {
+			requestFields["id"] = strconv.Itoa(queryID)
+			requestBody, _ := json.Marshal(requestFields)
+			jobs <- work{nodeList[n], blockHeaderRPC, requestBody}
+			queryID++
+			syncGroups[blockHeaderRPC].Add(1)
+		}
+		syncGroups[blockHeaderRPC].Wait()
+		close(replyChannels[blockHeaderRPC])
 
-Epoch: %d
+		monitorData := BlockHeaderContainer{}
+		for d := range replyChannels[blockHeaderRPC] {
+			if d.oops != nil {
+				monitorData.Down = append(m.WorkingBlockHeader.Down,
+					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+			} else {
+				oneReport := s{}
+				json.Unmarshal(d.rpcResult, &oneReport)
+				monitorData.Nodes = append(monitorData.Nodes, headerInfoRPCResult{
+					oneReport.Result,
+					d.address,
+				})
+			}
+		}
 
-Block Timestamp: %s
+		blockHeaderData := any{}
+		blockHeaderSummary(monitorData.Nodes, true, blockHeaderData)
 
-LastCommitSig: %s
+		currentUTCTime := now.UTC()
 
-LastCommitBitmap: %s
-
-Time since last new block: %d seconds (%f minutes)
-
-See: http://watchdog.hmny.io/report-%s
-
---%s
-`,
-								s, currHeight, last.timeStamp.Format(timeFormat),
-								blockHeader.Payload.BlockHash, blockHeader.Payload.Leader, blockHeader.Payload.ViewID,
-								blockHeader.Payload.Epoch, blockHeader.Payload.Timestamp, blockHeader.Payload.LastCommitSig,
-								blockHeader.Payload.LastCommitBitmap, int64(timeSinceLastSuccess.Seconds()),
-								timeSinceLastSuccess.Minutes(), chain, fmt.Sprintf(nameFMT, chain),
-							)
-							incidentKey := fmt.Sprintf("Shard %s consensus stuck!", s)
-							err := notify(pdServiceKey, incidentKey, chain, message)
-							if err != nil {
-								errlog.Print(err)
-							} else {
-								stdlog.Print("Sent PagerDuty alert!")
-							}
-							lastSuccess[s] = a{last.blockHeight, last.timeStamp, currTime}
+		//fmt.Print(blockHeaderData)
+		for shard, summary := range blockHeaderData {
+			currentBlockHeight := summary.(any)[blockMax].(uint64)
+			currentBlockHeader := summary.(any)["latest-block"].(headerInfoRPCResult)
+			if lastBlock, exists := lastShardData[shard]; exists {
+				if currentBlockHeight <= lastBlock.Height {
+					timeSinceLastSuccess := currentUTCTime.Sub(lastBlock.TS)
+					if uint64(timeSinceLastSuccess.Seconds()) > interval {
+						message := fmt.Sprintf(consensusWarningMessage,
+							shard, currentBlockHeight, lastBlock.TS.Format(timeFormat),
+							currentBlockHeader.Payload.BlockHash, currentBlockHeader.Payload.Leader,
+							currentBlockHeader.Payload.ViewID, currentBlockHeader.Payload.Epoch,
+							currentBlockHeader.Payload.Timestamp, currentBlockHeader.Payload.LastCommitSig,
+							currentBlockHeader.Payload.LastCommitBitmap,
+							int64(timeSinceLastSuccess.Seconds()), timeSinceLastSuccess.Minutes(),
+							chain, fmt.Sprintf(nameFMT, chain))
+						incidentKey := fmt.Sprintf("Shard %s consensus stuck!", shard)
+						err := notify(pdServiceKey, incidentKey, chain, message)
+						if err != nil {
+							errlog.Print(err)
+						} else {
+							stdlog.Print("Sent PagerDuty alert!")
 						}
-						m.inUse.Lock()
-						m.consensusProgress[fmt.Sprintf("shard-%s", s)] = false
-						m.inUse.Unlock()
+						consensusStatus[fmt.Sprintf("shard-%s", shard)] = false
+						continue
 					}
-					continue
 				}
 			}
-			lastSuccess[s] = a{currHeight, currTime, time.Time{}}
-			m.inUse.Lock()
-			m.consensusProgress[fmt.Sprintf("shard-%s", s)] = true
-			m.inUse.Unlock()
+			lastShardData[shard] = lastSuccessfulBlock{currentBlockHeight, time.Unix(currentBlockHeader.Payload.UnixTime, 0).UTC()}
+			consensusStatus[fmt.Sprintf("shard-%s", shard)] = true
 		}
-		stdlog.Print(lastSuccess)
+		stdlog.Printf("Total no reply machines: %d", len(monitorData.Down))
+		stdlog.Print(lastShardData)
+		stdlog.Print(consensusStatus)
+
+		m.inUse.Lock()
+		m.consensusProgress = consensusStatus
+		m.inUse.Unlock()
+		replyChannels[blockHeaderRPC] = make(chan reply, len(nodeList))
 	}
 }
 
@@ -558,11 +606,12 @@ func (m *monitor) update(
 				jobs, params.InspectSchedule.BlockHeader, nodeList, rpc,
 				syncGroups[rpc], replyChannels, healthMonitorChan,
 			)
-			go m.shardMonitor(
-				healthMonitorChan,
+			go m.consensusMonitor(
 				uint64(params.ShardHealthReporting.Consensus.Warning),
+				params.Performance.WorkerPoolSize,
 				params.Auth.PagerDuty.EventServiceKey,
 				params.Network.TargetChain,
+				nodeList,
 			)
 		}
 	}
