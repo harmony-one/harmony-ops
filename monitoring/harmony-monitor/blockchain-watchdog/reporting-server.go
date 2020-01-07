@@ -381,7 +381,8 @@ func (m *monitor) shardMonitor(
 		m.inUse.Lock()
 		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, true, current)
 		currTime := m.BlockHeaderSnapshot.TS
-		numNoReplyNodes := len(m.BlockHeaderSnapshot.Down)
+		stdlog.Print(m.consensusProgress)
+		stdlog.Printf("Total no reply nodes: %d", len(m.BlockHeaderSnapshot.Down))
 		m.inUse.Unlock()
 		for s, curr := range current {
 			currHeight := curr.(any)[blockMax].(uint64)
@@ -412,8 +413,6 @@ LastCommitBitmap: %s
 
 Time since last new block: %d seconds (%f minutes)
 
-Number of not responding nodes: %d
-
 See: http://watchdog.hmny.io/report-%s
 
 --%s
@@ -422,11 +421,15 @@ See: http://watchdog.hmny.io/report-%s
 								blockHeader.Payload.BlockHash, blockHeader.Payload.Leader, blockHeader.Payload.ViewID,
 								blockHeader.Payload.Epoch, blockHeader.Payload.Timestamp, blockHeader.Payload.LastCommitSig,
 								blockHeader.Payload.LastCommitBitmap, int64(timeSinceLastSuccess.Seconds()),
-								timeSinceLastSuccess.Minutes(), numNoReplyNodes, chain, fmt.Sprintf(nameFMT, chain),
+								timeSinceLastSuccess.Minutes(), chain, fmt.Sprintf(nameFMT, chain),
 							)
 							incidentKey := fmt.Sprintf("Shard %s consensus stuck!", s)
-							// Change to false for debug
-							notify(pdServiceKey, incidentKey, chain, message, true)
+							err := notify(pdServiceKey, incidentKey, chain, message)
+							if err != nil {
+								errlog.Print(err)
+							} else {
+								stdlog.Print("Sent PagerDuty alert!")
+							}
 							lastSuccess[s] = a{last.blockHeight, last.timeStamp, currTime}
 						}
 						m.inUse.Lock()
@@ -442,9 +445,6 @@ See: http://watchdog.hmny.io/report-%s
 			m.inUse.Unlock()
 		}
 		stdlog.Print(lastSuccess)
-		m.inUse.Lock()
-		stdlog.Print(m.consensusProgress)
-		m.inUse.Unlock()
 	}
 }
 

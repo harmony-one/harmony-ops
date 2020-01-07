@@ -1,14 +1,11 @@
 package main
 
 import (
-	"fmt"
-
 	pd "github.com/PagerDuty/go-pagerduty"
 )
 
-func notify(serviceKey, incidentKey, chain, msg string, send bool) error {
-	if send {
-		resp, err := pd.ManageEvent(pd.V2Event{
+func notify(serviceKey, incidentKey, chain, msg string) error {
+	_, err := pd.ManageEvent(pd.V2Event{
 			RoutingKey: serviceKey,
 			Action:     "trigger",
 			DedupKey:   incidentKey,
@@ -19,9 +16,5 @@ func notify(serviceKey, incidentKey, chain, msg string, send bool) error {
 				Details:  msg,
 			},
 		})
-		fmt.Println(resp, err)
-		return err
-	}
-	fmt.Println(msg)
-	return nil
+	return err
 }
