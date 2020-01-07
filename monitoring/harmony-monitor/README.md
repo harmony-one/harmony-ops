@@ -25,13 +25,12 @@ performance:
 
 # Port for the HTML report
 http-reporter:
-  port: 9090
+  port: 8080
 
 # Numbers assumed as seconds
 shard-health-reporting:
   consensus:
-    warning: 40
-    redline: 300
+    warning: 70
 
 # Needs to be an absolute file path
 # NOTE: The ending of the basename of the file

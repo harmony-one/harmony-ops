@@ -210,7 +210,6 @@ type watchParams struct {
 	ShardHealthReporting struct {
 		Consensus struct {
 			Warning int `yaml:"warning"`
-			Redline int `yaml:"redline"`
 		} `yaml:"consensus"`
 	} `yaml:"shard-health-reporting"`
 	DistributionFiles struct {
@@ -305,9 +304,6 @@ func (w *watchParams) sanityCheck() error {
 	}
 	if w.ShardHealthReporting.Consensus.Warning == 0 {
 		errList = append(errList, "Missing warmomg under shard-health-reporting, consensus in yaml config")
-	}
-	if w.ShardHealthReporting.Consensus.Redline == 0 {
-		errList = append(errList, "Missing Redline under shard-health-reporting, consensus in yaml config")
 	}
 	if len(errList) == 0 {
 		return nil
