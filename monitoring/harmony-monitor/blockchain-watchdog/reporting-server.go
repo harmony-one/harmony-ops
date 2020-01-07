@@ -25,6 +25,7 @@ const (
 	blockHeaderRPC     = "hmy_latestHeader"
 	blockHeaderReport  = "block-header"
 	nodeMetadataReport = "node-metadata"
+	timeFormat         = "15:04:05 Jan _2 MST" // https://golang.org/pkg/time/#Time.Format
 )
 
 type nodeMetadata struct {
@@ -196,10 +197,10 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
 	})
-	m.use()
+	m.inUse.Lock()
 	m.summaryCopy(report.Summary)
 	m.NoReplySnapshot = append([]noReply{}, report.NoReplies...)
-	m.done()
+	m.inUse.Unlock()
 }
 
 func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
@@ -217,7 +218,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				http.Error(w, "shard not chosen in query param", http.StatusBadRequest)
 				return
 			}
-			m.use()
+			m.inUse.Lock()
 			sum := m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{})
 			for _, v := range sum {
 				row := []string{
@@ -235,7 +236,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				}
 				records = append(records, row)
 			}
-			m.done()
+			m.inUse.Unlock()
 		case nodeMetadataReport:
 			filename = nodeMetadataReport + ".csv"
 			records = append(records, nodeMetadataCSVHeader)
@@ -245,7 +246,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				http.Error(w, "version not chosen in query param", http.StatusBadRequest)
 				return
 			}
-			m.use()
+			m.inUse.Lock()
 			// FIXME: Bandaid
 			if m.SummarySnapshot[metaSumry][vrs[0]] != nil {
 				recs := m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{})
@@ -262,7 +263,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 					records = append(records, row)
 				}
 			}
-			m.done()
+			m.inUse.Unlock()
 		}
 	default:
 		http.Error(w, "report not chosen in query param", http.StatusBadRequest)
@@ -275,15 +276,6 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(w, "Error sending csv: "+err.Error(), http.StatusInternalServerError)
 	}
-}
-
-func (m *monitor) use() {
-	m.inUse.Wait()
-	m.inUse.Add(1)
-}
-
-func (m *monitor) done() {
-	m.inUse.Done()
 }
 
 func (m *monitor) summaryCopy(newData map[string]map[string]interface{}) {
@@ -338,7 +330,7 @@ type BlockHeaderContainer struct {
 
 type monitor struct {
 	chain               string
-	inUse               sync.WaitGroup
+	inUse               sync.Mutex
 	WorkingMetadata     MetadataContainer
 	WorkingBlockHeader  BlockHeaderContainer
 	MetadataSnapshot    MetadataContainer
@@ -375,33 +367,33 @@ func (m *monitor) worker(
 }
 
 func (m *monitor) shardMonitor(
-	ready chan bool, warning, redline int, pdServiceKey, chain string,
+	ready chan bool, warning uint64, pdServiceKey, chain string,
 ) {
 	type a struct {
 		blockHeight uint64
 		timeStamp   time.Time
-		warningSent bool
-		lastRedline time.Time
+		lastSent    time.Time
 	}
-	// https://golang.org/pkg/time/#Time.Format
-	timeFormat := "15:04:05 Jan _2 MST"
+
 	lastSuccess := make(map[string]a)
 	for range ready {
 		current := any{}
-		m.use()
+		m.inUse.Lock()
 		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, true, current)
 		currTime := m.BlockHeaderSnapshot.TS
-		m.done()
+		stdlog.Print(m.consensusProgress)
+		stdlog.Printf("Total no reply nodes: %d", len(m.BlockHeaderSnapshot.Down))
+		m.inUse.Unlock()
 		for s, curr := range current {
-			progress := true
 			currHeight := curr.(any)[blockMax].(uint64)
 			if last, exists := lastSuccess[s]; exists {
 				if !(currHeight > last.blockHeight) {
-					elapsedTime := int64(currTime.Sub(last.timeStamp).Seconds())
-					name := fmt.Sprintf(nameFMT, chain)
-					header := curr.(any)["latest-block"].(headerInfoRPCResult)
-					message := fmt.Sprintf(`
-Liviness problem on shard %s
+					timeSinceLastSuccess := currTime.Sub(last.timeStamp)
+					if uint64(timeSinceLastSuccess.Seconds()) > warning {
+						if last.lastSent.IsZero() || uint64(currTime.Sub(last.lastSent).Seconds()) > warning {
+							blockHeader := curr.(any)["latest-block"].(headerInfoRPCResult)
+							message := fmt.Sprintf(`
+Consensus stuck on shard %s!
 
 Block height stuck at %d starting at %s
 
@@ -424,38 +416,35 @@ Time since last new block: %d seconds (%f minutes)
 See: http://watchdog.hmny.io/report-%s
 
 --%s
-`, s, currHeight, last.timeStamp.Format(timeFormat),
-						header.Payload.BlockHash, header.Payload.Leader, header.Payload.ViewID,
-						header.Payload.Epoch, header.Payload.Timestamp, header.Payload.LastCommitSig,
-						header.Payload.LastCommitBitmap, elapsedTime,
-						currTime.Sub(last.timeStamp).Minutes(), chain, name,
-					)
-					if elapsedTime > int64(warning) {
-						progress = false
-					}
-					if elapsedTime > int64(warning) && !last.warningSent {
-						notify(pdServiceKey, message)
-						lastSuccess[s] = a{currHeight, last.timeStamp, true, time.Time{}}
-						progress = false
-					} else if elapsedTime > int64(redline) {
-						if last.lastRedline.IsZero() || (!last.lastRedline.IsZero() &&
-							int64(currTime.Sub(last.lastRedline).Seconds()) > int64(redline)) {
-							notify(pdServiceKey, message)
-							lastSuccess[s] = a{currHeight, last.timeStamp, true, currTime}
+`,
+								s, currHeight, last.timeStamp.Format(timeFormat),
+								blockHeader.Payload.BlockHash, blockHeader.Payload.Leader, blockHeader.Payload.ViewID,
+								blockHeader.Payload.Epoch, blockHeader.Payload.Timestamp, blockHeader.Payload.LastCommitSig,
+								blockHeader.Payload.LastCommitBitmap, int64(timeSinceLastSuccess.Seconds()),
+								timeSinceLastSuccess.Minutes(), chain, fmt.Sprintf(nameFMT, chain),
+							)
+							incidentKey := fmt.Sprintf("Shard %s consensus stuck!", s)
+							err := notify(pdServiceKey, incidentKey, chain, message)
+							if err != nil {
+								errlog.Print(err)
+							} else {
+								stdlog.Print("Sent PagerDuty alert!")
+							}
+							lastSuccess[s] = a{last.blockHeight, last.timeStamp, currTime}
 						}
-						progress = false
+						m.inUse.Lock()
+						m.consensusProgress[fmt.Sprintf("shard-%s", s)] = false
+						m.inUse.Unlock()
 					}
-					m.use()
-					m.consensusProgress[fmt.Sprintf("shard-%s", s)] = progress
-					m.done()
 					continue
 				}
 			}
-			lastSuccess[s] = a{currHeight, currTime, false, time.Time{}}
-			m.use()
-			m.consensusProgress[fmt.Sprintf("shard-%s", s)] = progress
-			m.done()
+			lastSuccess[s] = a{currHeight, currTime, time.Time{}}
+			m.inUse.Lock()
+			m.consensusProgress[fmt.Sprintf("shard-%s", s)] = true
+			m.inUse.Unlock()
 		}
+		stdlog.Print(lastSuccess)
 	}
 }
 
@@ -503,9 +492,9 @@ func (m *monitor) manager(
 					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
 				}
 			}
-			m.use()
+			m.inUse.Lock()
 			m.metadataCopy(m.WorkingMetadata)
-			m.done()
+			m.inUse.Unlock()
 		case blockHeaderRPC:
 			for d := range channels[rpc] {
 				if first {
@@ -520,9 +509,9 @@ func (m *monitor) manager(
 					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
 				}
 			}
-			m.use()
+			m.inUse.Lock()
 			m.blockHeaderCopy(m.WorkingBlockHeader)
-			m.done()
+			m.inUse.Unlock()
 			monitor <- true
 		}
 		channels[rpc] = make(chan reply, len(nodeList))
@@ -571,8 +560,7 @@ func (m *monitor) update(
 			)
 			go m.shardMonitor(
 				healthMonitorChan,
-				params.ShardHealthReporting.Consensus.Warning,
-				params.ShardHealthReporting.Consensus.Redline,
+				uint64(params.ShardHealthReporting.Consensus.Warning),
 				params.Auth.PagerDuty.EventServiceKey,
 				params.Network.TargetChain,
 			)
@@ -614,9 +602,9 @@ type networkReport struct {
 }
 
 func (m *monitor) networkSnapshot() networkReport {
-	m.use()
+	m.inUse.Lock()
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
-	m.done()
+	m.inUse.Unlock()
 	leaders := make(map[string][]string)
 	linq.From(sum[metaSumry]).ForEach(func(v interface{}) {
 		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string]interface{})["records"]).
@@ -633,7 +621,7 @@ func (m *monitor) networkSnapshot() networkReport {
 		}
 	}
 	cnsProgressCpy := map[string]bool{}
-	m.use()
+	m.inUse.Lock()
 	for key, value := range m.consensusProgress {
 		cnsProgressCpy[key] = value
 	}
@@ -641,7 +629,7 @@ func (m *monitor) networkSnapshot() networkReport {
 	totalNoReplyMachines = append(
 		append(totalNoReplyMachines, m.MetadataSnapshot.Down...), m.BlockHeaderSnapshot.Down...,
 	)
-	m.done()
+	m.inUse.Unlock()
 	return networkReport{buildVersion, m.chain, cnsProgressCpy, sum, totalNoReplyMachines}
 }
 
