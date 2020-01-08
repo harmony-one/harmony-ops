@@ -34,17 +34,17 @@ def create_accounts(count, name_prefix="generated"):
         return local_accounts
 
     max_threads = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
-    steps = int(count / max_threads)
+    max_threads = min(count, max_threads)
+    steps = int(math.ceil(count / max_threads))
     if count < 2:
         benchmarking_accounts = create(0, count)
     else:
         threads = []
         pool = ThreadPool(processes=max_threads)
         for i in range(max_threads):
-            threads.append(pool.apply_async(create, (i * steps, (i + 1) * steps)))
+            threads.append(pool.apply_async(create, (i * steps, min(count, (i + 1) * steps))))
         for t in threads:
             benchmarking_accounts.extend(t.get())
-        benchmarking_accounts.extend(create(max_threads * steps, count))
         pool.close()
         pool.join()
 
@@ -74,10 +74,15 @@ def start(source_accounts, sink_accounts):
         while _is_running_benchmark:
             src_address = cli.get_address(random.choice(src_accounts))
             snk_address = cli.get_address(random.choice(snk_accounts))
-            src_shard = random.randint(0, config["SHARD_COUNT"] - 1)
-            snk_shard = random.randint(0, config["SHARD_COUNT"] - 1)
+            shard_choices = list(range(0, config["SHARD_COUNT"]))
+            src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
+            snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
+            if config["ONLY_CROSS_SHARD"]:
+                while src_shard == snk_shard:
+                    src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
+                    snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
             txn_amt = config["AMT_PER_TXN"]
-            send_transaction(src_address, snk_address, src_shard, snk_shard,txn_amt, wait=False)
+            send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
 
     thread_count = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
     thread_count = min(thread_count, len(source_accounts))
