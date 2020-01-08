@@ -51,6 +51,7 @@ def _validate_config(input_config):
         raise ValueError("Number of Source Accounts cannot be negative")
     if not isinstance(input_config["NUM_SNK_ACC"], int) or input_config["NUM_SNK_ACC"] < 0:
         raise ValueError("Number of Sink Accounts cannot be negative")
+    # TODO: check max generation count: input_config["MAX_TXN_GEN_COUNT"]
     if not isinstance(input_config["ONLY_CROSS_SHARD"], bool):
         raise ValueError("Only Cross Shard must be a boolean")
     if not isinstance(input_config["ESTIMATED_GAS_PER_TXN"], (int, float)) or input_config["ESTIMATED_GAS_PER_TXN"] < 0:

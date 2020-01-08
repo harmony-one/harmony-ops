@@ -7,6 +7,7 @@ import datetime
 from multiprocessing.pool import ThreadPool
 
 import transaction_generator as tx_gen
+from transaction_generator import account_manager
 from transaction_generator import analysis
 import pyhmy
 from pyhmy import cli
@@ -21,6 +22,7 @@ tx_gen.set_config({
     "AMT_PER_TXN": [1e-9, 1e-9],
     "NUM_SRC_ACC": 1,
     "NUM_SNK_ACC": 1,
+    "MAX_TXN_GEN_COUNT": None,
     "ONLY_CROSS_SHARD": True,
     "ESTIMATED_GAS_PER_TXN": 1e-3,
     "INIT_SRC_ACC_BAL_PER_SHARD": 1,
