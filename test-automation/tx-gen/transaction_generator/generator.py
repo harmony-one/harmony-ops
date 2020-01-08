@@ -1,6 +1,7 @@
 import math
 import random
 import multiprocessing
+import threading
 from multiprocessing.pool import ThreadPool
 
 from pyhmy import cli
@@ -15,9 +16,9 @@ from .account_manager import (
     send_transaction
 )
 
-_is_running_benchmark = False
-_benchmark_threads = []
-_benchmark_pool = ThreadPool(processes=2)
+_is_running = False
+_generator_threads = []
+_generator_pool = ThreadPool(processes=2)
 
 
 def create_accounts(count, name_prefix="generated"):
@@ -52,26 +53,29 @@ def create_accounts(count, name_prefix="generated"):
 
 
 def stop():
-    global _is_running_benchmark
+    global _is_running
 
-    if not _is_running_benchmark:
+    if not _is_running:
         return
-    _is_running_benchmark = False
-    for t in _benchmark_threads:
+    _is_running = False
+    for t in _generator_threads:
         t.get()
-    _benchmark_pool.close()
+    _generator_pool.close()
 
 
 def start(source_accounts, sink_accounts):
-    global _benchmark_pool, _is_running_benchmark
+    global _generator_pool, _is_running
 
-    if _is_running_benchmark:
+    if _is_running:
         return
-    _is_running_benchmark = True
+    _is_running = True
+    lock = threading.Lock()
+    txn_count = 0
 
     def generate_transactions(src_accounts, snk_accounts):
-        global _is_running_benchmark
-        while _is_running_benchmark:
+        global _is_running
+        nonlocal txn_count
+        while _is_running and (config["MAX_TXN_GEN_COUNT"] is None or txn_count < config["MAX_TXN_GEN_COUNT"]):
             src_address = cli.get_address(random.choice(src_accounts))
             snk_address = cli.get_address(random.choice(snk_accounts))
             shard_choices = list(range(0, len(config["ENDPOINTS"])))
@@ -83,12 +87,16 @@ def start(source_accounts, sink_accounts):
                     snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
             txn_amt = random.uniform(config["AMT_PER_TXN"][0], config["AMT_PER_TXN"][1])
             send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
+            if config["MAX_TXN_GEN_COUNT"] is not None:
+                lock.acquire()
+                txn_count += 1
+                lock.release()
 
     thread_count = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
     thread_count = min(thread_count, len(source_accounts))
     k = max(len(source_accounts) // thread_count, 1)
-    _benchmark_pool = ThreadPool(processes=thread_count)
+    _generator_pool = ThreadPool(processes=thread_count)
     for i in range(thread_count):
         thread_src_accounts = source_accounts[i * k: (i + 1) * k]
-        _benchmark_threads.append(_benchmark_pool
+        _generator_threads.append(_generator_pool
                                   .apply_async(generate_transactions, (thread_src_accounts, sink_accounts)))
