@@ -16,42 +16,16 @@ from .common import (
 )
 
 
-def live_info(accounts, log, interval, duration):
-    # TODO: improve this so that we have better data as to what is going on.
-    assert isinstance(log, ControlledLogger)
-    assert accounts
-    last_totals = [[0.0] * config["SHARD_COUNT"] for _ in range(len(accounts))]
-    diffs = [[list() for _ in range(config["SHARD_COUNT"])] for _ in range(len(accounts))]
-    end_time = time.time() + duration
-    start_time = time.time()
-    while start_time < end_time:
-        log.info(f"==== Txn Count Info ====")
-        log.info(f"Check interval: {interval}")
-        for i, account in enumerate(accounts):
-            balances = get_balance(account)
-            for shard in range(config["SHARD_COUNT"]):
-                total = math.ceil(balances[shard]["amount"] / config["AMT_PER_TXN"])
-                diff = total - last_totals[i][shard]
-                last_totals[i][shard] = total
-                diffs[i][shard].append(diff)
-                average = math.ceil(sum(diffs[i][shard]) / len(diffs[i][shard]))
-                log.info(f"-----")
-                log.info(f"Account: {cli.get_address(account)}")
-                log.info(f"Shard: {shard}")
-                log.info(f"Shard balance: {balances[shard]['amount']}")
-                log.info(f"Total Txn: {total}")
-                log.info(f"Diff: {diff}")
-                log.info(f"Curr Avg: {average} txn per {interval} seconds")
-                log.info(f"-----")
-        log.info(f"=============================")
-        sleep_time = interval - (time.time() - start_time)
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-        start_time = time.time()
-    return last_totals, diffs
+def live_info(accounts, interval, duration):
+    # TODO: Function to get life (usable) feedback of current status of the tx-gen, during tx-gen.
+    pass
 
 
-def get_transaction_by_hash(endpoint, txn_hash):
+def _get_transaction_by_hash(endpoint, txn_hash):
+    """
+    Internal get transaction by has to speed up analysis.
+    Note that this functionality will eventually be migrated to the `pyhmy`
+    """
     url = endpoint
     payload = "{\"jsonrpc\": \"2.0\", \"method\": \"hmy_getTransactionByHash\"," \
               "\"params\": [\"" + txn_hash + "\"],\"id\": 1}"
