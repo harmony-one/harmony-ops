@@ -1,23 +1,18 @@
 import json
-import time
-import math
+import datetime
+import os
+import re
 from collections import defaultdict
 
 import requests
-from pyhmy import cli
-from pyhmy.logging import (
-    ControlledLogger
-)
 from pyhmy.util import (
-    json_load
+    json_load,
+    datetime_format
 )
 
 from .common import (
     Loggers,
     config,
-)
-from .account_manager import (
-    get_balance
 )
 
 
@@ -67,43 +62,50 @@ def get_transaction_by_hash(endpoint, txn_hash):
     return json_load(response.content)
 
 
-def verify_transactions(endpoints, transaction_log_dir, txn_counts, differences, log):
-    log.info("Verifying transactions...")
+def verify_transactions(transaction_log_dir, start_time, end_time):
+    # TODO: documentation
+    transaction_log_dir = os.path.abspath(transaction_log_dir)
+    assert os.path.isfile(transaction_log_dir)
+    assert transaction_log_dir.endswith(".log")
+    assert isinstance(start_time, datetime.datetime)
+    assert isinstance(end_time, datetime.datetime)
+
+    Loggers.report.info(f"{'='*6} Verifying transactions {'='*6}")
     with open(transaction_log_dir) as f:
-        toks = f.read().split("\n")
-    benchmark_txn = []
-    start_benchmark = False
-    for tok in toks:
+        tokens = f.read().split("\n")
+
+    transaction_hashes = []
+    for tok in tokens:
+        if not tok:
+            continue
         tok = tok.split(" : ")
-        if len(tok) != 2:
-            continue
-        if '=' in tok[1]:
-            start_benchmark = True
-            continue
-        if not start_benchmark:
-            continue
-        if start_benchmark and tok[1] == "Finished Benchmark...":
+        assert len(tok) == 2, f"Line format for `{transaction_log_dir}` is unknown,"
+        match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}', tok[0])
+        assert match, f"time format for `{transaction_log_dir}` not found or unknown."
+        date = datetime.datetime.strptime(match.group(), datetime_format)
+        if date >= end_time:
             break
-        benchmark_txn.append(json.loads(tok[1].strip()))
+        if date >= start_time:
+            transaction_hashes.append(json.loads(tok[1].strip()))
 
     sent_txn_hashes = set()
     sent_txn_per_shard = defaultdict(list)
     sent_shard_txn_total = defaultdict(int)
 
-    for txn in benchmark_txn:
+    for txn in transaction_hashes:
         txn_hash = txn["hash"]
         if txn_hash not in sent_txn_hashes:
             sent_txn_hashes.add(txn_hash)
             src_shard, dst_shard = str(txn["from-shard"]), str(txn["to-shard"])
-            sent_shard_txn_total[f"{src_shard},{dst_shard}"] += 1
+            sent_shard_txn_total[f"({src_shard}, {dst_shard})"] += 1
             sent_txn_per_shard[src_shard].append(txn_hash)
 
-    info = {
+    sent_transaction_report = {
         "sent-transactions": sent_txn_per_shard,
         "sent-transactions-total": len(sent_txn_hashes),
         "sent-transactions-total-per-shard": sent_shard_txn_total,
     }
-    Loggers.report.info(json.dumps(info))
+    Loggers.report.info(json.dumps(sent_transaction_report, indent=4))
 
     successful_txn_count = 0
     successful_txn_per_shard = defaultdict(list)
@@ -113,10 +115,10 @@ def verify_transactions(endpoints, transaction_log_dir, txn_counts, differences,
     failed_shard_txn_total = defaultdict(int)
     curr_count = 0
     for shard, shard_txn_hashes in sent_txn_per_shard.items():
-        endpoint = endpoints[int(shard)]
+        endpoint = config["ENDPOINTS"][int(shard)]
         for h in shard_txn_hashes:
-            response = get_transaction_by_hash(endpoint, h)
-            log.info(f"checking {curr_count} / {len(sent_txn_hashes)} transactions")
+            response = _get_transaction_by_hash(endpoint, h)
+            Loggers.report.info(f"checking {curr_count} / {len(sent_txn_hashes)} transactions")
             curr_count += 1
             if response['result'] is not None:
                 successful_txn_count += 1
@@ -127,8 +129,7 @@ def verify_transactions(endpoints, transaction_log_dir, txn_counts, differences,
                 failed_shard_txn_total[shard] += 1
                 failed_txn_per_shard[shard].append(h)
 
-    info = {
-        "balance-txn-counts": txn_counts,
+    received_transaction_report = {
         "successful-transactions": successful_txn_per_shard,
         "successful-transactions-total": successful_txn_count,
         "successful-transactions-total-per-shard": successful_shard_txn_total,
@@ -136,4 +137,10 @@ def verify_transactions(endpoints, transaction_log_dir, txn_counts, differences,
         "failed-transactions-total": failed_txn_count,
         "failed-transactions-total-per-shard": failed_shard_txn_total,
     }
-    Loggers.report.info(json.dumps(info))
+    Loggers.report.info(json.dumps(received_transaction_report, indent=4))
+    Loggers.report.write()
+    report = {
+        "sent-transaction-report": sent_transaction_report,
+        "received-transaction-report": received_transaction_report
+    }
+    return report
