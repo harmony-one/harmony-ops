@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: transaction-generator
+Version: 20.1.0
+Summary: A transaction generator for the Harmony blockchain
+Home-page: http://harmony.one/
+Author: Daniel Van Der Maden
+Author-email: daniel@harmony.one
+License: UNKNOWN
+Description: # Transaction Generator Python library
+        
+        **This is for python 3.6+ only**
+        
+Keywords: Harmony,blockchain,protocol
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Description-Content-Type: text/markdown
