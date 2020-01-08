@@ -244,6 +244,8 @@ hr:after {
 	    <th>Version</th>
 	    <th>Network Type</th>
 	    <th>ChainID</th>
+	    <th>ShardID</th>
+	    <th>Role</th>
 	  </tr>
         </thead>
         <tbody>
@@ -255,6 +257,8 @@ hr:after {
             <td>{{.Payload.Version}} </td>
             <td>{{.Payload.NetworkType}} </td>
             <td>{{.Payload.ChainID}} </td>
+            <td>{{.Payload.ShardID}} </td>
+            <td>{{.Payload.NodeRole}} </td>
           </tr>
           {{end}}
           {{end}}

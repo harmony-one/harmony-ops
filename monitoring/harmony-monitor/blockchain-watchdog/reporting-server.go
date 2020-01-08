@@ -35,6 +35,7 @@ type nodeMetadata struct {
 	ChainID      string `json:"chainid"`
 	IsLeader     bool   `json:"is-leader"`
 	ShardID      uint32 `json:"shard-id"`
+	NodeRole     string `json:"role"`
 }
 
 type headerInformation struct {
@@ -284,6 +285,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 						v.(metadataRPCResult).Payload.ChainID,
 						strconv.FormatBool(v.(metadataRPCResult).Payload.IsLeader),
 						strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ShardID), 10),
+						v.(metadataRPCResult).Payload.NodeRole,
 					}
 					records = append(records, row)
 				}
