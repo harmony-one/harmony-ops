@@ -153,7 +153,7 @@ def return_balances(accounts, wait=False):
     txn_hashes = []
     account_addresses = []
     for account in accounts:
-        for shard_index in range(config['SHARD_COUNT']):
+        for shard_index in range(len(config['ENDPOINTS'])):
             amount = get_balance(account)[shard_index]["amount"]
             amount -= config["ESTIMATED_GAS_PER_TXN"]
             if amount > config['ESTIMATED_GAS_PER_TXN']:
