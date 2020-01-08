@@ -49,6 +49,7 @@ def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=Fal
             file_path = f"{keystore_path}/{file_name}"
             account_name = f"{import_account_name_prefix}{name_prefix}{j+start}"
             if not cli.get_address(account_name):
+                cli.remove_account(account_name)  # Just in-case there is a folder with nothing in it.
                 Loggers.general.info(f"Adding key file: ({j+start}) {file_name}")
                 if fast_load:
                     keystore_acc_dir = f"{cli.get_account_keystore_path()}/{account_name}"
