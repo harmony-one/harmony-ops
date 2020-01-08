@@ -25,7 +25,15 @@ tx_gen.set_config({
     "ENDPOINTS": [
         "http://localhost:9500/",
         "http://localhost:9501/"
-    ],  # TODO: bias for likelyhood of choosing an endpoint
+    ],
+    "SRC_SHARD_WEIGHTS": [
+        1,
+        1
+    ],
+    "SNK_SHARD_WEIGHTS": [
+        1,
+        1
+    ],
     "CHAIN_ID": "testnet",
     "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",
     "REFUND_ACCOUNT_PASSPHRASE": ""
@@ -49,7 +57,6 @@ def log_writer(interval):
 
 if __name__ == "__main__":
     setup()
-
     if verbose:
         tx_gen.Loggers.general.logger.addHandler(logging.StreamHandler(sys.stdout))
         tx_gen.Loggers.balance.logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -68,10 +75,11 @@ if __name__ == "__main__":
     tx_gen_pool = ThreadPool(processes=1)
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
 
-    # TODO: test analysis
-    # TODO: add config verification
-    # TODO: improve tx_gen performance for more txns/sec
-    # TODO: add examples for scenarios
+    # TODO: test analysis.
+    # TODO: add config verification.
+    # TODO: improve tx_gen performance for more txns/sec.
+    # TODO: improve funding logic to make it more efficient.
+    # TODO: add examples for scenarios.
 
     time.sleep(30)
     tx_gen.stop()
