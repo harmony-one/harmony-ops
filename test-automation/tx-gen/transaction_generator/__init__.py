@@ -11,7 +11,7 @@ from .common import (
 )
 from .account_manager import (
     account_balances,
-    get_balance,
+    get_balances,
     load_accounts,
     create_account,
     is_fast_loaded,

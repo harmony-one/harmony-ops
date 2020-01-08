@@ -37,6 +37,9 @@ def _get_transaction_by_hash(endpoint, txn_hash):
 
 
 def verify_transactions(transaction_log_dir, start_time, end_time):
+    """
+    Note that time has to be UTC since the logs are in UTC
+    """
     # TODO: documentation
     transaction_log_dir = os.path.abspath(transaction_log_dir)
     assert os.path.isfile(transaction_log_dir)
@@ -54,13 +57,12 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
             continue
         tok = tok.split(" : ")
         assert len(tok) == 2, f"Line format for `{transaction_log_dir}` is unknown,"
-        match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}', tok[0])
-        assert match, f"time format for `{transaction_log_dir}` not found or unknown."
-        date = datetime.datetime.strptime(match.group(), datetime_format)
+        txn_log = json.loads(tok[1].strip())
+        date = datetime.datetime.strptime(txn_log["time-utc"], datetime_format)
         if date >= end_time:
             break
         if date >= start_time:
-            transaction_hashes.append(json.loads(tok[1].strip()))
+            transaction_hashes.append(txn_log)
 
     sent_txn_hashes = set()
     sent_txn_per_shard = defaultdict(list)
@@ -92,7 +94,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
         endpoint = config["ENDPOINTS"][int(shard)]
         for h in shard_txn_hashes:
             response = _get_transaction_by_hash(endpoint, h)
-            Loggers.report.info(f"checking {curr_count} / {len(sent_txn_hashes)} transactions")
+            Loggers.general.info(f"checking {curr_count} / {len(sent_txn_hashes)} transactions")
             curr_count += 1
             if response['result'] is not None:
                 successful_txn_count += 1
