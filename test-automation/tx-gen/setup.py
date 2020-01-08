@@ -21,7 +21,8 @@ setup(
         'pytest-ordering',
         'incremental',
         'click',
-        'twisted'
+        'twisted',
+        'requests'
     ],
     setup_requires=[
         'incremental',
