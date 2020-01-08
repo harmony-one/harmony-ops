@@ -23,7 +23,7 @@ _accounts_added = set()
 _fast_loaded_accounts = {}  # keys = acc_names, values = passphrase
 
 
-def get_balance(account_name, shard_index=0):
+def get_balances(account_name, shard_index=0):
     assert shard_index < len(config["ENDPOINTS"])
     address = cli.get_address(account_name)
     if not address:
@@ -60,7 +60,7 @@ def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=Fal
                                     f"--passphrase={passphrase}")
             accounts_added.append(account_name)
             _accounts_added.add(account_name)
-            account_balances[account_name] = get_balance(account_name)
+            account_balances[account_name] = get_balances(account_name)
 
     max_threads = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
     steps = int(math.ceil(len(key_paths) / max_threads))
@@ -79,7 +79,7 @@ def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=Fal
 def create_account(account_name):
     cli.remove_account(account_name)
     cli.single_call(f"hmy keys add {account_name}")
-    get_balance(account_name)
+    get_balances(account_name)
     _accounts_added.add(account_name)
 
 
@@ -154,7 +154,7 @@ def return_balances(accounts, wait=False):
     account_addresses = []
     for account in accounts:
         for shard_index in range(len(config['ENDPOINTS'])):
-            amount = get_balance(account)[shard_index]["amount"]
+            amount = get_balances(account)[shard_index]["amount"]
             amount -= config["ESTIMATED_GAS_PER_TXN"]
             if amount > config['ESTIMATED_GAS_PER_TXN']:
                 from_address = cli.get_address(account)

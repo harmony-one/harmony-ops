@@ -90,6 +90,5 @@ def start(source_accounts, sink_accounts):
     _benchmark_pool = ThreadPool(processes=thread_count)
     for i in range(thread_count):
         thread_src_accounts = source_accounts[i * k: (i + 1) * k]
-        if thread_src_accounts:
-            _benchmark_threads.append(_benchmark_pool
-                                      .apply_async(generate_transactions, (thread_src_accounts, sink_accounts)))
+        _benchmark_threads.append(_benchmark_pool
+                                  .apply_async(generate_transactions, (thread_src_accounts, sink_accounts)))
