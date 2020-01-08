@@ -3,18 +3,23 @@
 import time
 import sys
 import logging
+import datetime
 from multiprocessing.pool import ThreadPool
 
 import transaction_generator as tx_gen
 from transaction_generator import analysis
 import pyhmy
 from pyhmy import cli
+from pyhmy import util
 
 verbose = True
 
+# TODO: improve tx_gen performance for more txns/sec.
+# TODO: improve funding logic to make it more efficient.
+
 tx_gen.set_config({
     "AMT_PER_TXN": [1e-9, 1e-9],
-    "NUM_SRC_ACC": 5,
+    "NUM_SRC_ACC": 1,
     "NUM_SNK_ACC": 1,
     "ONLY_CROSS_SHARD": True,
     "ESTIMATED_GAS_PER_TXN": 1e-3,
@@ -72,19 +77,16 @@ if __name__ == "__main__":
     tx_gen.fund_accounts(source_accounts)
 
     tx_gen_pool = ThreadPool(processes=1)
+    start_time = datetime.datetime.utcnow()  # MUST be utc
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
-
-    # TODO: remove the use of `shard_count`
-
-    # TODO: add config verification.
-    # TODO: add examples for scenarios.
-    # TODO: test analysis.
-    # TODO: improve tx_gen performance for more txns/sec.
-    # TODO: improve funding logic to make it more efficient.
-
     time.sleep(30)
     tx_gen.stop()
+    end_time = datetime.datetime.utcnow()  # MUST be utc
     tx_gen.return_balances(source_accounts)
     tx_gen.return_balances(sink_accounts)
     tx_gen.remove_accounts(source_accounts)
     tx_gen.remove_accounts(sink_accounts)
+    time.sleep(25)
+    report = analysis.verify_transactions(tx_gen.Loggers.transaction.filename, start_time, end_time)
+    print(report)
+
