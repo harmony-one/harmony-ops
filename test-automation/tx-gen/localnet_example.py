@@ -13,7 +13,7 @@ from pyhmy import cli
 verbose = True
 
 tx_gen.set_config({
-    "AMT_PER_TXN": 1e-9,
+    "AMT_PER_TXN": [1e-9, 1e-9],
     "NUM_SRC_ACC": 5,
     "NUM_SNK_ACC": 1,
     "ONLY_CROSS_SHARD": True,
@@ -21,7 +21,6 @@ tx_gen.set_config({
     "INIT_SRC_ACC_BAL_PER_SHARD": 1,
     "TXN_WAIT_TO_CONFIRM": 60,
     "MAX_THREAD_COUNT": 16,
-    "SHARD_COUNT": 2,
     "ENDPOINTS": [
         "http://localhost:9500/",
         "http://localhost:9501/"
@@ -44,7 +43,7 @@ def setup():
     assert hasattr(pyhmy, "__version__")
     assert pyhmy.__version__.major == 20
     assert pyhmy.__version__.minor > 0
-    env = cli.download("./bin/hmy_cli")
+    env = cli.download("./bin/hmy_cli", replace=False)
     cli.environment.update(env)
     cli.set_binary("./bin/hmy_cli")
 
@@ -75,11 +74,13 @@ if __name__ == "__main__":
     tx_gen_pool = ThreadPool(processes=1)
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
 
-    # TODO: test analysis.
+    # TODO: remove the use of `shard_count`
+
     # TODO: add config verification.
+    # TODO: add examples for scenarios.
+    # TODO: test analysis.
     # TODO: improve tx_gen performance for more txns/sec.
     # TODO: improve funding logic to make it more efficient.
-    # TODO: add examples for scenarios.
 
     time.sleep(30)
     tx_gen.stop()

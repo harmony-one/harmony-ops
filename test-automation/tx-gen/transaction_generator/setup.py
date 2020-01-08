@@ -30,7 +30,7 @@ def _fund_middlemen(shard_index):
     the nonce explicitly. It also helps deal with the probably nonce missmatch of
     multiple nodes in the start funding source accounts from the same pool of accounts.
     """
-    assert 0 <= shard_index < config["SHARD_COUNT"]
+    assert 0 <= shard_index < len(config["ENDPOINTS"])
     total_funds_needed = config["NUM_SRC_ACC"] * config["INIT_SRC_ACC_BAL_PER_SHARD"]
     middleman_count = min(config["MAX_THREAD_COUNT"], config["NUM_SRC_ACC"])
     funds_per_middleman = total_funds_needed / middleman_count
@@ -84,7 +84,7 @@ def _fund_middlemen(shard_index):
 
 
 def _fund_accounts(accounts, shard_index):
-    assert 0 <= shard_index < config["SHARD_COUNT"]
+    assert 0 <= shard_index < len(config["ENDPOINTS"])
     transaction_hashes = []
     middleman_accounts = _fund_middlemen(shard_index)
 
@@ -125,5 +125,5 @@ def _fund_accounts(accounts, shard_index):
 
 
 def fund_accounts(accounts):
-    for shard_index in range(config["SHARD_COUNT"]):
+    for shard_index in range(len(config["ENDPOINTS"])):
         _fund_accounts(accounts, shard_index=shard_index)
