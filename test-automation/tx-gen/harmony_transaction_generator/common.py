@@ -2,7 +2,7 @@ import datetime
 from pyhmy.logging import ControlledLogger
 
 _config = {}
-import_account_name_prefix = "_Benchmark_"
+import_account_name_prefix = "_tx_gen_"
 
 
 class Loggers:
