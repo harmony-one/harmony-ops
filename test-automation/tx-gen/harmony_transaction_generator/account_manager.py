@@ -38,6 +38,9 @@ def get_balances(account_name, shard_index=0):
 
 
 def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=False):
+    """
+    Note the specific format of the keystore. Reference './localnet_validator_keys/'
+    """
     config = get_config()
     assert os.path.exists(keystore_path)
     keystore_path = os.path.realpath(keystore_path)
@@ -46,26 +49,27 @@ def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=Fal
 
     def load(start, end):
         for j, file_name in enumerate(key_paths[start: end]):
-            if not file_name.endswith(".key") or file_name.startswith("."):
-                continue  # STRONG assumption about imported key-files.
-            file_path = f"{keystore_path}/{file_name}"
-            account_name = f"{import_account_name_prefix}{name_prefix}{j+start}"
-            if not cli.get_address(account_name):
-                cli.remove_account(account_name)  # Just in-case there is a folder with nothing in it.
-                Loggers.general.info(f"Adding key file: ({j+start}) {file_name}")
-                if fast_load:
-                    keystore_acc_dir = f"{cli.get_account_keystore_path()}/{account_name}"
-                    os.makedirs(keystore_acc_dir, exist_ok=True)
-                    shutil.copy(file_path, f"{keystore_acc_dir}/{file_name}")
-                    _fast_loaded_accounts[account_name] = passphrase
-                else:
-                    cli.single_call(f"hmy keys import-ks {file_path} {account_name} "
-                                    f"--passphrase={passphrase}")
-            accounts_added.append(account_name)
-            _accounts_added.add(account_name)
-            account_balances[account_name] = get_balances(account_name)
+            # STRONG assumption about imported key-files.
+            if file_name.endswith(".key") or not file_name.startswith("."):
+                file_path = f"{keystore_path}/{file_name}"
+                account_name = f"{import_account_name_prefix}{name_prefix}{j+start}"
+                if not cli.get_address(account_name):
+                    cli.remove_account(account_name)  # Just in-case there is a folder with nothing in it.
+                    Loggers.general.info(f"Adding key file: ({j+start}) {file_name}")
+                    if fast_load:
+                        keystore_acc_dir = f"{cli.get_account_keystore_path()}/{account_name}"
+                        os.makedirs(keystore_acc_dir, exist_ok=True)
+                        shutil.copy(file_path, f"{keystore_acc_dir}/{file_name}")
+                        _fast_loaded_accounts[account_name] = passphrase
+                    else:
+                        cli.single_call(f"hmy keys import-ks {file_path} {account_name} "
+                                        f"--passphrase={passphrase}")
+                accounts_added.append(account_name)
+                _accounts_added.add(account_name)
+                account_balances[account_name] = get_balances(account_name)
 
     max_threads = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
+    max_threads = min(max_threads, len(key_paths))
     steps = int(math.ceil(len(key_paths) / max_threads))
 
     threads = []
