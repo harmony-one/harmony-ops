@@ -13,7 +13,7 @@ setup(
     author='Daniel Van Der Maden',
     author_email='daniel@harmony.one',
     url="http://harmony.one/",
-    packages=['transaction_generator'],
+    packages=['harmony_transaction_generator'],
     keywords=['Harmony', 'blockchain', 'protocol'],
     install_requires=[
         'pyhmy',
