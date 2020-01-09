@@ -126,7 +126,10 @@ def _fund_accounts(accounts, shard_index):
     return transaction_hashes
 
 
-def fund_accounts(accounts):
+def fund_accounts(accounts, shard_indexes=None):
     config = get_config()
-    for shard_index in range(len(config["ENDPOINTS"])):
+    if shard_indexes is None:
+        shard_indexes = range(len(config["ENDPOINTS"]))
+    assert hasattr(shard_indexes, "__iter__")
+    for shard_index in shard_indexes:
         _fund_accounts(accounts, shard_index=shard_index)
