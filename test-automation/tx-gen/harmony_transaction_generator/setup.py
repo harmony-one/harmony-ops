@@ -23,12 +23,11 @@ from .account_manager import (
 
 def _fund_middlemen(shard_index):
     """
-    Internal helper method for 'fund_accounts' which returns a list of funded middlemen
+    Internal helper method for '_fund_accounts' which returns a list of funded middlemen
     as needed by the constraints set in the CONFIG file.
 
     Middlemen accounts are used to parallelize funding source accounts without changing
-    the nonce explicitly. It also helps deal with the probably nonce missmatch of
-    multiple nodes in the start funding source accounts from the same pool of accounts.
+    the nonce explicitly.
     """
     config = get_config()
     assert 0 <= shard_index < len(config["ENDPOINTS"])
@@ -85,6 +84,10 @@ def _fund_middlemen(shard_index):
 
 
 def _fund_accounts(accounts, shard_index):
+    """
+    Internal method to fund accounts using middlemen.
+    Each parallelized thread uses 1 middleman to fund a pool of accounts.
+    """
     config = get_config()
     assert 0 <= shard_index < len(config["ENDPOINTS"])
     transaction_hashes = []
@@ -127,6 +130,11 @@ def _fund_accounts(accounts, shard_index):
 
 
 def fund_accounts(accounts, shard_indexes=None):
+    """
+    :param accounts: An iterable of account names to be funded
+    :param shard_indexes: An iterable of shard indexes that the accounts should be funded on.
+                          Defaults to ALL shards.
+    """
     config = get_config()
     if shard_indexes is None:
         shard_indexes = range(len(config["ENDPOINTS"]))
