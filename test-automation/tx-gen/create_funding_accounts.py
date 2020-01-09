@@ -72,7 +72,6 @@ if __name__ == "__main__":
         ],
         "CHAIN_ID": "devnet",
         "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",  # Needs to be in keystore
-        "REFUND_ACCOUNT_PASSPHRASE": ""
     })
 
     # Prints what is being logged.

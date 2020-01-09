@@ -15,9 +15,6 @@ from pyhmy import util
 
 verbose = True
 
-# TODO: improve tx_gen performance for more txns/sec.
-# TODO: improve funding logic to make it more efficient.
-
 tx_gen.set_config({
     "AMT_PER_TXN": [1e-9, 1e-9],
     "NUM_SRC_ACC": 1,
@@ -42,7 +39,6 @@ tx_gen.set_config({
     ],
     "CHAIN_ID": "testnet",
     "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",
-    "REFUND_ACCOUNT_PASSPHRASE": ""
 })
 
 
@@ -76,7 +72,7 @@ if __name__ == "__main__":
     tx_gen.load_accounts("./localnet_validator_keys", "", fast_load=True)
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
-    tx_gen.fund_accounts(source_accounts)
+    tx_gen.fund_accounts(source_accounts)  # Expensive call at the moment (its overly safe), working on speedup
 
     tx_gen_pool = ThreadPool(processes=1)
     start_time = datetime.datetime.utcnow()  # MUST be utc
