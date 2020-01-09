@@ -8,7 +8,7 @@ from pyhmy import cli
 
 from .common import (
     Loggers,
-    config,
+    get_config,
     import_account_name_prefix,
 )
 from .account_manager import (
@@ -22,6 +22,7 @@ _generator_pool = ThreadPool(processes=2)
 
 
 def create_accounts(count, name_prefix="generated"):
+    config = get_config()
     assert count > 0
     benchmarking_accounts = []
 
@@ -65,6 +66,7 @@ def stop():
 
 def start(source_accounts, sink_accounts):
     global _generator_pool, _is_running
+    config = get_config()
 
     if _is_running:
         return

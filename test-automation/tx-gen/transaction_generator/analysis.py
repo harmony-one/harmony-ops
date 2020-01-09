@@ -1,7 +1,6 @@
 import json
 import datetime
 import os
-import re
 from collections import defaultdict
 
 import requests
@@ -12,7 +11,7 @@ from pyhmy.util import (
 
 from .common import (
     Loggers,
-    config,
+    get_config,
 )
 
 
@@ -40,6 +39,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
     """
     Note that time has to be UTC since the logs are in UTC
     """
+    config = get_config()
     # TODO: documentation
     transaction_log_dir = os.path.abspath(transaction_log_dir)
     assert os.path.isfile(transaction_log_dir)

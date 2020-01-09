@@ -1,7 +1,7 @@
 from .common import (
     Loggers,
-    config,
     set_config,
+    get_config,
     start_new_loggers,
     start_new_general_logger,
     start_new_transaction_logger,

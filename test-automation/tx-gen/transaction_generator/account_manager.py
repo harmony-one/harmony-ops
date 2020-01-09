@@ -13,7 +13,7 @@ from pyhmy.util import (
 
 from .common import (
     Loggers,
-    config,
+    get_config,
     import_account_name_prefix,
 )
 
@@ -24,6 +24,7 @@ _fast_loaded_accounts = {}  # keys = acc_names, values = passphrase
 
 
 def get_balances(account_name, shard_index=0):
+    config = get_config()
     assert shard_index < len(config["ENDPOINTS"])
     address = cli.get_address(account_name)
     if not address:
@@ -37,6 +38,7 @@ def get_balances(account_name, shard_index=0):
 
 
 def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=False):
+    config = get_config()
     assert os.path.exists(keystore_path)
     keystore_path = os.path.realpath(keystore_path)
     key_paths = os.listdir(keystore_path)
@@ -120,6 +122,7 @@ def remove_accounts(accounts, backup=True):
 
 def send_transaction(from_address, to_address, src_shard, dst_shard, amount, pw='', wait=True, retry=False):
     # TODO: implement try counts...
+    config = get_config()
     assert cli.check_address(from_address), "source address must be in the CLI's keystore."
     command = f"hmy --node={config['ENDPOINTS'][src_shard]} transfer " \
               f"--from={from_address} --to={to_address} " \
@@ -150,6 +153,7 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount, pw=
 
 
 def return_balances(accounts, wait=False):
+    config = get_config()
     Loggers.general.info("Refunding accounts...")
     txn_hashes = []
     account_addresses = []
