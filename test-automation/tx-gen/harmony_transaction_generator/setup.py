@@ -52,7 +52,7 @@ def _fund_middlemen(shard_index):
         raise RuntimeError(f"No validator in CLI's keystore has {min_funding_balance} on shard {shard_index}")
 
     max_threads = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
-    max_threads = min(max_threads, middleman_count, int(math.ceil(len(funding_accounts)/3)))
+    max_threads = min(max_threads, middleman_count, len(funding_accounts))
     bin_size = len(funding_accounts) // max_threads
     binned_funding_accounts = [funding_accounts[i:i + bin_size] for i in range(0, len(funding_accounts), bin_size)]
 
@@ -125,7 +125,7 @@ def _fund_accounts(accounts, shard_index):
         pool.join()
 
     return_balances(middleman_accounts)
-    remove_accounts(middleman_accounts)
+    remove_accounts(middleman_accounts, backup=False)
     return transaction_hashes
 
 
