@@ -87,5 +87,5 @@ if __name__ == "__main__":
     tx_gen.load_accounts(args.faucet_key_dir, args.faucet_key_pw)
     accounts = tx_gen.create_accounts(args.count, "NEW_FUNDED_ACC")
     tx_gen.fund_accounts(accounts)  # Funds all the accounts with 1000 $one.
-    print(f"Keystore path: {cli.get_accounts_keystore()}")
+    print(f"Keystore path: {cli.get_account_keystore_path()}")
     print(f"Accounts added: {accounts}")
