@@ -46,7 +46,7 @@ def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=Fal
 
     def load(start, end):
         for j, file_name in enumerate(key_paths[start: end]):
-            if not file_name.endswith(".key") and not file_name.endswith("--"):
+            if not file_name.endswith(".key") or file_name.startswith("."):
                 continue  # STRONG assumption about imported key-files.
             file_path = f"{keystore_path}/{file_name}"
             account_name = f"{import_account_name_prefix}{name_prefix}{j+start}"
