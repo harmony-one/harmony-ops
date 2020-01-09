@@ -17,7 +17,7 @@ import harmony_transaction_generator as tx_gen
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Wrapper python script to test API using newman.')
+    parser = argparse.ArgumentParser(description='A quick account generator with funding')
     parser.add_argument("--count", dest="count", default=multiprocessing.cpu_count(),
                         help="Number of accounts to generate and fund", type=int)
     parser.add_argument("--faucet_key_dir", dest="faucet_key_dir", default="./faucet_key",
@@ -29,8 +29,9 @@ def parse_args():
 
 def setup():
     assert hasattr(pyhmy, "__version__")
-    assert pyhmy.__version__.major == 20
-    assert pyhmy.__version__.minor > 0
+    assert pyhmy.__version__.major == 20, "wrong pyhmy version"
+    assert pyhmy.__version__.minor == 1, "wrong pyhmy version"
+    assert pyhmy.__version__.micro >= 2, "wrong pyhmy version, update please"
     env = cli.download("./bin/hmy_cli", replace=False)
     cli.environment.update(env)
     cli.set_binary("./bin/hmy_cli")
@@ -71,7 +72,7 @@ if __name__ == "__main__":
             1
         ],
         "CHAIN_ID": "devnet",
-        "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",  # Needs to be in keystore
+        "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",
     })
 
     # Prints what is being logged.
