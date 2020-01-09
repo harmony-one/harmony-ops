@@ -6,9 +6,9 @@ import logging
 import datetime
 from multiprocessing.pool import ThreadPool
 
-import transaction_generator as tx_gen
-from transaction_generator import account_manager
-from transaction_generator import analysis
+import harmony_transaction_generator as tx_gen
+from harmony_transaction_generator import account_manager
+from harmony_transaction_generator import analysis
 import pyhmy
 from pyhmy import cli
 from pyhmy import util
@@ -48,8 +48,8 @@ tx_gen.set_config({
 
 def setup():
     assert hasattr(pyhmy, "__version__")
-    assert pyhmy.__version__.major == 20
-    assert pyhmy.__version__.minor > 0
+    assert pyhmy.__version__.major == 20, "wrong pyhmy version, update please"
+    assert pyhmy.__version__.minor > 0, "wrong pyhmy version, update please"
     env = cli.download("./bin/hmy_cli", replace=False)
     cli.environment.update(env)
     cli.set_binary("./bin/hmy_cli")

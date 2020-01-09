@@ -5,7 +5,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(
-    name='transaction_generator',
+    name='harmony_transaction_generator',
     use_incremental=True,
     description="A transaction generator for the Harmony blockchain",
     long_description=README,
