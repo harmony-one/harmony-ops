@@ -169,8 +169,9 @@ def return_balances(accounts, wait=False):
                 from_address = cli.get_address(account)
                 to_address = config['REFUND_ACCOUNT']
                 account_addresses.append(from_address)
-                txn_hash = send_transaction(from_address, to_address, shard_index, shard_index, amount,
-                                            pw=config['REFUND_ACCOUNT_PASSPHRASE'], wait=wait)
+                pw = get_fast_loaded_passphrase(account) if is_fast_loaded(account) else ''
+                txn_hash = send_transaction(from_address, to_address, shard_index,
+                                            shard_index, amount, pw=pw, wait=wait)
                 txn_hashes.append({"shard": shard_index, "hash": txn_hash})
     Loggers.general.info(f"Refund transaction hashes: {txn_hashes}")
     return txn_hashes

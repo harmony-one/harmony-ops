@@ -72,8 +72,6 @@ def _validate_config():
     # TODO: check chain_ID: input_config["CHAIN_ID"]
     if not _config["REFUND_ACCOUNT"].startswith("one1"):
         raise ValueError("Refund account must be valid account")
-    if not isinstance(_config["REFUND_ACCOUNT_PASSPHRASE"], str):
-        raise ValueError("Refund Account Passphrase must be a string")
 
 
 def set_config(input_config):
