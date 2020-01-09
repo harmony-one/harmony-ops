@@ -54,6 +54,9 @@ def create_accounts(count, name_prefix="generated"):
 
 
 def stop():
+    """
+    Stops the transaction generation.
+    """
     global _is_running
 
     if not _is_running:
@@ -65,6 +68,15 @@ def stop():
 
 
 def start(source_accounts, sink_accounts):
+    """
+    Starts the transaction generation where for each transaction:
+        The source account is chosen at random from the pool of accounts, `source_accounts`
+        The sink / destination account is chosen at random from the pool of accounts, `sink_accounts`
+        The to and from shards are chosen at random as defined by the shard weights in the config.
+
+    :param source_accounts: A list that defines the pool of source accounts
+    :param sink_accounts: A list that defines the pool of sink accounts
+    """
     global _generator_pool, _is_running
     config = get_config()
 

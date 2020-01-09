@@ -75,6 +75,9 @@ def _validate_config():
 
 
 def set_config(input_config):
+    """
+    :param input_config: A dictionary specifying the config
+    """
     _config.clear()
     _config.update(input_config)
     _validate_config()
@@ -82,6 +85,6 @@ def set_config(input_config):
 
 def get_config():
     """
-    Has to return a copy to prevent accidental modifications of config
+    :returns a COPY of the current config (to prevent accidental modification of config)
     """
     return _config.copy()

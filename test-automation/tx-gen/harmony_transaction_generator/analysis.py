@@ -37,10 +37,57 @@ def _get_transaction_by_hash(endpoint, txn_hash):
 
 def verify_transactions(transaction_log_dir, start_time, end_time):
     """
-    Note that time has to be UTC since the logs are in UTC
+    :param transaction_log_dir: The file path to the log file of transactions
+    :param start_time: The start time (as a datetime object) of the transactions to verify in UTC
+    :param end_time: The end time (as a datetime object) of the transactions to verify in UTC
+    :return: A report with the following structure:
+        ex:
+        {
+            "sent-transaction-report" : {
+                "sent-transactions": {
+                    "0": [
+                        <transaction hashes>
+                    ],
+                    "1": [
+                        <transaction hashes>
+                    ]
+                },
+                "sent-transactions-total": 15,
+                "sent-transactions-total-per-shard": {
+                    "(<src_shard>, <dst_shard>)" : <count>
+                }
+            },
+            "received-transaction-report" : {
+                "successful-transactions": {  # key = source shard
+                    "0": [
+                        <transaction hashes>
+                    ],
+                    "1": [
+                        <transaction hashes>
+                    ]
+                },
+                "successful-transactions-total": 8,
+                "successful-transactions-total-per-shard": {
+                    "0": 4,
+                    "1": 4
+                },
+                "failed-transactions": {  # key = source shard
+                    "0": [
+                        <transaction hashes>
+                    ],
+                    "1": [
+                        <transaction hashes>
+                    ]
+                },
+                "failed-transactions-total": 7,
+                "failed-transactions-total-per-shard": {
+                    "0": 3,
+                    "1": 4
+                }
+            }
+        }
     """
     config = get_config()
-    # TODO: documentation
     transaction_log_dir = os.path.abspath(transaction_log_dir)
     assert os.path.isfile(transaction_log_dir)
     assert transaction_log_dir.endswith(".log")

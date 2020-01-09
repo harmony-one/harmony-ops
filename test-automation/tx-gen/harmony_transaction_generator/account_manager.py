@@ -39,7 +39,12 @@ def get_balances(account_name, shard_index=0):
 
 def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=False):
     """
-    Note the specific format of the keystore. Reference './localnet_validator_keys/'
+    :param keystore_path: The path to the keystore to import. Note the specific format of the keystore,
+                          Reference './localnet_validator_keys/'.
+    :param passphrase: The passphrase for ALL keys in the keystore.
+    :param name_prefix: The name assigned to each account in the CLI's keystore.
+    :param fast_load: Copy over the file instead of importing the file using `import-ks`.
+    :return: A list of account names (in the CLI's keystore) that were added.
     """
     config = get_config()
     assert os.path.exists(keystore_path)
@@ -105,7 +110,11 @@ def get_fast_loaded_passphrase(account):
 
 
 def remove_accounts(accounts, backup=True):
-    # TODO: implement logic to save keys in a specific dir...
+    """
+    TODO: remove logging private keys
+    :param accounts: An iterable of accounts names to remove
+    :param backup: If true, logs (to the general logger) the private key of the account that was removed.
+    """
     for acc in accounts:
         address = cli.get_address(acc)
         private_key = ""
@@ -157,6 +166,11 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount, pw=
 
 
 def return_balances(accounts, wait=False):
+    """
+    :param accounts: An iterable of account names to be refunded.
+    :param wait: If true, wait for a transaction to succeed before continuing.
+    :return: A list of transaction hashes for all the refund transactions.
+    """
     config = get_config()
     Loggers.general.info("Refunding accounts...")
     txn_hashes = []

@@ -16,29 +16,29 @@ from pyhmy import util
 verbose = True
 
 tx_gen.set_config({
-    "AMT_PER_TXN": [1e-9, 1e-9],
-    "NUM_SRC_ACC": 1,
-    "NUM_SNK_ACC": 1,
-    "MAX_TXN_GEN_COUNT": None,
-    "ONLY_CROSS_SHARD": False,
-    "ESTIMATED_GAS_PER_TXN": 1e-3,
-    "INIT_SRC_ACC_BAL_PER_SHARD": 1,
-    "TXN_WAIT_TO_CONFIRM": 60,
-    "MAX_THREAD_COUNT": 16,
-    "ENDPOINTS": [
+    "AMT_PER_TXN": [1e-9, 1e-9],  # The random range for each transaction in the transaction-generation
+    "NUM_SRC_ACC": 16,  # The number of possible source accounts for all transactions
+    "NUM_SNK_ACC": 1,  # The number of possible destination / sink accounts for all transaction
+    "MAX_TXN_GEN_COUNT": None,  # The upper bound of the number generated transaction, regardless of if `stop` is called
+    "ONLY_CROSS_SHARD": True,  # If true, forces source and destination shards to be different
+    "ESTIMATED_GAS_PER_TXN": 1e-3,  # The estimated gas, hardcoded
+    "INIT_SRC_ACC_BAL_PER_SHARD": 1,  # The initial balance for EVERY source account
+    "TXN_WAIT_TO_CONFIRM": 60,  # The timeout when a transaction is set (only used in setup related functions)
+    "MAX_THREAD_COUNT": 8,  # Max thread is recommended to be less than your v-core count
+    "ENDPOINTS": [  # Endpoints for all transaction, index i = shard i
         "http://localhost:9500/",
         "http://localhost:9501/"
     ],
-    "SRC_SHARD_WEIGHTS": [
+    "SRC_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
         1,
         1
     ],
-    "SNK_SHARD_WEIGHTS": [
+    "SNK_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
         1,
         1
     ],
-    "CHAIN_ID": "testnet",
-    "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",
+    "CHAIN_ID": "testnet",  # The chain id for all transaction, should be devnet if not localnet.
+    "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",  # All refunds will be sent to this account
 })
 
 
