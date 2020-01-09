@@ -23,7 +23,7 @@ tx_gen.set_config({
     "NUM_SRC_ACC": 1,
     "NUM_SNK_ACC": 1,
     "MAX_TXN_GEN_COUNT": None,
-    "ONLY_CROSS_SHARD": True,
+    "ONLY_CROSS_SHARD": False,
     "ESTIMATED_GAS_PER_TXN": 1e-3,
     "INIT_SRC_ACC_BAL_PER_SHARD": 1,
     "TXN_WAIT_TO_CONFIRM": 60,
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     log_writer_pool = ThreadPool(processes=1)
     log_writer_pool.apply_async(log_writer, (5,))
 
-    config = tx_gen.config
+    config = tx_gen.get_config()
     tx_gen.load_accounts("./localnet_validator_keys", "", fast_load=True)
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
