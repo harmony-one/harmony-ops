@@ -23,7 +23,7 @@ tx_gen.set_config({
     "ONLY_CROSS_SHARD": True,  # If true, forces source and destination shards to be different
     "ESTIMATED_GAS_PER_TXN": 1e-3,  # The estimated gas, hardcoded
     "INIT_SRC_ACC_BAL_PER_SHARD": 1,  # The initial balance for EVERY source account
-    "TXN_WAIT_TO_CONFIRM": 60,  # The timeout when a transaction is set (only used in setup related functions)
+    "TXN_WAIT_TO_CONFIRM": 60,  # The timeout when a transaction is sent (only used in setup related functions)
     "MAX_THREAD_COUNT": 8,  # Max thread is recommended to be less than your v-core count
     "ENDPOINTS": [  # Endpoints for all transaction, index i = shard i
         "http://localhost:9500/",
@@ -44,8 +44,9 @@ tx_gen.set_config({
 
 def setup():
     assert hasattr(pyhmy, "__version__")
-    assert pyhmy.__version__.major == 20, "wrong pyhmy version, update please"
-    assert pyhmy.__version__.minor > 0, "wrong pyhmy version, update please"
+    assert pyhmy.__version__.major == 20, "wrong pyhmy version"
+    assert pyhmy.__version__.minor == 1, "wrong pyhmy version"
+    assert pyhmy.__version__.micro >= 2, "wrong pyhmy version, update please"
     env = cli.download("./bin/hmy_cli", replace=False)
     cli.environment.update(env)
     cli.set_binary("./bin/hmy_cli")
@@ -69,10 +70,13 @@ if __name__ == "__main__":
     log_writer_pool.apply_async(log_writer, (5,))
 
     config = tx_gen.get_config()
+    # funding accounts should be loaded if not in CLI's keystore
     tx_gen.load_accounts("./localnet_validator_keys", "", fast_load=True)
+    print("CLI's account keystore: ", cli.get_accounts_keystore())  # Allows you to check if correct keys were added
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
     tx_gen.fund_accounts(source_accounts)  # Expensive call at the moment (its overly safe), working on speedup
+    # Funding is faster if there are more loaded / present faucet accounts in the CLI's keystore
 
     tx_gen_pool = ThreadPool(processes=1)
     start_time = datetime.datetime.utcnow()  # MUST be utc

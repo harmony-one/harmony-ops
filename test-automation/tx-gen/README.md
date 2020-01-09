@@ -10,7 +10,8 @@ make install
 ```
 
 > You might need pyhmy (a python library for interacting with our blockchain). This can be installed with the following
-command `python3 -m pip install pyhmy==20.1.0`
+command `python3 -m pip install pyhmy==20.1.2`. If you have it, you might need to update to at least
+that version.
 
 ## Running the example
 Make sure that you have a localnet running by running `./test/debug.sh` in the main repo. Then execute the following
