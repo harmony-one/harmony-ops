@@ -1,7 +1,7 @@
 """
 Example of how to fund accounts quickly using parts of the transaction generation.
 
-Note that we need to place the faucet account's key in a directory similar to `./localnet_validator_key`
+Note that we need to place the faucet account keys in a directory similar to `./localnet_validator_key`
 """
 
 import logging
@@ -19,11 +19,12 @@ import harmony_transaction_generator as tx_gen
 def parse_args():
     parser = argparse.ArgumentParser(description='A quick account generator with funding')
     parser.add_argument("--count", dest="count", default=multiprocessing.cpu_count(),
-                        help="Number of accounts to generate and fund", type=int)
+                        help="Number of accounts to generate and fund. Default is the CPU core count.", type=int)
     parser.add_argument("--faucet_key_dir", dest="faucet_key_dir", default="./faucet_key",
-                        help="Number of accounts to generate and fund", type=str)
+                        help="The directory of the faucet/funding keys. Default is './faucet_key'", type=str)
     parser.add_argument("--faucet_key_pw", dest="faucet_key_pw", default="",
-                        help="Number of accounts to generate and fund", type=str)
+                        help="The passphrase of ALL faucet/funding keys (must all be the same)"
+                             " Default is ''", type=str)
     return parser.parse_args()
 
 
@@ -86,6 +87,6 @@ if __name__ == "__main__":
 
     tx_gen.load_accounts(args.faucet_key_dir, args.faucet_key_pw)
     accounts = tx_gen.create_accounts(args.count, "NEW_FUNDED_ACC")
-    tx_gen.fund_accounts(accounts)  # Funds all the accounts with 1000 $one.
+    tx_gen.fund_accounts(accounts)  # Funds all the accounts with 1000 $one on all shards.
     print(f"Keystore path: {cli.get_account_keystore_path()}")
     print(f"Accounts added: {accounts}")
