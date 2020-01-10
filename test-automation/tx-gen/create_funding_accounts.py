@@ -33,9 +33,9 @@ def setup():
     assert pyhmy.__version__.major == 20, "wrong pyhmy version"
     assert pyhmy.__version__.minor == 1, "wrong pyhmy version"
     assert pyhmy.__version__.micro >= 5, "wrong pyhmy version, update please"
-    env = cli.download("./bin/hmy_cli", replace=False)
+    env = cli.download("./bin/hmy", replace=False)
     cli.environment.update(env)
-    cli.set_binary("./bin/hmy_cli")
+    cli.set_binary("./bin/hmy")
 
 
 def log_writer(interval):
