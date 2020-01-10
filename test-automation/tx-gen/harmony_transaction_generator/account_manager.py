@@ -93,6 +93,7 @@ def create_account(account_name):
     cli.single_call(f"hmy keys add {account_name}")
     get_balances(account_name)
     _accounts_added.add(account_name)
+    return account_name
 
 
 def is_fast_loaded(account_name):
@@ -133,10 +134,11 @@ def remove_accounts(accounts, backup=True):
         Loggers.general.info(f"Removed Account: {removed_account}")
 
 
-def send_transaction(from_address, to_address, src_shard, dst_shard, amount, pw='', wait=True, retry=False):
-    # TODO: implement try counts...
+def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
+                     pw='', wait=True, retry=False, max_tries=5):
     config = get_config()
     assert cli.check_address(from_address), "source address must be in the CLI's keystore."
+    attempt_count = 0
     command = f"hmy --node={config['ENDPOINTS'][src_shard]} transfer " \
               f"--from={from_address} --to={to_address} " \
               f"--from-shard={src_shard} --to-shard={dst_shard} " \
@@ -158,8 +160,9 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount, pw=
             Loggers.transaction.info(json.dumps(info))
             return txn_hash
         except (RuntimeError, json.JSONDecodeError) as e:
-            if not retry:
+            if not retry or attempt_count >= max_tries:
                 raise e
+            attempt_count += 1
             Loggers.general.warning(f"[Trying Again] Failure sending from {from_address} (s{src_shard}) "
                                     f"to {to_address} (s{dst_shard})\n"
                                     f"\tError: {e}")
