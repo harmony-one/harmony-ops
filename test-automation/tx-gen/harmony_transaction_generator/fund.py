@@ -76,7 +76,7 @@ def _fund_accounts_from_account_pool(accounts, shard_index, amount_per_account, 
 
 def _fund_accounts(accounts, shard_index):
     """
-    Internal method to fund accounts using middlemen.
+    Internal method to fund accounts using middlemen (if threshold is met)
     """
     config = get_config()
     assert 0 <= shard_index < len(config["ENDPOINTS"])
@@ -84,7 +84,7 @@ def _fund_accounts(accounts, shard_index):
     max_threads = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
     accounts_per_middleman = config["NUM_SRC_ACC"] // max_threads
     remaining_accounts_count = config["NUM_SRC_ACC"] % max_threads
-    if accounts_per_middleman < 2:
+    if accounts_per_middleman < 2:  # Set the threshold for using middlemen
         accounts_per_middleman = 0
         remaining_accounts_count = len(accounts)
 
