@@ -24,14 +24,20 @@ clean-py:
 test:
 	python3 -m py.test tests
 
+release: clean
+	python3 -m incremental.update harmony_transaction_generator --patch --rc
+	python3 -m incremental.update harmony_transaction_generator
+	python3 setup.py sdist bdist_wheel
+	twine upload dist/*
+
 install:
 	python3 -m pip install -e .
 
 sdist: clean
 ifdef VERSION  # Argument for incremental, reference: https://pypi.org/project/incremental/ .
-	python3 -m incremental.update pyhmy --$(VERSION)
+	python3 -m incremental.update harmony_transaction_generator --$(VERSION)
 else
-	python3 -m incremental.update pyhmy --dev
+	python3 -m incremental.update harmony_transaction_generator --dev
 endif
 	python3 setup.py sdist bdist_wheel
 	ls -l dist

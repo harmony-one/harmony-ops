@@ -28,7 +28,7 @@ def _get_accounts_with_funds(funds, shard):
 
     accounts = [k for k, v in filter(fund_filter, account_balances.items())]
     if not accounts:
-        raise RuntimeError(f"No validator in CLI's keystore has {funds} on shard {shard}")
+        raise RuntimeError(f"No key in CLI's keystore has {funds} on shard {shard}")
     return accounts
 
 
