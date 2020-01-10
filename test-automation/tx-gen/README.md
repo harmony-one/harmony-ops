@@ -11,7 +11,6 @@ The pyhmy python library is used to interact with our blockchain. You can check 
 >```
 >python3 -m pip install pyhmy==20.1.5
 >``` 
->Change the directory to pyhmy and run: `make install`
 
 2.) Make sure you have a localnet running. 
 Change the directory to the main repo (.../harmony-one/harmony) and run `./test/debug.sh` to start up a localnet.
@@ -27,7 +26,7 @@ make install
 ```
 
 ## Running the example
-While in this directory (.../harmony-ops/test-automation/tx-gen), run:
+While in this directory (harmony-ops/test-automation/tx-gen), run:
 ```
 python3 localnet_example.py
 ```
@@ -51,9 +50,8 @@ Look at the annotations for each key in the config file. These are modify these 
 
 ## Troubleshooting Errors While Testing
 ####Possible fixes
-* Clear cache of accounts (`*HOME*/.hmy_cli/account-keys` and remove all folders inside)
-* Update pyhmy to latest version (pyhmy versions may be constantly updating)
-* Make sure localnet is still up and running
+* Backup and clear keystore at `~/.hmy_cli/account-keys`
+* Update pyhmy to latest version.
 * If `current balance is not enough for requested transfer`, 
 try increasing the 'INIT_SRC_ACC_BAL_PER_SHARD' value in the config file
 
