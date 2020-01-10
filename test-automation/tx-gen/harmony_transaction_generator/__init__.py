@@ -20,7 +20,7 @@ from .account_manager import (
     return_balances,
     reset
 )
-from .setup import (
+from .fund import (
     fund_accounts
 )
 from .generator import (

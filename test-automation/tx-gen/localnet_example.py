@@ -46,10 +46,10 @@ def setup():
     assert hasattr(pyhmy, "__version__")
     assert pyhmy.__version__.major == 20, "wrong pyhmy version"
     assert pyhmy.__version__.minor == 1, "wrong pyhmy version"
-    assert pyhmy.__version__.micro >= 3, "wrong pyhmy version, update please"
-    env = cli.download("./bin/hmy_cli", replace=False)
+    assert pyhmy.__version__.micro >= 5, "wrong pyhmy version, update please"
+    env = cli.download("./bin/hmy", replace=False)
     cli.environment.update(env)
-    cli.set_binary("./bin/hmy_cli")
+    cli.set_binary("./bin/hmy")
 
 
 def log_writer(interval):
@@ -70,12 +70,13 @@ if __name__ == "__main__":
     log_writer_pool.apply_async(log_writer, (5,))
 
     config = tx_gen.get_config()
-    # funding accounts should be loaded if not in CLI's keystore
+    # funding accounts should be loaded if not in CLI's keystore.
+    # this means that if we have the fauce keys in the keystore, we do not need the `load_accounts` call.
     tx_gen.load_accounts("./localnet_validator_keys", "", fast_load=True)
     print("CLI's account keystore: ", cli.get_accounts_keystore())  # Allows you to check if correct keys were added
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
-    tx_gen.fund_accounts(source_accounts)  # Expensive call at the moment (its overly safe), working on speedup
+    tx_gen.fund_accounts(source_accounts)
     # Funding is faster if there are more loaded / present faucet accounts in the CLI's keystore
 
     tx_gen_pool = ThreadPool(processes=1)
