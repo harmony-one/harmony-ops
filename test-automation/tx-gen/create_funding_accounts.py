@@ -32,7 +32,7 @@ def setup():
     assert hasattr(pyhmy, "__version__")
     assert pyhmy.__version__.major == 20, "wrong pyhmy version"
     assert pyhmy.__version__.minor == 1, "wrong pyhmy version"
-    assert pyhmy.__version__.micro >= 3, "wrong pyhmy version, update please"
+    assert pyhmy.__version__.micro >= 5, "wrong pyhmy version, update please"
     env = cli.download("./bin/hmy_cli", replace=False)
     cli.environment.update(env)
     cli.set_binary("./bin/hmy_cli")
@@ -73,7 +73,7 @@ if __name__ == "__main__":
             1
         ],
         "CHAIN_ID": "devnet",
-        "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",
+        "REFUND_ACCOUNT": "one1zksj3evekayy90xt4psrz8h6j2v3hla4qwz4ur",
     })
 
     # Prints what is being logged.
