@@ -38,7 +38,7 @@ tx_gen.set_config({
         1
     ],
     "CHAIN_ID": "testnet",  # The chain id for all transaction, should be devnet if not localnet.
-    "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",  # All refunds will be sent to this account
+    "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",  # All refunds will be sent to this address
 })
 
 
