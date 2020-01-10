@@ -29,7 +29,7 @@ def get_balances(account_name, shard_index=0):
     address = cli.get_address(account_name)
     if not address:
         return {}
-    response = cli.single_call(f"hmy balances {address} --node={config['ENDPOINTS'][shard_index]}", timeout=15)
+    response = cli.single_call(f"hmy balances {address} --node={config['ENDPOINTS'][shard_index]}", timeout=60)
     balances = json_load(response.replace("\n", ""))
     info = {'address': address, 'balances': balances, 'time-utc': str(datetime.datetime.utcnow())}
     Loggers.balance.info(json.dumps(info))
@@ -89,8 +89,11 @@ def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=Fal
 
 
 def create_account(account_name, exist_ok=True):
-    if not cli.get_address(account_name) or not exist_ok:
+    try:
         cli.single_call(f"hmy keys add {account_name}")
+    except RuntimeError as e:
+        if not exist_ok:
+            raise e
     get_balances(account_name)
     _accounts_added.add(account_name)
     return account_name
