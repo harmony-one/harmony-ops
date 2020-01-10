@@ -88,9 +88,9 @@ def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=Fal
     return accounts_added
 
 
-def create_account(account_name):
-    cli.remove_account(account_name)
-    cli.single_call(f"hmy keys add {account_name}")
+def create_account(account_name, exist_ok=True):
+    if not cli.get_address(account_name) or not exist_ok:
+        cli.single_call(f"hmy keys add {account_name}")
     get_balances(account_name)
     _accounts_added.add(account_name)
     return account_name
