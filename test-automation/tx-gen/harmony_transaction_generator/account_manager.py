@@ -30,7 +30,7 @@ def get_balances(account_name, shard_index=0):
     if not address:
         return {}
     response = cli.single_call(f"hmy balances {address} --node={config['ENDPOINTS'][shard_index]}", timeout=60)
-    balances = json_load(response.replace("\n", ""))
+    balances = eval(response)  # There is a chance that the CLI returns a malformed json array.
     info = {'address': address, 'balances': balances, 'time-utc': str(datetime.datetime.utcnow())}
     Loggers.balance.info(json.dumps(info))
     account_balances[account_name] = balances
@@ -183,16 +183,18 @@ def return_balances(accounts, wait=False):
     account_addresses = []
     for account in accounts:
         for shard_index in range(len(config['ENDPOINTS'])):
-            amount = get_balances(account)[shard_index]["amount"]
-            amount -= config["ESTIMATED_GAS_PER_TXN"]
-            if amount > config['ESTIMATED_GAS_PER_TXN']:
-                from_address = cli.get_address(account)
-                to_address = config['REFUND_ACCOUNT']
-                account_addresses.append(from_address)
-                pw = get_fast_loaded_passphrase(account) if is_fast_loaded(account) else ''
-                txn_hash = send_transaction(from_address, to_address, shard_index,
-                                            shard_index, amount, pw=pw, wait=wait)
-                txn_hashes.append({"shard": shard_index, "hash": txn_hash})
+            balances = get_balances(account)  # There is a chance that you don't get all balances (b/c of latency)
+            if shard_index < len(balances):
+                amount = balances[shard_index]["amount"]
+                amount -= config["ESTIMATED_GAS_PER_TXN"]
+                if amount > config['ESTIMATED_GAS_PER_TXN']:
+                    from_address = cli.get_address(account)
+                    to_address = config['REFUND_ACCOUNT']
+                    account_addresses.append(from_address)
+                    pw = get_fast_loaded_passphrase(account) if is_fast_loaded(account) else ''
+                    txn_hash = send_transaction(from_address, to_address, shard_index,
+                                                shard_index, amount, pw=pw, wait=wait)
+                    txn_hashes.append({"shard": shard_index, "hash": txn_hash})
     Loggers.general.info(f"Refund transaction hashes: {txn_hashes}")
     return txn_hashes
 
