@@ -4,12 +4,12 @@
 
 ## Installation Requirements
 
-Check that the latest version of pyhmy (20.1.6) is installed. 
+Check that the latest version of pyhmy (20.1.8) is installed. 
 The pyhmy python library is used to interact with our blockchain. You can check your version of pyhmy with: `pip freeze | grep pyhmy`
  
 > If your version is not updated or pyhmy is not listed, run:
 >```
->python3 -m pip install pyhmy==20.1.6
+>python3 -m pip install pyhmy==20.1.8
 >``` 
 
 

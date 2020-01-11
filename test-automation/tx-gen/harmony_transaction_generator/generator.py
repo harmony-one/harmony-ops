@@ -95,10 +95,16 @@ def start(source_accounts, sink_accounts):
             shard_choices = list(range(0, len(config["ENDPOINTS"])))
             src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
             snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
+            retry_count = 0
             if config["ONLY_CROSS_SHARD"]:
                 while src_shard == snk_shard:
+                    if retry_count > 50:
+                        Loggers.general.warning("Trying to force 'from' and 'to' shards to be different, "
+                                                "are source and sink shard weights correct in config?")
+                        Loggers.general.write()
                     src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
                     snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
+                    retry_count += 1
             txn_amt = random.uniform(config["AMT_PER_TXN"][0], config["AMT_PER_TXN"][1])
             send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
             if config["MAX_TXN_GEN_COUNT"] is not None:
