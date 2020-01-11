@@ -18,7 +18,7 @@ from .account_manager import (
 
 _is_running = False
 _generator_threads = []
-_generator_pool = ThreadPool(processes=2)
+_generator_pool = ThreadPool()
 
 
 def create_accounts(count, name_prefix="generated"):
@@ -89,7 +89,7 @@ def start(source_accounts, sink_accounts):
     def generate_transactions(src_accounts, snk_accounts):
         global _is_running
         nonlocal txn_count
-        while _is_running and (config["MAX_TXN_GEN_COUNT"] is None or txn_count < config["MAX_TXN_GEN_COUNT"]):
+        while _is_running:
             src_address = cli.get_address(random.choice(src_accounts))
             snk_address = cli.get_address(random.choice(snk_accounts))
             shard_choices = list(range(0, len(config["ENDPOINTS"])))
@@ -98,6 +98,8 @@ def start(source_accounts, sink_accounts):
             retry_count = 0
             if config["ONLY_CROSS_SHARD"]:
                 while src_shard == snk_shard:
+                    if config["MAX_TXN_GEN_COUNT"] is not None and txn_count >= config["MAX_TXN_GEN_COUNT"]:
+                        return  # quit early if txn_count happens to exceed max, true check is done when txn is sent
                     if retry_count > 50:
                         Loggers.general.warning("Trying to force 'from' and 'to' shards to be different, "
                                                 "are source and sink shard weights correct in config?")
@@ -106,11 +108,14 @@ def start(source_accounts, sink_accounts):
                     snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
                     retry_count += 1
             txn_amt = random.uniform(config["AMT_PER_TXN"][0], config["AMT_PER_TXN"][1])
-            send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
             if config["MAX_TXN_GEN_COUNT"] is not None:
                 lock.acquire()
+                if txn_count >= config["MAX_TXN_GEN_COUNT"]:
+                    lock.release()
+                    return
                 txn_count += 1
                 lock.release()
+            send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
 
     thread_count = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
     thread_count = min(thread_count, len(source_accounts))
