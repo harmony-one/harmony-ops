@@ -31,8 +31,8 @@ tx_gen.set_config({
         "https://api.s2.pga.hmny.io/"
     ],
     "SRC_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
-        1,
-        1,
+        1,                  # Bigger number = higher likelihood of shard i begin chosen
+        1,                  # 0 = 0% chance of being chosen
         1
     ],
     "SNK_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
