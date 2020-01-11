@@ -81,8 +81,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
                 },
                 "failed-transactions-total": 7,
                 "failed-transactions-total-per-shard": {
-                    "0": 3,
-                    "1": 4
+                    "<shard-index>": <count>
                 }
             }
         }
@@ -141,7 +140,6 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
         endpoint = config["ENDPOINTS"][int(shard)]
         for h in shard_txn_hashes:
             response = _get_transaction_by_hash(endpoint, h)
-            Loggers.general.info(f"checking {curr_count} / {len(sent_txn_hashes)} transactions")
             curr_count += 1
             if response['result'] is not None:
                 successful_txn_count += 1
