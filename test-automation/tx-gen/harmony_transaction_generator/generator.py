@@ -2,6 +2,7 @@ import math
 import random
 import multiprocessing
 import threading
+import itertools
 from multiprocessing.pool import ThreadPool
 
 from pyhmy import cli
@@ -89,8 +90,9 @@ def start(source_accounts, sink_accounts):
     def generate_transactions(src_accounts, snk_accounts):
         global _is_running
         nonlocal txn_count
+        src_accounts_iter = itertools.cycle(src_accounts)
         while _is_running:
-            src_address = cli.get_address(random.choice(src_accounts))
+            src_address = cli.get_address(next(src_accounts_iter))
             snk_address = cli.get_address(random.choice(snk_accounts))
             shard_choices = list(range(0, len(config["ENDPOINTS"])))
             src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
