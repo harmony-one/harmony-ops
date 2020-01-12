@@ -32,7 +32,7 @@ def _get_accounts_with_funds(funds, shard):
     return accounts
 
 
-def _group_accounts_(accounts, bin_count):
+def _group_accounts(accounts, bin_count):
     grouped_accounts = [[] for _ in range(bin_count)]
     accounts_iter = iter(accounts)
     i = 0
@@ -65,74 +65,46 @@ def _fund_accounts_from_account_pool(accounts, shard_index, amount_per_account, 
     pool = ThreadPool(len(account_pool))
     transaction_hashes = []
     threads = []
-    grouped_accounts = _group_accounts_(accounts, len(account_pool))
+    grouped_accounts = _group_accounts(accounts, len(account_pool))
     for j in range(len(account_pool)):
-        threads.append(pool.apply_async(_fund,
-                                        (account_pool[j], grouped_accounts[j], amount_per_account, shard_index)))
+        threads.append(pool.apply_async(_fund, (account_pool[j], grouped_accounts[j],
+                                                amount_per_account, shard_index)))
     for t in threads:
         transaction_hashes.extend(t.get())
     return transaction_hashes
 
 
-def _fund_accounts(accounts, shard_index):
+def _fund_accounts(accounts, shard_index, amount):
     """
-    Internal method to fund accounts using middlemen (if threshold is met)
+    Internal method to funds accounts, each account with sufficient funds will be threaded upon,
+    until the max thread count is reached.
     """
     config = get_config()
     assert 0 <= shard_index < len(config["ENDPOINTS"])
-    transaction_hashes = []
     max_threads = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
-    accounts_per_middleman = config["NUM_SRC_ACC"] // max_threads
-    remaining_accounts_count = config["NUM_SRC_ACC"] % max_threads
-    if accounts_per_middleman < 2:  # Set the threshold for using middlemen
-        accounts_per_middleman = 0
-        remaining_accounts_count = len(accounts)
-
-    if accounts_per_middleman:
-        fund_account_list = accounts[:accounts_per_middleman * max_threads]
-        middleman_accounts = [f"{import_account_name_prefix}middleman{i}" for i in range(max_threads)]
-        threads = []
-        pool = ThreadPool(processes=max_threads)
-        for acc in middleman_accounts:
-            threads.append(pool.apply_async(create_account, (acc,)))
-        for t in threads:
-            t.get()
-        pool.close()
-
-        amount_per_middleman = accounts_per_middleman * (config['INIT_SRC_ACC_BAL_PER_SHARD']
-                                                         + config["ESTIMATED_GAS_PER_TXN"])
-        min_funding_balance = (config["ESTIMATED_GAS_PER_TXN"] + amount_per_middleman) * len(accounts)
-        funding_accounts = _get_accounts_with_funds(min_funding_balance, shard_index)
-        _fund_accounts_from_account_pool(middleman_accounts, shard_index, amount_per_middleman, funding_accounts)
-        transaction_hashes.extend(_fund_accounts_from_account_pool(fund_account_list, shard_index,
-                                                                   config['INIT_SRC_ACC_BAL_PER_SHARD'],
-                                                                   middleman_accounts))
-        return_balances(middleman_accounts)
-    if remaining_accounts_count:
-        fund_account_list = accounts[-remaining_accounts_count:]
-        min_funding_balance = (config["ESTIMATED_GAS_PER_TXN"]
-                               + config['INIT_SRC_ACC_BAL_PER_SHARD']) * len(fund_account_list)
-        funding_accounts = _get_accounts_with_funds(min_funding_balance, shard_index)
-        funding_accounts_set = set(funding_accounts)
-        for acc in accounts:
-            if acc in funding_accounts_set:
-                funding_accounts.remove(acc)
-        assert funding_accounts, f"No validator in CLI's keystore has {min_funding_balance} on shard {shard_index}"
-        transaction_hashes.extend(_fund_accounts_from_account_pool(fund_account_list, shard_index,
-                                                                   config['INIT_SRC_ACC_BAL_PER_SHARD'],
-                                                                   funding_accounts))
+    min_funding_balance = (config["ESTIMATED_GAS_PER_TXN"] + config['INIT_SRC_ACC_BAL_PER_SHARD']) * len(accounts)
+    funding_accounts = sorted(_get_accounts_with_funds(min_funding_balance, shard_index),
+                                     key=lambda e: account_balances[e][shard_index]["amount"], reverse=True)
+    if len(funding_accounts) > max_threads:
+        funding_accounts = funding_accounts[:max_threads]
+        Loggers.general.warning(f"Have more funding accounts than configured threads, using top {max_threads} funded "
+                                f"accounts on shard {shard_index} {[cli.get_address(n) for n in funding_accounts]}")
+    assert funding_accounts, f"No validator in CLI's keystore has {min_funding_balance} on shard {shard_index}"
+    transaction_hashes = _fund_accounts_from_account_pool(accounts, shard_index, amount, funding_accounts)
     return transaction_hashes
 
 
-def fund_accounts(accounts, shard_indexes=None):
+def fund_accounts(accounts, shard_indexes=None, amount=None):
     """
     :param accounts: An iterable of account names to be funded
     :param shard_indexes: An iterable of shard indexes that the accounts should be funded on.
-                          Defaults to ALL shards.
+                          Defaults to ALL shards    .
+    :param amount: The amount to each accounts on each shard_index.
     """
     config = get_config()
+    amount = config['INIT_SRC_ACC_BAL_PER_SHARD'] if not amount else amount
     if shard_indexes is None:
         shard_indexes = range(len(config["ENDPOINTS"]))
     assert hasattr(shard_indexes, "__iter__")
     for shard_index in shard_indexes:
-        _fund_accounts(accounts, shard_index=shard_index)
+        _fund_accounts(accounts, shard_index, amount)
