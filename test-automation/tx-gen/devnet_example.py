@@ -73,7 +73,7 @@ if __name__ == "__main__":
     log_writer_pool.apply_async(log_writer, (5,))
 
     config = tx_gen.get_config()
-    tx_gen.load_accounts("./devnet_keys", passphrase="", fast_load=True)
+    account_manager.load_accounts("./devnet_keys", passphrase="", fast_load=True)
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
     tx_gen.fund_accounts(source_accounts)
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     tx_gen.return_balances(sink_accounts)
     tx_gen.remove_accounts(source_accounts)
     tx_gen.remove_accounts(sink_accounts)
-    time.sleep(20)
+    time.sleep(35)
     report = analysis.verify_transactions(tx_gen.Loggers.transaction.filename, start_time, end_time)
     print(report)
     assert report["received-transaction-report"]["successful-transactions-total"] > 1

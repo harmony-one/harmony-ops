@@ -72,7 +72,7 @@ if __name__ == "__main__":
     config = tx_gen.get_config()
     # funding accounts should be loaded if not in CLI's keystore.
     # this means that if we have the fauce keys in the keystore, we do not need the `load_accounts` call.
-    tx_gen.load_accounts("./localnet_validator_keys", "", fast_load=True)
+    account_manager.load_accounts("./localnet_validator_keys", "", fast_load=True)
     print("CLI's account keystore: ", cli.get_accounts_keystore())  # Allows you to check if correct keys were added
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
