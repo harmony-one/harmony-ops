@@ -151,7 +151,7 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
     info = {
         'from': from_address, 'to': to_address,
         'from-shard': src_shard, 'to-shard': dst_shard,
-        'amount': amount, 'hash': None, 'time-utc': str(datetime.datetime.utcnow()),
+        'amount': amount, 'hash': None, 'send-time-utc': str(datetime.datetime.utcnow()),
         'error': None
     }
     while True:
@@ -165,7 +165,7 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
             return info['hash']
         except (RuntimeError, json.JSONDecodeError) as e:
             if not retry or attempt_count >= max_tries:
-                info['error'] = e
+                info['error'] = str(e)
                 Loggers.transaction.error(json.dumps(info))
                 Loggers.transaction.write()
                 return None

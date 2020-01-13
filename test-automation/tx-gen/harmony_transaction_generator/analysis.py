@@ -44,44 +44,55 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
         ex:
         {
             "sent-transaction-report" : {
-                "sent-transactions": {
+                "sent-transactions": {   # key = source shard
                     "0": [
-                        <transaction hashes>
+                        <transaction log>
                     ],
                     "1": [
-                        <transaction hashes>
+                        <transaction log>
                     ]
                 },
                 "sent-transactions-total": 15,
                 "sent-transactions-total-per-shard": {
+                    "(<src_shard>, <dst_shard>)" : <count>
+                },
+                "failed-sent-transactions": {   # key = source shard
+                    "0": [
+                        <transaction log>
+                    ],
+                    "1": [
+                        <transaction log>
+                    ]
+                },
+                "failed-sent-transactions-total": 15,
+                "failed-sent-transactions-total-per-shard": {
                     "(<src_shard>, <dst_shard>)" : <count>
                 }
             },
             "received-transaction-report" : {
                 "successful-transactions": {  # key = source shard
                     "0": [
-                        <transaction hashes>
+                        <transaction log>
                     ],
                     "1": [
-                        <transaction hashes>
+                        <transaction log>
                     ]
                 },
-                "successful-transactions-total": 8,
+                "successful-transactions-total": <count>,
                 "successful-transactions-total-per-shard": {
-                    "0": 4,
-                    "1": 4
+                    "(<src_shard>, <dst_shard>)" : <count>
                 },
                 "failed-transactions": {  # key = source shard
                     "0": [
-                        <transaction hashes>
+                        <transaction log>
                     ],
                     "1": [
-                        <transaction hashes>
+                        <transaction log>
                     ]
                 },
-                "failed-transactions-total": 7,
+                "failed-transactions-total": <count>,
                 "failed-transactions-total-per-shard": {
-                    "<shard-index>": <count>
+                    "(<src_shard>, <dst_shard>)" : <count>
                 }
             }
         }
@@ -97,66 +108,78 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
     with open(transaction_log_dir) as f:
         tokens = f.read().split("\n")
 
-    transaction_hashes = []
+    transaction_logs = []
     for tok in tokens:
         if not tok:
             continue
         tok = tok.split(" : ")
         assert len(tok) == 2, f"Line format for `{transaction_log_dir}` is unknown,"
         txn_log = json.loads(tok[1].strip())
-        date = datetime.datetime.strptime(txn_log["time-utc"], datetime_format)
+        date = datetime.datetime.strptime(txn_log["send-time-utc"], datetime_format)
         if date >= end_time:
             break
         if date >= start_time:
-            transaction_hashes.append(txn_log)
+            transaction_logs.append(txn_log)
 
     sent_txn_hashes = set()
     sent_txn_per_shard = defaultdict(list)
     sent_shard_txn_total = defaultdict(int)
 
-    for txn in transaction_hashes:
-        txn_hash = txn["hash"]
-        if txn_hash not in sent_txn_hashes:
+    failed_sent_txn_count = 0
+    failed_sent_txn_per_shard = defaultdict(list)
+    failed_sent_shard_txn_total = defaultdict(int)
+
+    for txn_log in transaction_logs:
+        txn_hash = txn_log["hash"]
+        src_shard, dst_shard = str(txn_log["from-shard"]), str(txn_log["to-shard"])
+        if txn_hash is None:
+            failed_sent_txn_count += 1
+            failed_sent_shard_txn_total[f"({src_shard}, {dst_shard})"] += 1
+            failed_sent_txn_per_shard[src_shard].append(txn_log)
+        elif txn_hash not in sent_txn_hashes:
             sent_txn_hashes.add(txn_hash)
-            src_shard, dst_shard = str(txn["from-shard"]), str(txn["to-shard"])
             sent_shard_txn_total[f"({src_shard}, {dst_shard})"] += 1
-            sent_txn_per_shard[src_shard].append(txn_hash)
+            sent_txn_per_shard[src_shard].append(txn_log)
 
     sent_transaction_report = {
-        "sent-transactions": sent_txn_per_shard,
         "sent-transactions-total": len(sent_txn_hashes),
+        "sent-transactions": sent_txn_per_shard,
         "sent-transactions-total-per-shard": sent_shard_txn_total,
+        "failed-sent-transactions-total": failed_sent_txn_count,
+        "failed-sent-transactions": failed_sent_txn_per_shard,
+        "failed-sent-transactions-total-per-shard": failed_sent_shard_txn_total,
     }
     Loggers.report.info(json.dumps(sent_transaction_report, indent=4))
 
     successful_txn_count = 0
+    successful_txn_shard_count = defaultdict(int)
     successful_txn_per_shard = defaultdict(list)
-    successful_shard_txn_total = defaultdict(int)
     failed_txn_count = 0
+    failed_txn_shard_count = defaultdict(int)
     failed_txn_per_shard = defaultdict(list)
-    failed_shard_txn_total = defaultdict(int)
     curr_count = 0
-    for shard, shard_txn_hashes in sent_txn_per_shard.items():
+    for shard, txn_log_list in sent_txn_per_shard.items():
         endpoint = config["ENDPOINTS"][int(shard)]
-        for h in shard_txn_hashes:
-            response = _get_transaction_by_hash(endpoint, h)
+        for txn_log in txn_log_list:
+            src_shard, dst_shard = str(txn_log["from-shard"]), str(txn_log["to-shard"])
+            response = _get_transaction_by_hash(endpoint, txn_log['hash'])
             curr_count += 1
             if response['result'] is not None:
                 successful_txn_count += 1
-                successful_shard_txn_total[shard] += 1
-                successful_txn_per_shard[shard].append(h)
+                successful_txn_shard_count[f"({src_shard}, {dst_shard})"] += 1
+                successful_txn_per_shard[shard].append(txn_log)
             else:
                 failed_txn_count += 1
-                failed_shard_txn_total[shard] += 1
-                failed_txn_per_shard[shard].append(h)
+                failed_txn_shard_count[f"({src_shard}, {dst_shard})"] += 1
+                failed_txn_per_shard[shard].append(txn_log)
 
     received_transaction_report = {
-        "successful-transactions": successful_txn_per_shard,
         "successful-transactions-total": successful_txn_count,
-        "successful-transactions-total-per-shard": successful_shard_txn_total,
-        "failed-transactions": failed_txn_per_shard,
+        "successful-transactions": successful_txn_per_shard,
+        "successful-transactions-total-per-shard": successful_txn_shard_count,
         "failed-transactions-total": failed_txn_count,
-        "failed-transactions-total-per-shard": failed_shard_txn_total,
+        "failed-transactions": failed_txn_per_shard,
+        "failed-transactions-total-per-shard": failed_txn_shard_count,
     }
     Loggers.report.info(json.dumps(received_transaction_report, indent=4))
     Loggers.report.write()
