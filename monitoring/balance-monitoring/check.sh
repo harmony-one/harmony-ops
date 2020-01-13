@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
+ADDR=address.$$.txt
 ### Get addresses from file 
-addresses=$(curl -sL https://harmony.one/fn-keys | tac | sed -e '/var /q' |\
-            tac | grep Address | awk -F'"' '{print $4, $2 % 4}')
+keys=$(curl -sL https://harmony.one/fn-keys | tac | sed -e '/var /q' | tac |\
+       grep Address)
+echo "$keys" |  awk -F'"' '{print $4, $2 % 4}' > $ADDR
 
 ### Save hour/minute
 date +%H > generated/hour.txt
@@ -11,19 +13,48 @@ date +%M > generated/minute.txt
 # Get functions and constants
 source monitoring.sh
 
-# Call wallet.sh on addresses to get balances and cut out unnecessary info
-export LD_LIBRARY_PATH=$(pwd)/wallet_files
-raw=$(echo "$addresses" | xargs -P 50 -i{} bash -c \
-'address=$(echo "{}" | cut -d " " -f 1); shard=$(echo "{}" | cut -d " " -f 2);
-result=$(wallet_files/wallet balances -address="$address");
-bal=$(echo "$result" | tail -n +2 | tr -d "\n" | awk -F"[ :,]" \
-'"'"'{print $14, "+", $29, "+", $44, "+", $59}'"'"' | bc); 
-echo "$address $shard $bal"')
-balances=$(echo "$raw" | awk '{if ($3) print $0; else print $1, "-1", "0";}')
-
 # Place balances file in dated directory
 mkdir -p captures/$hour/$minute
 if [[ -f "captures/$hour/$minute/$FILE" ]]; then
     mv -f captures/$hour/$minute/$FILE captures/$hour/$minute/temp.txt
+    touch captures/$hour/$minute/$FILE
 fi
-echo "$balances" > captures/$hour/$minute/$FILE
+
+function get_balance
+{
+   address=$1
+   shard=$2
+
+   local result=$(LD_LIBRARY_PATH=wallet_files wallet_files/hmy balance -n http://s${shard}.t.hmny.io:9500 "$address" | jq '.[].amount' | tr "\n" + | sed s/+$//)
+   local amount=$(echo "$result" | bc -l)
+
+   echo $amount
+}
+
+while read add; do
+   address=$(echo "$add" | cut -d " " -f 1)
+   shard=$(echo "$add" | cut -d " " -f 2)
+   retry=0
+   succeed=false
+
+   while [ $retry -lt 3 ]; do
+      amount=$(get_balance $address $shard)
+      if [ -n "$amount" ]; then
+         succeed=true
+         break
+      fi
+      sleep 1
+      (( retry ++ ))
+   done
+
+   if [ "$succeed" == "true" ]; then
+      echo "$address $shard $amount" >> captures/$hour/$minute/$FILE
+   else
+      echo $address/$shard check balance failed > /dev/stderr
+      echo "$address -1 0" >> captures/$hour/$minute/$FILE
+   fi
+
+   sleep 0.1
+done < $ADDR
+
+rm $ADDR

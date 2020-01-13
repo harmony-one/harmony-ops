@@ -94,6 +94,7 @@ func monitorCmd() *cobra.Command {
 			RunE:              w.doMonitor,
 	}
 	monCmd.Flags().StringVar(&bnbcliPath, mFlag, "", mDescr)
+	monCmd.Flags().Int64Var(&expectedBal, "balance", 156996000, "Expected total balance in both accounts")
 	monCmd.MarkFlagRequired(mFlag)
 	return monCmd
 }

@@ -25,6 +25,7 @@ const (
 	blockHeaderRPC     = "hmy_latestHeader"
 	blockHeaderReport  = "block-header"
 	nodeMetadataReport = "node-metadata"
+	timeFormat         = "15:04:05 Jan _2 MST" // https://golang.org/pkg/time/#Time.Format
 )
 
 type nodeMetadata struct {
@@ -33,6 +34,8 @@ type nodeMetadata struct {
 	NetworkType  string `json:"network"`
 	ChainID      string `json:"chainid"`
 	IsLeader     bool   `json:"is-leader"`
+	ShardID      uint32 `json:"shard-id"`
+	NodeRole     string `json:"role"`
 }
 
 type headerInformation struct {
@@ -53,15 +56,10 @@ type any map[string]interface{}
 var (
 	buildVersion               = versionS()
 	queryID                    = 0
-	nodeMetadataCSVHeader      []string
-	headerInformationCSVHeader []string
+	nodeMetadataCSVHeader      = []string{"IP"}
+	headerInformationCSVHeader = []string{"IP"}
 	post                       = []byte("POST")
-	client                     = &fasthttp.Client{
-		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(addr, time.Second*15)
-		},
-		MaxConnsPerHost: 2048,
-	}
+	client                     fasthttp.Client
 )
 
 func identity(x interface{}) interface{} {
@@ -69,10 +67,35 @@ func identity(x interface{}) interface{} {
 }
 
 const (
-	metaSumry   = "node-metadata"
-	headerSumry = "block-header"
-	blockMax    = "block-max"
-	timestamp   = "timestamp"
+	metaSumry               = "node-metadata"
+	headerSumry             = "block-header"
+	blockMax                = "block-max"
+	timestamp               = "timestamp"
+	consensusWarningMessage = `
+Consensus stuck on shard %s!
+
+Block height stuck at %d starting at %s
+
+Block Hash: %s
+
+Leader: %s
+
+ViewID: %d
+
+Epoch: %d
+
+Block Timestamp: %s
+
+LastCommitSig: %s
+
+LastCommitBitmap: %s
+
+Time since last new block: %d seconds (%f minutes)
+
+See: http://watchdog.hmny.io/report-%s
+
+--%s
+`
 )
 
 func init() {
@@ -88,7 +111,7 @@ func init() {
 
 func blockHeaderSummary(
 	headers []headerInfoRPCResult,
-	includeRecords, includeTS bool,
+	includeRecords bool,
 	sum map[string]interface{},
 ) {
 	linq.From(headers).GroupBy(
@@ -117,13 +140,9 @@ func blockHeaderSummary(
 		}
 		if includeRecords {
 			sum[shardID].(any)["records"] = value.(linq.Group).Group
-		}
-		if includeTS {
-			sum[shardID].(any)[timestamp] = time.Unix(linq.From(value.(linq.Group).Group).Select(
-				func(c interface{}) interface{} {
-					return c.(headerInfoRPCResult).Payload.UnixTime
-				}).Distinct().Max().(int64),
-				0)
+			sum[shardID].(any)["latest-block"] = linq.From(value.(linq.Group).Group).FirstWith(func(c interface{}) bool {
+				return c.(headerInfoRPCResult).Payload.BlockNumber == block.Max()
+			})
 		}
 	})
 }
@@ -139,17 +158,18 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 			headers[i].Payload.LastCommitSig = shorted
 		}
 	}
-	linq.From(metas).GroupByT(
-		func(node metadataRPCResult) string { return parseVersionS(node.Payload.Version) }, identity,
+
+	linq.From(metas).GroupBy(
+		func(node interface{}) interface{} { return parseVersionS(node.(metadataRPCResult).Payload.Version) }, identity,
 	).ForEach(func(value interface{}) {
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
 	})
-	blockHeaderSummary(headers, true, false, sum[headerSumry])
+	blockHeaderSummary(headers, true, sum[headerSumry])
 	return sum
 }
 
-func request(node, rpcMethod string, requestBody []byte) ([]byte, []byte, error) {
+func request(node string, requestBody []byte) ([]byte, []byte, error) {
 	const contentType = "application/json"
 	req := fasthttp.AcquireRequest()
 	req.SetBody(requestBody)
@@ -166,27 +186,17 @@ func request(node, rpcMethod string, requestBody []byte) ([]byte, []byte, error)
 	}
 	fasthttp.ReleaseRequest(req)
 	body := res.Body()
+	if len(body) == 0 {
+		return nil, requestBody, fmt.Errorf("empty reply received")
+	}
 	result := make([]byte, len(body))
 	copy(result, body)
 	fasthttp.ReleaseResponse(res)
 	return result, nil, nil
 }
 
-// TODO Make this be separate template parsed, not sure how to get it right
-const shardJumpRow = `
-{{define "shard-jump-row"}}
-<div>
-  {{ with (index .Summary "block-header") }}
-  {{range $key, $value := .}}
-    <a href=shard-{{$key}}> {{$key}} </a>
-  {{end}}
-  {{end}}
-</div>
-{{end}}
-`
-
 func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
-	t, e := template.New("report").Parse(reportPage())
+	t, e := template.New("report").Parse(reportPage(m.chain))
 	if e != nil {
 		fmt.Println(e)
 		http.Error(w, "could not generate page:"+e.Error(), http.StatusInternalServerError)
@@ -198,21 +208,25 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		NoReply               []noReply
 		DownMachineCount      int
 	}
-	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	report := m.networkSnapshot()
 	cnsMsg := "Consensus Progress not known yet"
-	if len(m.consensusProgress) != 0 {
+	if len(report.ConsensusProgress) != 0 {
 		cM, _ := json.Marshal(m.consensusProgress)
 		cnsMsg = fmt.Sprintf("Consensus Progress: %s", cM)
 	}
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:  []interface{}{m.chain, cnsMsg},
-		RightTitle: []interface{}{buildVersion, time.Now().Format(time.RFC3339)},
-		Summary:    sum,
-		NoReply:    m.NoReplyMachines,
-		DownMachineCount: linq.From(m.NoReplyMachines).Select(
+		LeftTitle:  []interface{}{report.Chain, cnsMsg},
+		RightTitle: []interface{}{report.Build, time.Now().Format(time.RFC3339)},
+		Summary:    report.Summary,
+		NoReply:    report.NoReplies,
+		DownMachineCount: linq.From(report.NoReplies).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
 	})
+	m.inUse.Lock()
+	m.summaryCopy(report.Summary)
+	m.NoReplySnapshot = append([]noReply{}, report.NoReplies...)
+	m.inUse.Unlock()
 }
 
 func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
@@ -224,9 +238,59 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 		case blockHeaderReport:
 			filename = blockHeaderReport + ".csv"
 			records = append(records, headerInformationCSVHeader)
+
+			shard, ex := req.URL.Query()["shard"]
+			if !ex {
+				http.Error(w, "shard not chosen in query param", http.StatusBadRequest)
+				return
+			}
+			m.inUse.Lock()
+			sum := m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{})
+			for _, v := range sum {
+				row := []string{
+					v.(headerInfoRPCResult).IP,
+					v.(headerInfoRPCResult).Payload.BlockHash,
+					strconv.FormatUint(v.(headerInfoRPCResult).Payload.BlockNumber, 10),
+					shard[0],
+					v.(headerInfoRPCResult).Payload.Leader,
+					strconv.FormatUint(v.(headerInfoRPCResult).Payload.ViewID, 10),
+					strconv.FormatUint(v.(headerInfoRPCResult).Payload.Epoch, 10),
+					v.(headerInfoRPCResult).Payload.Timestamp,
+					strconv.FormatInt(v.(headerInfoRPCResult).Payload.UnixTime, 10),
+					v.(headerInfoRPCResult).Payload.LastCommitSig,
+					v.(headerInfoRPCResult).Payload.LastCommitBitmap,
+				}
+				records = append(records, row)
+			}
+			m.inUse.Unlock()
 		case nodeMetadataReport:
 			filename = nodeMetadataReport + ".csv"
 			records = append(records, nodeMetadataCSVHeader)
+
+			vrs, ex := req.URL.Query()["vrs"]
+			if !ex {
+				http.Error(w, "version not chosen in query param", http.StatusBadRequest)
+				return
+			}
+			m.inUse.Lock()
+			// FIXME: Bandaid
+			if m.SummarySnapshot[metaSumry][vrs[0]] != nil {
+				recs := m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{})
+				for _, v := range recs {
+					row := []string{
+						v.(metadataRPCResult).IP,
+						v.(metadataRPCResult).Payload.BLSPublicKey,
+						v.(metadataRPCResult).Payload.Version,
+						v.(metadataRPCResult).Payload.NetworkType,
+						v.(metadataRPCResult).Payload.ChainID,
+						strconv.FormatBool(v.(metadataRPCResult).Payload.IsLeader),
+						strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ShardID), 10),
+						v.(metadataRPCResult).Payload.NodeRole,
+					}
+					records = append(records, row)
+				}
+			}
+			m.inUse.Unlock()
 		}
 	default:
 		http.Error(w, "report not chosen in query param", http.StatusBadRequest)
@@ -235,16 +299,32 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment;filename="+filename)
 	wr := csv.NewWriter(w)
-	// records := [][]string{
-	// 	{"first_name", "last_name", "username"},
-	// 	{"Rob", "Pike", "rob"},
-	// 	{"Ken", "Thompson", "ken"},
-	// 	{"Robert", "Griesemer", "gri"},
-	// }
 	err := wr.WriteAll(records)
 	if err != nil {
 		http.Error(w, "Error sending csv: "+err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func (m *monitor) summaryCopy(newData map[string]map[string]interface{}) {
+	m.SummarySnapshot = make(map[string]map[string]interface{})
+	for key, value := range newData {
+		m.SummarySnapshot[key] = make(map[string]interface{})
+		for k, v := range value {
+			m.SummarySnapshot[key][k] = v
+		}
+	}
+}
+
+func (m *monitor) metadataCopy(newData MetadataContainer) {
+	m.MetadataSnapshot.TS = newData.TS
+	m.MetadataSnapshot.Nodes = append([]metadataRPCResult{}, newData.Nodes...)
+	m.MetadataSnapshot.Down = append([]noReply{}, newData.Down...)
+}
+
+func (m *monitor) blockHeaderCopy(newData BlockHeaderContainer) {
+	m.BlockHeaderSnapshot.TS = newData.TS
+	m.BlockHeaderSnapshot.Nodes = append([]headerInfoRPCResult{}, newData.Nodes...)
+	m.BlockHeaderSnapshot.Down = append([]noReply{}, newData.Down...)
 }
 
 type metadataRPCResult struct {
@@ -256,85 +336,286 @@ type headerInfoRPCResult struct {
 	Payload headerInformation
 	IP      string
 }
+
 type noReply struct {
 	IP            string
 	FailureReason string
 	RPCPayload    string
 }
 
-type monitor struct {
-	chain            string
-	MetadataSnapshot struct {
-		TS    time.Time
-		Nodes []metadataRPCResult
-	}
-	BlockHeaderSnapshot struct {
-		TS    time.Time
-		Nodes []headerInfoRPCResult
-	}
-	NoReplyMachines   []noReply
-	lock              *sync.Mutex
-	cond              *sync.Cond
-	consensusProgress map[string]bool
+type MetadataContainer struct {
+	TS    time.Time
+	Nodes []metadataRPCResult
+	Down  []noReply
 }
 
-func (m *monitor) update(rpc string, every int, nodeList []string) {
-	type t struct {
-		addr       string
-		rpcPayload []byte
-		rpcResult  []byte
-		oops       error
+type BlockHeaderContainer struct {
+	TS    time.Time
+	Nodes []headerInfoRPCResult
+	Down  []noReply
+}
+
+type monitor struct {
+	chain               string
+	inUse               sync.Mutex
+	WorkingMetadata     MetadataContainer
+	WorkingBlockHeader  BlockHeaderContainer
+	MetadataSnapshot    MetadataContainer
+	BlockHeaderSnapshot BlockHeaderContainer
+	SummarySnapshot     map[string]map[string]interface{}
+	NoReplySnapshot     []noReply
+	consensusProgress   map[string]bool
+}
+
+type work struct {
+	address string
+	rpc     string
+	body    []byte
+}
+
+type reply struct {
+	address    string
+	rpc        string
+	rpcPayload []byte
+	rpcResult  []byte
+	oops       error
+}
+
+func (m *monitor) worker(
+	jobs chan work, channels map[string](chan reply), groups map[string]*sync.WaitGroup,
+) {
+	for j := range jobs {
+		result := reply{address: j.address, rpc: j.rpc}
+		result.rpcResult, result.rpcPayload, result.oops = request(
+			"http://"+j.address, j.body)
+		channels[j.rpc] <- result
+		groups[j.rpc].Done()
 	}
-	for now := range time.Tick(time.Duration(every) * time.Second) {
-		m.NoReplyMachines = []noReply{}
+}
+
+func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
+	jobs := make(chan work, len(nodeList))
+	replyChannels := make(map[string](chan reply))
+	syncGroups := make(map[string]*sync.WaitGroup)
+
+	replyChannels[blockHeaderRPC] = make(chan reply, len(nodeList))
+	var bhGroup sync.WaitGroup
+	syncGroups[blockHeaderRPC] = &bhGroup
+
+	for i := 0; i < poolSize; i++ {
+		go m.worker(jobs, replyChannels, syncGroups)
+	}
+
+	requestFields := map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"method":  blockHeaderRPC,
+		"params":  []interface{}{},
+	}
+
+	type s struct {
+		Result headerInformation `json:"result"`
+	}
+
+	type lastSuccessfulBlock struct {
+		Height uint64
+		TS     time.Time
+	}
+
+	lastShardData := make(map[string]lastSuccessfulBlock)
+	consensusStatus := make(map[string]bool)
+
+	for now := range time.Tick(time.Duration(interval) * time.Second) {
+		queryID := 0
+		for n := range nodeList {
+			requestFields["id"] = strconv.Itoa(queryID)
+			requestBody, _ := json.Marshal(requestFields)
+			jobs <- work{nodeList[n], blockHeaderRPC, requestBody}
+			queryID++
+			syncGroups[blockHeaderRPC].Add(1)
+		}
+		syncGroups[blockHeaderRPC].Wait()
+		close(replyChannels[blockHeaderRPC])
+
+		monitorData := BlockHeaderContainer{}
+		for d := range replyChannels[blockHeaderRPC] {
+			if d.oops != nil {
+				monitorData.Down = append(m.WorkingBlockHeader.Down,
+					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+			} else {
+				oneReport := s{}
+				json.Unmarshal(d.rpcResult, &oneReport)
+				monitorData.Nodes = append(monitorData.Nodes, headerInfoRPCResult{
+					oneReport.Result,
+					d.address,
+				})
+			}
+		}
+
+		blockHeaderData := any{}
+		blockHeaderSummary(monitorData.Nodes, true, blockHeaderData)
+
+		currentUTCTime := now.UTC()
+
+		//fmt.Print(blockHeaderData)
+		for shard, summary := range blockHeaderData {
+			currentBlockHeight := summary.(any)[blockMax].(uint64)
+			currentBlockHeader := summary.(any)["latest-block"].(headerInfoRPCResult)
+			if lastBlock, exists := lastShardData[shard]; exists {
+				if currentBlockHeight <= lastBlock.Height {
+					timeSinceLastSuccess := currentUTCTime.Sub(lastBlock.TS)
+					if uint64(timeSinceLastSuccess.Seconds()) > interval {
+						message := fmt.Sprintf(consensusWarningMessage,
+							shard, currentBlockHeight, lastBlock.TS.Format(timeFormat),
+							currentBlockHeader.Payload.BlockHash, currentBlockHeader.Payload.Leader,
+							currentBlockHeader.Payload.ViewID, currentBlockHeader.Payload.Epoch,
+							currentBlockHeader.Payload.Timestamp, currentBlockHeader.Payload.LastCommitSig,
+							currentBlockHeader.Payload.LastCommitBitmap,
+							int64(timeSinceLastSuccess.Seconds()), timeSinceLastSuccess.Minutes(),
+							chain, fmt.Sprintf(nameFMT, chain))
+						incidentKey := fmt.Sprintf("Shard %s consensus stuck!", shard)
+						err := notify(pdServiceKey, incidentKey, chain, message)
+						if err != nil {
+							errlog.Print(err)
+						} else {
+							stdlog.Print("Sent PagerDuty alert!")
+						}
+						consensusStatus[fmt.Sprintf("shard-%s", shard)] = false
+						continue
+					}
+				}
+			}
+			lastShardData[shard] = lastSuccessfulBlock{currentBlockHeight, time.Unix(currentBlockHeader.Payload.UnixTime, 0).UTC()}
+			consensusStatus[fmt.Sprintf("shard-%s", shard)] = true
+		}
+		stdlog.Printf("Total no reply machines: %d", len(monitorData.Down))
+		stdlog.Print(lastShardData)
+		stdlog.Print(consensusStatus)
+
+		m.inUse.Lock()
+		m.consensusProgress = consensusStatus
+		m.inUse.Unlock()
+		replyChannels[blockHeaderRPC] = make(chan reply, len(nodeList))
+	}
+}
+
+func (m *monitor) manager(
+	jobs chan work, interval int, nodeList []string,
+	rpc string, group *sync.WaitGroup,
+	channels map[string](chan reply), monitor chan bool,
+) {
+	requestFields := map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"method":  rpc,
+		"params":  []interface{}{},
+	}
+	for now := range time.Tick(time.Duration(interval) * time.Second) {
+		queryID := 0
+		for n := range nodeList {
+			requestFields["id"] = strconv.Itoa(queryID)
+			requestBody, _ := json.Marshal(requestFields)
+			jobs <- work{nodeList[n], rpc, requestBody}
+			queryID++
+			group.Add(1)
+		}
 		switch rpc {
 		case metadataRPC:
-			m.MetadataSnapshot.Nodes = []metadataRPCResult{}
+			m.WorkingMetadata.TS = now
 		case blockHeaderRPC:
-			m.lock.Lock()
-			m.BlockHeaderSnapshot.Nodes = []headerInfoRPCResult{}
+			m.WorkingBlockHeader.TS = now
 		}
-		requestBody, _ := json.Marshal(map[string]interface{}{
-			"jsonrpc": versionJSONRPC,
-			"id":      strconv.Itoa(queryID),
-			"method":  rpc,
-			"params":  []interface{}{},
-		})
+		group.Wait()
+		close(channels[rpc])
 
-		go func(n time.Time) {
-			payloadChan := make(chan t, len(nodeList))
-			for _, nodeIP := range nodeList {
-				go func(addr string) {
-					result := t{addr: addr}
-					result.rpcResult, result.rpcPayload, result.oops = request(
-						"http://"+addr,
-						rpc,
-						requestBody,
-					)
-					payloadChan <- result
-				}(nodeIP)
-			}
-			for range nodeList {
-				it := <-payloadChan
-				if it.oops != nil {
-					m.NoReplyMachines = append(
-						m.NoReplyMachines,
-						noReply{it.addr, it.oops.Error(), string(it.rpcPayload)},
-					)
-					continue
+		first := true
+		switch rpc {
+		case metadataRPC:
+			for d := range channels[rpc] {
+				if first {
+					m.WorkingMetadata.Down = []noReply{}
+					m.WorkingMetadata.Nodes = []metadataRPCResult{}
+					first = false
 				}
-				m.bytesToNodeMetadata(rpc, it.addr, it.rpcResult)
-			}
-			switch rpc {
-			case blockHeaderRPC:
-				m.lock.Unlock()
-				if len(m.BlockHeaderSnapshot.Nodes) > 0 {
-					m.cond.Broadcast()
+				if d.oops != nil {
+					m.WorkingMetadata.Down = append(m.WorkingMetadata.Down,
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+				} else {
+					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
 				}
 			}
-			m.MetadataSnapshot.TS = n
-		}(now)
-		queryID++
+			m.inUse.Lock()
+			m.metadataCopy(m.WorkingMetadata)
+			m.inUse.Unlock()
+		case blockHeaderRPC:
+			for d := range channels[rpc] {
+				if first {
+					m.WorkingBlockHeader.Down = []noReply{}
+					m.WorkingBlockHeader.Nodes = []headerInfoRPCResult{}
+					first = false
+				}
+				if d.oops != nil {
+					m.WorkingBlockHeader.Down = append(m.WorkingBlockHeader.Down,
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+				} else {
+					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
+				}
+			}
+			m.inUse.Lock()
+			m.blockHeaderCopy(m.WorkingBlockHeader)
+			m.inUse.Unlock()
+			monitor <- true
+		}
+		channels[rpc] = make(chan reply, len(nodeList))
+	}
+}
+
+func (m *monitor) update(
+	params watchParams, superCommittee map[int]committee, rpcs []string,
+) {
+	nodeList := []string{}
+	for _, v := range superCommittee {
+		nodeList = append(nodeList, v.members...)
+	}
+
+	jobs := make(chan work, len(nodeList))
+	replyChannels := make(map[string](chan reply))
+	syncGroups := make(map[string]*sync.WaitGroup)
+	for _, rpc := range rpcs {
+		replyChannels[rpc] = make(chan reply, len(nodeList))
+		switch rpc {
+		case metadataRPC:
+			var mGroup sync.WaitGroup
+			syncGroups[rpc] = &mGroup
+		case blockHeaderRPC:
+			var bhGroup sync.WaitGroup
+			syncGroups[rpc] = &bhGroup
+		}
+	}
+
+	for i := 0; i < params.Performance.WorkerPoolSize; i++ {
+		go m.worker(jobs, replyChannels, syncGroups)
+	}
+
+	for _, rpc := range rpcs {
+		switch rpc {
+		case metadataRPC:
+			go m.manager(
+				jobs, params.InspectSchedule.NodeMetadata, nodeList,
+				rpc, syncGroups[rpc], replyChannels, nil,
+			)
+		case blockHeaderRPC:
+			healthMonitorChan := make(chan bool)
+			go m.manager(
+				jobs, params.InspectSchedule.BlockHeader, nodeList, rpc,
+				syncGroups[rpc], replyChannels, healthMonitorChan,
+			)
+			go m.consensusMonitor(
+				uint64(params.ShardHealthReporting.Consensus.Warning),
+				params.Performance.WorkerPoolSize,
+				params.Auth.PagerDuty.EventServiceKey,
+				params.Network.TargetChain,
+				nodeList,
+			)
+		}
 	}
 }
 
@@ -349,91 +630,74 @@ func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	case metadataRPC:
 		oneReport := r{}
 		json.Unmarshal(payload, &oneReport)
-		m.MetadataSnapshot.Nodes = append(m.MetadataSnapshot.Nodes, metadataRPCResult{
+		m.WorkingMetadata.Nodes = append(m.WorkingMetadata.Nodes, metadataRPCResult{
 			oneReport.Result,
 			addr,
 		})
 	case blockHeaderRPC:
 		oneReport := s{}
 		json.Unmarshal(payload, &oneReport)
-		m.BlockHeaderSnapshot.Nodes = append(m.BlockHeaderSnapshot.Nodes, headerInfoRPCResult{
+		m.WorkingBlockHeader.Nodes = append(m.WorkingBlockHeader.Nodes, headerInfoRPCResult{
 			oneReport.Result,
 			addr,
 		})
 	}
 }
 
-func (m *monitor) watchShardHealth(pdServiceKey, chain string, warning, redline int) {
-	sumCopy := func(prevS, newS any) {
-		for key, value := range newS {
-			prevS[key] = value
+type networkReport struct {
+	Build             string                            `json:"watchdog-build-version"`
+	Chain             string                            `json:"chain-name"`
+	ConsensusProgress map[string]bool                   `json:"consensus-liviness"`
+	Summary           map[string]map[string]interface{} `json:"summary-maps"`
+	NoReplies         []noReply                         `json:"no-reply-machines"`
+}
+
+func (m *monitor) networkSnapshot() networkReport {
+	m.inUse.Lock()
+	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	m.inUse.Unlock()
+	leaders := make(map[string][]string)
+	linq.From(sum[metaSumry]).ForEach(func(v interface{}) {
+		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string]interface{})["records"]).
+			Where(func(n interface{}) bool { return n.(metadataRPCResult).Payload.IsLeader }).
+			ForEach(func(n interface{}) {
+				shardID := strconv.FormatUint(uint64(n.(metadataRPCResult).Payload.ShardID), 10)
+				leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
+			})
+	})
+	for i := range leaders {
+		// FIXME: Remove when hmy_getNodeMetadata RPC is fixed & deployed
+		if sum[headerSumry][i] != nil {
+			sum[headerSumry][i].(any)["shard-leader"] = leaders[i]
 		}
 	}
-	// WARN Pay attention to the work here
-	liviness := func(message string, interval int) {
-		previousSummary := any{}
-		currentSummary := any{}
-		m.lock.Lock()
-		m.cond.Wait()
-		blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, previousSummary)
-		m.lock.Unlock()
-		for range time.Tick(time.Duration(interval) * time.Second) {
-			m.lock.Lock()
-			m.cond.Wait()
-			blockHeaderSummary(m.BlockHeaderSnapshot.Nodes, false, true, currentSummary)
-			m.lock.Unlock()
-			for shard, currentDetails := range currentSummary {
-				sName := fmt.Sprintf("shard-%s", shard)
-				nowDets, asrtOk1 := currentDetails.(any)
-				thenDets, asrtOk2 := previousSummary[shard].(any)
-				if asrtOk1 && asrtOk2 {
-					if latestCount, ok := nowDets[blockMax]; ok {
-						if prevCount, ok := thenDets[blockMax]; ok {
-							thenTS := thenDets[timestamp].(time.Time)
-							nowTS := nowDets[timestamp].(time.Time)
-							elapsed := int64(nowTS.Sub(thenTS).Seconds())
-							nowC := latestCount.(uint64)
-							prevC := prevCount.(uint64)
-							if !(nowC > prevC) && int(elapsed) >= interval {
-								name := fmt.Sprintf(nameFMT, chain)
-								notify(pdServiceKey,
-									fmt.Sprintf(`
-%s: Liviness problem on shard %s
-
-previous height %d at %s
-current height %d at %s
-
-Difference in seconds: %d
-
-See: http://watchdog.hmny.io/report-%s
-
---%s
-`, message, shard, prevC, thenTS, nowC, nowTS, elapsed, chain, name))
-								m.consensusProgress[sName] = false
-							} else {
-								m.consensusProgress[sName] = true
-							}
-						}
-					}
-				}
-			}
-			sumCopy(previousSummary, currentSummary)
-		}
+	cnsProgressCpy := map[string]bool{}
+	m.inUse.Lock()
+	for key, value := range m.consensusProgress {
+		cnsProgressCpy[key] = value
 	}
-	go liviness("Warning", warning)
-	// go liviness("Redline", redline)
+	totalNoReplyMachines := []noReply{}
+	totalNoReplyMachines = append(
+		append(totalNoReplyMachines, m.MetadataSnapshot.Down...), m.BlockHeaderSnapshot.Down...,
+	)
+	m.inUse.Unlock()
+	return networkReport{buildVersion, m.chain, cnsProgressCpy, sum, totalNoReplyMachines}
+}
+
+func (m *monitor) networkSnapshotJSON(w http.ResponseWriter, req *http.Request) {
+	json.NewEncoder(w).Encode(m.networkSnapshot())
 }
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
-	go m.update(metadataRPC, instrs.InspectSchedule.NodeMetadata, instrs.networkNodes)
-	go m.update(blockHeaderRPC, instrs.InspectSchedule.BlockHeader, instrs.networkNodes)
-	go m.watchShardHealth(
-		instrs.Auth.PagerDuty.EventServiceKey,
-		instrs.TargetChain,
-		instrs.ShardHealthReporting.Consensus.Warning,
-		instrs.ShardHealthReporting.Consensus.Redline,
-	)
-	http.HandleFunc("/report-"+instrs.TargetChain, m.renderReport)
-	http.HandleFunc("/report-download", m.produceCSV)
+	client = fasthttp.Client{
+		Dial: func(addr string) (net.Conn, error) {
+			return fasthttp.DialTimeout(addr, time.Second*time.Duration(instrs.Performance.HTTPTimeout))
+		},
+		MaxConnsPerHost: 2048,
+	}
+	go m.update(instrs.watchParams, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC})
+	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
+	http.HandleFunc("/report-download-"+instrs.Network.TargetChain, m.produceCSV)
+	http.HandleFunc("/network-"+instrs.Network.TargetChain, m.networkSnapshotJSON)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
 }

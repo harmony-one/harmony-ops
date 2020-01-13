@@ -1,7 +1,8 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -20,7 +22,7 @@ import (
 )
 
 const (
-	nameFMT     = "harmony-watchdog@%s"
+	nameFMT     = "harmony-watchdogd@%s"
 	description = "Monitor the Harmony blockchain -- `%i`"
 	spaceSep    = " "
 )
@@ -29,9 +31,9 @@ var (
 	sep       = []byte("\n")
 	recordSep = []byte(spaceSep)
 	rootCmd   = &cobra.Command{
-		Use:          "harmony-watchdog",
+		Use:          "harmony-watchdogd",
 		SilenceUsage: true,
-		Long:         "Monitor a blockchain",
+		Long:         "Monitor a Harmony blockchain",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
@@ -59,7 +61,87 @@ type Service struct {
 	*instruction
 }
 
-// Manage by daemon commands or run the daemon
+func (service *Service) compareIPInShardFileWithNodes() error {
+	requestBody, _ := json.Marshal(map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"id":      strconv.Itoa(queryID),
+		"method":  blockHeaderRPC,
+		"params":  []interface{}{},
+	})
+	type t struct {
+		addr       string
+		rpcPayload []byte
+		rpcResult  []byte
+		oops       error
+	}
+	type s struct {
+		Result headerInformation `json:"result"`
+	}
+	type hooligans [][2]string
+	const unreachableShard = -1
+	results := sync.Map{}
+	wait := sync.WaitGroup{}
+	results.Store(unreachableShard, hooligans{})
+
+	for shardID, subcommittee := range service.superCommittee {
+		results.Store(shardID, hooligans{})
+		for _, nodeIP := range subcommittee.members {
+			wait.Add(1)
+			go func(shardID int, nodeIP string) {
+				defer wait.Add(-1)
+				result := t{addr: nodeIP}
+				url := "http://" + result.addr
+				result.rpcResult, result.rpcPayload, result.oops = request(url, requestBody)
+				if result.oops != nil {
+					noReply, _ := results.Load(unreachableShard)
+					results.Store(unreachableShard, append(
+						noReply.(hooligans),
+						[2]string{strconv.Itoa(shardID), nodeIP + "-" + result.oops.Error()},
+					),
+					)
+					return
+				}
+				oneReport := s{}
+				json.Unmarshal(result.rpcResult, &oneReport)
+				if oneReport.Result.ShardID != uint32(shardID) {
+					// I should be shardID but actually I was in Result.ShardID and my address is nodeIP
+					naughty, _ := results.Load(shardID)
+					results.Store(
+						shardID, append(
+							naughty.(hooligans), [2]string{strconv.Itoa(int(oneReport.Result.ShardID)), nodeIP},
+						),
+					)
+				}
+			}(shardID, nodeIP)
+		}
+	}
+
+	wait.Wait()
+
+	type wrongSpot struct {
+		InShard string
+		Addr    string
+	}
+	plainMap := map[string][]wrongSpot{}
+	results.Range(func(key, value interface{}) bool {
+		misplaced := make([]wrongSpot, len(value.(hooligans)))
+		for i, pair := range value.(hooligans) {
+			misplaced[i] = wrongSpot{pair[0], pair[1]}
+		}
+		switch k := key.(int); k {
+		case unreachableShard:
+			plainMap["no-reply-nodes"] = misplaced
+		default:
+
+		}
+		return true
+	})
+
+	mapDump, _ := json.Marshal(plainMap)
+	fmt.Println(string(mapDump))
+	return nil
+}
+
 func (service *Service) monitorNetwork() error {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
@@ -109,29 +191,40 @@ type watchParams struct {
 			EventServiceKey string `yaml:"event-service-key"`
 		} `yaml:"pagerduty"`
 	} `yaml:"auth"`
-	TargetChain string `yaml:"target-chain"`
+	Network struct {
+		TargetChain string `yaml:"target-chain"`
+		RPCPort     int    `yaml:"public-rpc"`
+	} `yaml:"network-config"`
 	// Assumes Seconds
 	InspectSchedule struct {
 		BlockHeader  int `yaml:"block-header"`
 		NodeMetadata int `yaml:"node-metadata"`
 	} `yaml:"inspect-schedule"`
+	Performance struct {
+		WorkerPoolSize int `yaml:"num-workers"`
+		HTTPTimeout    int `yaml:"http-timeout"`
+	} `yaml:"performance"`
 	HTTPReporter struct {
 		Port int `yaml:"port"`
 	} `yaml:"http-reporter"`
 	ShardHealthReporting struct {
 		Consensus struct {
 			Warning int `yaml:"warning"`
-			Redline int `yaml:"redline"`
 		} `yaml:"consensus"`
 	} `yaml:"shard-health-reporting"`
 	DistributionFiles struct {
-		MachineIPList string `yaml:"machine-ip-list"`
+		MachineIPList []string `yaml:"machine-ip-list"`
 	} `yaml:"node-distribution"`
+}
+
+type committee struct {
+	file    string
+	members []string
 }
 
 type instruction struct {
 	watchParams
-	networkNodes []string
+	superCommittee map[int]committee
 }
 
 func newInstructions(yamlPath string) (*instruction, error) {
@@ -140,25 +233,82 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		return nil, err
 	}
 	t := watchParams{}
-	err = yaml.Unmarshal(rawYAML, &t)
+	err = yaml.UnmarshalStrict(rawYAML, &t)
 	if err != nil {
 		return nil, err
 	}
-	nodesRecord, err2 := ioutil.ReadFile(t.DistributionFiles.MachineIPList)
-	if err2 != nil {
-		return nil, err2
+	oops := t.sanityCheck()
+	if oops != nil {
+		return nil, oops
 	}
-	networkNodes := bytes.Split(bytes.Trim(nodesRecord, "\n"), sep)
-	instr := &instruction{t, []string{}}
-	for _, value := range networkNodes {
-		instr.networkNodes = append(
-			instr.networkNodes,
-			// Trust the input because it is already trusted elsewhere,
-			// if data malformed, then launch would have failed anyway
-			strings.TrimSpace(string(bytes.Split(value, recordSep)[0]))+":9500",
-		)
+	byShard := make(map[int]committee, len(t.DistributionFiles.MachineIPList))
+	for _, file := range t.DistributionFiles.MachineIPList {
+		shard := path.Base(strings.TrimSuffix(file, path.Ext(file)))
+		id, err := strconv.Atoi(string(shard[len(shard)-1]))
+		if err != nil {
+			return nil, err
+		}
+		ipList := []string{}
+		f, err := os.Open(file)
+		if err != nil {
+			return nil, nil
+		}
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+		 	ipList = append(ipList, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort))
+		}
+		err = scanner.Err()
+		if err != nil {
+			return nil, err
+		}
+		byShard[id] = committee{file, ipList}
 	}
-	return instr, nil
+	dups := []string{}
+	nodeList := make(map[string]string)
+	for i, s := range byShard {
+		for _, m := range s.members {
+			if _, check := nodeList[m]; check {
+				dups = append(dups, strconv.FormatInt(int64(i), 10) + ": " + m)
+				dups = append(dups, nodeList[m] + ": " + m)
+			} else {
+				nodeList[m] = strconv.FormatInt(int64(i), 10)
+			}
+		}
+	}
+	if len(dups) > 0  {
+		return nil, errors.New("Duplicate IPs detected.\n" + strings.Join(dups, "\n"))
+	}
+	return &instruction{t, byShard}, nil
+}
+
+func (w *watchParams) sanityCheck() error {
+	errList := []string{}
+	if w.Network.RPCPort == 0 {
+		errList = append(errList, "Missing public-rpc under network-config in yaml config")
+	}
+	if w.InspectSchedule.BlockHeader == 0 {
+		errList = append(errList, "Missing block-header under inspect-schedule in yaml config")
+	}
+	if w.InspectSchedule.NodeMetadata == 0 {
+		errList = append(errList, "Missing node-metadata under inspect-schedule in yaml config")
+	}
+	if w.Performance.WorkerPoolSize == 0 {
+		errList = append(errList, "Missing num-workers under performance in yaml config")
+	}
+	if w.Performance.HTTPTimeout == 0 {
+		errList = append(errList, "Missing http-timeout under performance in yaml config")
+	}
+	if w.HTTPReporter.Port == 0 {
+		errList = append(errList, "Missing port under http-reporter in yaml config")
+	}
+	if w.ShardHealthReporting.Consensus.Warning == 0 {
+		errList = append(errList, "Missing warmomg under shard-health-reporting, consensus in yaml config")
+	}
+	if len(errList) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(errList, "\n"))
 }
 
 func versionS() string {
@@ -191,4 +341,6 @@ func init() {
 	})
 	rootCmd.AddCommand(serviceCmd())
 	rootCmd.AddCommand(monitorCmd())
+	rootCmd.AddCommand(validateMachineIPList())
+	rootCmd.AddCommand(generateSampleYAML())
 }

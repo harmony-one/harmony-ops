@@ -14,13 +14,18 @@ do
  case "${option}" 
  in 
  b) harmony_branch=${OPTARG};; 
+ c) cli_branch=${OPTARG};;
+ f) force_checkout=true;;
  h) echo "Options:"
     echo "    -b <branch name>   Branch name for main harmony repo. Default is master."
     echo "    -c <branch name>   Branch name for cli repo. Default is master."
     echo "    -f                 Force stash then checkout." 
-    echo "    -h                 Help.";; 
+    echo "    -h                 Help."
+    exit 0 ;; 
  esac 
 done 
+
+echo "$force_checkout"
 
 function pull_and_build_cli(){
     cd $cli_path
@@ -44,7 +49,9 @@ function pull_and_build_cli(){
 function pull_and_build_localnet(){
     cd $harmony_path
     if ! (git checkout $harmony_branch); then 
+        echo in
         if $force_checkout ; then
+            echo stashing
             git stash && git checkout $harmony_branch
         else
             exit 1
@@ -67,5 +74,5 @@ pull_and_build_localnet
 cd $harmony_path && bash test/kill_node.sh
 rm -rf tmp_log*
 ./test/deploy.sh $harmony_path/test/configs/local-resharding.txt > /dev/null &
-cd $src_dir/tests && bash launch_test.sh
+cd $src_dir/tests && bash localnet_test.sh
 cd $harmony_path && bash test/kill_node.sh

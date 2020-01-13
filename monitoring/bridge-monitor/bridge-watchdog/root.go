@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"bytes"
 	"fmt"
 	"log"
@@ -20,6 +19,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/spf13/cobra"
 	"github.com/takama/daemon"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -42,6 +42,7 @@ var (
 	}
 	w      *cobraSrvWrapper = &cobraSrvWrapper{nil}
 	bnbcliPath string
+	expectedBal int64
 	stdLog *log.Logger
 	errLog *log.Logger
 	// Add services here that we might want to depend on, see all services on
@@ -74,14 +75,16 @@ func (service *Service) monitorNetwork() error {
 
 	go func() {
 		// Our polling logic
-		expectedBalance, _ := NewDecFromStr("152818477.146499980000000000")
-		thresholdBalance, _ := NewDecFromStr("152000000")
+		expectedBalance := NewDecFromBigInt(big.NewInt(expectedBal))
+		threshold := NewDecFromBigInt(big.NewInt(10))
 		base := NewDecFromBigInt(big.NewInt(100000000))
+		lastDiff := ZeroDec()
 		tryAgainCounter := 0
 		etherFailCounter := 0
 		reportCounter := 0
+		wifiDowntime := time.Time{}
 
-		for range time.Tick(time.Duration(60) * time.Second) {
+		for range time.Tick(time.Duration(200) * time.Second) {
 			// Track 30 minutes regardless of success
 			reportCounter++
 			// If EtherSite fetch fail, wait 10 iterations
@@ -91,18 +94,30 @@ func (service *Service) monitorNetwork() error {
 					continue
 				}
 			}
+			// Check wifi by pinging Google DNS
+			client := http.Client{
+				Timeout: 5 * time.Second,
+			}
+			_, err := client.Get("https://8.8.8.8")
+			if err != nil {
+				errLog.Println("Google request failed.")
+				wifiDowntime = time.Now()
+				tryAgainCounter = 10
+				continue
+			} else {
+				// Skip until wifi actually goes down once
+				if !wifiDowntime.IsZero() {
+					errLog.Printf("Google request success. Total time down: %s\n", time.Now().Sub(wifiDowntime))
+					wifiDowntime = time.Time{}
+				}
+			}
 			// Calculate balance
 			bnb, oops := pullBNB()
 			if oops != nil {
-				// If BNB CLI fetch fail, quit
-				e := notify(pdServiceKey, fmt.Sprintf(`
-						BNB CLI fetch failed. Exiting. %s
-						`, oops))
-				if e != nil {
-					errLog.Println(e)
-				}
+				// If BNB CLI fetch fail
 				errLog.Println(oops)
-				os.Exit(-1)
+				tryAgainCounter = 10
+				continue
 			}
 
 			normed := bnb.Quo(base)
@@ -110,15 +125,9 @@ func (service *Service) monitorNetwork() error {
 			if err != nil {
 				etherFailCounter++
 				if etherFailCounter > 6 {
-					e := notify(pdServiceKey, fmt.Sprintf(`
-							EtherScan balance fetch failed for 1 hour. Exiting. Error: %s
-							`, err))
-					if e != nil {
-						errLog.Println(e)
-					}
-					// If failing for 1 hour, exit
+					// If failing for 1 hour
 					errLog.Println(err)
-					os.Exit(-1)
+					etherFailCounter = 0
 				}
 				tryAgainCounter = 10
 				continue
@@ -127,14 +136,8 @@ func (service *Service) monitorNetwork() error {
 			if error != nil {
 				etherFailCounter++
 				if etherFailCounter > 6 {
-					e := notify(pdServiceKey, fmt.Sprintf(`
-							EtherScan balance fetch failed for 1 hour. Exiting. Error: %s
-							`, error))
-					if e != nil {
-						errLog.Println(e)
-					}
 					errLog.Println(error)
-					os.Exit(-1)
+					etherFailCounter = 0
 				}
 				tryAgainCounter = 10
 				continue
@@ -145,7 +148,7 @@ func (service *Service) monitorNetwork() error {
 
 			totalBalance := normed.Add(ethSiteBal)
 			diff := totalBalance.Sub(expectedBalance).Abs()
-			if reportCounter > 30 {
+			if reportCounter > 6 {
 				stdLog.Printf(`
 Expected Balance: %s
 
@@ -156,24 +159,29 @@ Deviation: %s
 				reportCounter = 0
 			}
 			// Check if below threshold
-			if expectedBalance.Sub(diff).LT(thresholdBalance) {
-			 	// Send PagerDuty message
-			 	e := notify(pdServiceKey, fmt.Sprintf(`
-						Mismatch detected!
+			if diff.GT(threshold) {
+				if !diff.Equal(lastDiff) {
+				 	// Send PagerDuty message
+				 	e := notify(pdServiceKey, fmt.Sprintf(`
+Mismatch detected!
 
-						BNB Value: %s
+BNB Value: %s
 
-						EtherScan Value: %s
+EtherScan Value: %s
 
-						Expected Balance: %s
+Expected Balance: %s
 
-						Calculated Balance: %s = (%s / %s) + %s
+Calculated Balance: %s = (%s / %s) + %s
 
-						Deviation: %s
-						`, normed, ethSiteBal, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff))
+Deviation: %s
+`, normed, ethSiteBal, expectedBalance, totalBalance, bnb, base, ethSiteBal, diff))
 					if e != nil {
 						stdLog.Println(e)
 					}
+					lastDiff = diff
+				}
+			} else {
+				lastDiff = ZeroDec()
 			}
 		}
 	}()
@@ -224,10 +232,10 @@ func pullBNB() (Dec, error) {
 	}...)
 
 	cmd.Dir = here
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 
 	if err != nil {
-		return ZeroDec(), err
+		return ZeroDec(), errors.Wrapf(err, "raw output: %s", out)
 	}
 
 	type t struct {

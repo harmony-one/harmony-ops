@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-func reportPage() string {
+func reportPage(chain string) string {
 	// Keep in mind that need extra % infront of % to escape fmt
 	return fmt.Sprintf(`
 <!DOCTYPE html>
@@ -96,6 +96,9 @@ hr:after {
           <div class="flex-col center stat-box">
             <a href="#shard-{{$key}}">Shard-{{$key}}</a>
             <p>count:{{ len (index $value "records") }}</p>
+            <p>max block: {{index $value "block-max"}}</p>
+            <p>max epoch: {{index $value "epoch-max"}}</p>
+            <p>leader: {{index $value "shard-leader"}}</p>
           </div>
         {{end}}
         {{end}}
@@ -122,7 +125,7 @@ hr:after {
               Down machines <span><a href="#top-of-page">(Top)</a></span>
             </h3>
             <p style="width: 375px;">
-             Note: "dialing to the given TCP address timed out" failure could 
+             Note: "dialing to the given TCP address timed out" failure could
              just mean that the HTTP RPC did not complete fast enough.
             </p>
           </div>
@@ -161,7 +164,7 @@ hr:after {
             <h3>
               Block Header <span><a href="#top-of-page">(Top)</a></span>
             </h3>
-            <a href="/report-download?report=%s">Download CSV</a>
+            <a href="/report-download-%s?report=%s&shard={{$key}}">Download CSV</a>
           </div>
           <div class="flex-row">
             <p> shard: {{ $key }} </p>
@@ -225,7 +228,7 @@ hr:after {
             <h3>
               Node Metadata <span><a href="#top-of-page">(Top)</a></span>
            </h3>
-            <a href="/report-download?report=%s">Download CSV</a>
+            <a href="/report-download-%s?report=%s&vrs={{$key}}">Download CSV</a>
           </div>
           <div class="flex-row">
             <p> build version: {{ $key }} </p>
@@ -241,6 +244,8 @@ hr:after {
 	    <th>Version</th>
 	    <th>Network Type</th>
 	    <th>ChainID</th>
+	    <th>ShardID</th>
+	    <th>Role</th>
 	  </tr>
         </thead>
         <tbody>
@@ -252,6 +257,8 @@ hr:after {
             <td>{{.Payload.Version}} </td>
             <td>{{.Payload.NetworkType}} </td>
             <td>{{.Payload.ChainID}} </td>
+            <td>{{.Payload.ShardID}} </td>
+            <td>{{.Payload.NodeRole}} </td>
           </tr>
           {{end}}
           {{end}}
@@ -266,5 +273,5 @@ setInterval(() => window.location.reload(true),  1000 * 120);
 </script>
   </body>
 </html>
-`, blockHeaderReport, nodeMetadataReport)
+`, chain, blockHeaderReport, chain, nodeMetadataReport)
 }
