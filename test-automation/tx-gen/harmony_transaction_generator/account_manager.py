@@ -148,23 +148,27 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
               f"--amount={amount} --passphrase={pw} --chain-id={config['CHAIN_ID']} "
     if wait:
         command += f"--wait-for-confirm {config['TXN_WAIT_TO_CONFIRM']}"
+    info = {
+        'from': from_address, 'to': to_address,
+        'from-shard': src_shard, 'to-shard': dst_shard,
+        'amount': amount, 'hash': None, 'time-utc': str(datetime.datetime.utcnow()),
+        'error': None
+    }
     while True:
         try:
             response = cli.single_call(command, timeout=config['TXN_WAIT_TO_CONFIRM']).strip()
             if wait:
-                txn_hash = json_load(response)["result"]["transactionHash"]
+                info['hash'] = json_load(response)["result"]["transactionHash"]
             else:
-                txn_hash = json_load(response)["transaction-receipt"]
-            info = {
-                'from': from_address, 'to': to_address,
-                'from-shard': src_shard, 'to-shard': dst_shard,
-                'amount': amount, 'hash': txn_hash, 'time-utc': str(datetime.datetime.utcnow())
-            }
+                info['hash'] = json_load(response)["transaction-receipt"]
             Loggers.transaction.info(json.dumps(info))
-            return txn_hash
+            return info['hash']
         except (RuntimeError, json.JSONDecodeError) as e:
             if not retry or attempt_count >= max_tries:
-                raise e
+                info['error'] = e
+                Loggers.transaction.error(json.dumps(info))
+                Loggers.transaction.write()
+                return None
             attempt_count += 1
             Loggers.general.warning(f"[Trying Again] Failure sending from {from_address} (s{src_shard}) "
                                     f"to {to_address} (s{dst_shard})\n"
