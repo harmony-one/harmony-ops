@@ -20,7 +20,7 @@ def live_info(accounts, interval, duration):
     pass
 
 
-def get_transaction_by_hash(endpoint, txn_hash):
+def _get_transaction_by_hash(endpoint, txn_hash):
     """
     Internal get transaction by has to speed up analysis.
     Note that this functionality will eventually be migrated to the `pyhmy`
@@ -162,7 +162,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
         endpoint = config["ENDPOINTS"][int(shard)]
         for txn_log in txn_log_list:
             src_shard, dst_shard = str(txn_log["from-shard"]), str(txn_log["to-shard"])
-            response = get_transaction_by_hash(endpoint, txn_log['hash'])
+            response = _get_transaction_by_hash(endpoint, txn_log['hash'])
             curr_count += 1
             if response['result'] is not None:
                 successful_txn_count += 1

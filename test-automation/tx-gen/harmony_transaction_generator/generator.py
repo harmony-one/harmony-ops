@@ -1,11 +1,13 @@
 import math
 import random
 import multiprocessing
-import threading
 import itertools
+from threading import Lock
 from multiprocessing.pool import ThreadPool
 
 from pyhmy import cli
+from pyhmy import util
+import requests
 
 from .common import (
     Loggers,
@@ -20,6 +22,20 @@ from .account_manager import (
 _is_running = False
 _generator_threads = []
 _generator_pool = ThreadPool()
+
+
+def _get_nonce(endpoint, address):
+    """
+    Internal get nonce to bypass subprocess latency of calling CLI.
+    """
+    url = endpoint
+    payload = "{\"jsonrpc\": \"2.0\", \"method\": \"hmy_getTransactionCount\"," \
+              "\"params\": [\"" + address + "\", \"latest\"],\"id\": 1}"
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    response = requests.request('POST', url, headers=headers, data=payload, allow_redirects=False, timeout=30)
+    return int(util.json_load(response.content)["result"], 16)
 
 
 def create_accounts(count, name_prefix="generated"):
@@ -80,19 +96,22 @@ def start(source_accounts, sink_accounts):
     """
     global _generator_pool, _is_running
     config = get_config()
+    endpoints = config["ENDPOINTS"]
 
     if _is_running:
         return
     _is_running = True
-    lock = threading.Lock()
+    lock = Lock()
     txn_count = 0
 
     def generate_transactions(src_accounts, snk_accounts):
         global _is_running
         nonlocal txn_count
+        ref_nonce = {n: [(_get_nonce(endpoints[j], n), Lock()) for j in range(len(endpoints))] for n in src_accounts}
         src_accounts_iter = itertools.cycle(src_accounts)
         while _is_running:
-            src_address = cli.get_address(next(src_accounts_iter))
+            src_name = next(src_accounts_iter)
+            src_address = cli.get_address(src_name)
             snk_address = cli.get_address(random.choice(snk_accounts))
             shard_choices = list(range(0, len(config["ENDPOINTS"])))
             src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
@@ -117,6 +136,14 @@ def start(source_accounts, sink_accounts):
                     return
                 txn_count += 1
                 lock.release()
+            curr_nonce = _get_nonce(endpoints[src_shard], src_address)
+            n, n_lock = ref_nonce[src_name][src_shard]
+            n_lock.acquire()
+            if curr_nonce < n:
+                n_lock.release()
+                continue
+            ref_nonce[src_name][src_shard][0] += 1
+            n_lock.release()
             send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
 
     thread_count = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
