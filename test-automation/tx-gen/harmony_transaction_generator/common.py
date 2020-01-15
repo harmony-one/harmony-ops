@@ -89,7 +89,8 @@ def _validate_config():
         raise ValueError("Initial Source Account Balance per shard cannot be negative")
     if not isinstance(_config["TXN_WAIT_TO_CONFIRM"], (int, float)) or _config["TXN_WAIT_TO_CONFIRM"] < 0:
         raise ValueError("Transaction wait to confirm time cannot be negative")
-    if not isinstance(_config["MAX_THREAD_COUNT"], int) or _config["MAX_THREAD_COUNT"] < 0:
+    if _config["MAX_THREAD_COUNT"] is not None and not (isinstance(_config["MAX_THREAD_COUNT"], int)
+                                                        and _config["MAX_THREAD_COUNT"] > 0):
         raise ValueError("Max Threads cannot be negative")
     num_shards = len(_config["ENDPOINTS"])
     # TODO: check endpoints are valid: input_config["ENDPOINTS"]
