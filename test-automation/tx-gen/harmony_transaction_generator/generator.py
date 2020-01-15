@@ -2,6 +2,7 @@ import math
 import random
 import multiprocessing
 import itertools
+import time
 from threading import Lock
 from multiprocessing.pool import ThreadPool
 
@@ -107,7 +108,8 @@ def start(source_accounts, sink_accounts):
 
     def generate_transactions(src_accounts, snk_accounts):
         nonlocal txn_count
-        ref_nonce = {n: [[_get_nonce(endpoints[j], n), Lock()] for j in range(len(endpoints))] for n in src_accounts}
+        ref_nonce = {n: [[_get_nonce(endpoints[j], cli.get_address(n)), Lock()] for j in range(len(endpoints))]
+                     for n in src_accounts}
         src_accounts_iter = itertools.cycle(src_accounts)
         while _is_running:
             src_name = next(src_accounts_iter)
@@ -129,6 +131,15 @@ def start(source_accounts, sink_accounts):
                     snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
                     retry_count += 1
             txn_amt = random.uniform(config["AMT_PER_TXN"][0], config["AMT_PER_TXN"][1])
+            if config["ENFORCE_NONCE"]:
+                n, n_lock = ref_nonce[src_name][src_shard]
+                n_lock.acquire()
+                if _get_nonce(endpoints[src_shard], src_address) < n:
+                    n_lock.release()
+                    time.sleep(1)  # Sleep instead to prevent needless spam.
+                    continue
+                ref_nonce[src_name][src_shard][0] += 1
+                n_lock.release()
             if config["MAX_TXN_GEN_COUNT"] is not None:
                 lock.acquire()
                 if txn_count >= config["MAX_TXN_GEN_COUNT"]:
@@ -136,15 +147,6 @@ def start(source_accounts, sink_accounts):
                     return
                 txn_count += 1
                 lock.release()
-            curr_nonce = _get_nonce(endpoints[src_shard], src_address)
-            if config["ENFORCE_NONCE"]:
-                n, n_lock = ref_nonce[src_name][src_shard]
-                n_lock.acquire()
-                if curr_nonce < n:
-                    n_lock.release()
-                    continue
-                ref_nonce[src_name][src_shard][0] += 1
-                n_lock.release()
             send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
 
     Loggers.general.info("Started transaction generator...")
