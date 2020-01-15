@@ -1,7 +1,35 @@
 import datetime
 from pyhmy.logging import ControlledLogger
 
-_config = {}
+_config = {
+    "AMT_PER_TXN": [1e-9, 1e-9],  # The random range for each transaction in the transaction-generation
+    "NUM_SRC_ACC": 32,  # The number of possible source accounts for all transactions, higher = more tps
+    "NUM_SNK_ACC": 1,  # The number of possible destination / sink accounts for all transaction
+    "MAX_TXN_GEN_COUNT": None,  # The upper bound of the number generated transaction, regardless of if `stop` is called
+    "ONLY_CROSS_SHARD": False,  # If true, forces source and destination shards to be different
+    "ENFORCE_NONCE": False,  # If true, will only generate transactions with a valid nonce
+    "ESTIMATED_GAS_PER_TXN": 1e-3,  # The estimated gas, hardcoded
+    "INIT_SRC_ACC_BAL_PER_SHARD": 1,  # The initial balance for EVERY source account
+    "TXN_WAIT_TO_CONFIRM": 60,  # The timeout when a transaction is sent (only used in setup related functions)
+    "MAX_THREAD_COUNT": 16,  # Max thread is recommended to be less than your v-core count
+    "ENDPOINTS": [  # Endpoints for all transaction, index i = shard i
+        "https://api.s0.pga.hmny.io/",
+        "https://api.s1.pga.hmny.io/",
+        "https://api.s2.pga.hmny.io/"
+    ],
+    "SRC_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
+        1,                  # Bigger number = higher likelihood of shard i begin chosen
+        1,                  # 0 = 0% chance of being chosen
+        1
+    ],
+    "SNK_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
+        1,
+        1,
+        1
+    ],
+    "CHAIN_ID": "devnet",  # The chain id for all transaction, should be devnet if not localnet.
+    "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",  # All refunds will be sent to this address
+}
 import_account_name_prefix = "_tx_gen_"
 
 
@@ -78,7 +106,6 @@ def set_config(input_config):
     """
     :param input_config: A dictionary specifying the config
     """
-    _config.clear()
     _config.update(input_config)
     _validate_config()
 
