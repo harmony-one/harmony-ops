@@ -137,7 +137,7 @@ def start(source_accounts, sink_accounts):
                     src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
                     snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
                     retry_count += 1
-            txn_amt = random.uniform(config["AMT_PER_TXN"][0], config["AMT_PER_TXN"][1])
+            txn_amt = round(random.uniform(config["AMT_PER_TXN"][0], config["AMT_PER_TXN"][1]), 18)
             if config["ENFORCE_NONCE"]:
                 n, n_lock = ref_nonce[src_name][src_shard]
                 n_lock.acquire()
