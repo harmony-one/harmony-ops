@@ -1,4 +1,10 @@
 {
   "network": "testnet",
-  "explorers" : ["34.218.247.202","52.53.161.172","54.166.233.112"]
+  "num_of_shards": 3,
+  "explorers_0" : ["35.174.154.109", "35.174.154.109"],
+  "explorers_1" : ["34.209.142.115"],
+  "explorers_2" : ["54.183.201.121"],
+  "tg_s0" : ["tg-s0-api-pga-https-test", "tg-s0-api-pga-wss-test"],
+  "tg_s1" : ["tg-s1-api-pga-https-test", "tg-s1-api-pga-wss-test"],
+  "tg_s2" : ["tg-s2-api-pga-https-test", "tg-s2-api-pga-wss-test"]
 }
