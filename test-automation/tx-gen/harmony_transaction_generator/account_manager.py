@@ -103,14 +103,11 @@ def is_fast_loaded(account_name):
     return account_name in _fast_loaded_accounts.keys()
 
 
-def get_fast_loaded_passphrase(account):
-    if account.startswith("one1"):
-        account_names = cli.get_accounts(account)
-        if account_names:
-            account = account_names[0]
-        else:
-            return
-    return _fast_loaded_accounts.get(account, None)
+def get_fast_loaded_passphrase(account_input):
+    account_names = cli.get_accounts(account_input)
+    if account_names:  # If given an address for `account_input`, fetch the account name.
+        account_input = account_names[0]
+    return _fast_loaded_accounts.get(account_input, None)
 
 
 def remove_accounts(accounts, backup=True):
