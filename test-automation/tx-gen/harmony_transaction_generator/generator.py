@@ -89,9 +89,15 @@ def stop():
 def start(source_accounts, sink_accounts):
     """
     Starts the transaction generation where for each transaction:
-        The source account is chosen at random from the pool of accounts, `source_accounts`
-        The sink / destination account is chosen at random from the pool of accounts, `sink_accounts`
-        The to and from shards are chosen at random as defined by the shard weights in the config.
+        The source account is chosen in a cyclic order from an account name list called `source_accounts`
+        The sink / destination account is chosen in a cyclic order from an account name list called `sink_accounts`
+        The to and from shards are chosen at random as defined by the shard weights and options in the config.
+
+    Note that the cyclic order starts at the first element and wraps around once it reaches the last element.
+
+    The transaction generator can force each transaction to have a strictly increasing nonce if the
+    option is enabled in the config. If nonce forcing is disabled, it is possible to send multiple transactions
+    with the same nonce.
 
     :param source_accounts: A list that defines the pool of source accounts
     :param sink_accounts: A list that defines the pool of sink accounts
@@ -111,10 +117,11 @@ def start(source_accounts, sink_accounts):
         ref_nonce = {n: [[_get_nonce(endpoints[j], cli.get_address(n)), Lock()] for j in range(len(endpoints))]
                      for n in src_accounts}
         src_accounts_iter = itertools.cycle(src_accounts)
+        snk_accounts_iter = itertools.cycle(snk_accounts)
         while _is_running:
             src_name = next(src_accounts_iter)
             src_address = cli.get_address(src_name)
-            snk_address = cli.get_address(random.choice(snk_accounts))
+            snk_address = cli.get_address(next(snk_accounts_iter))
             shard_choices = list(range(0, len(config["ENDPOINTS"])))
             src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
             snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
@@ -136,7 +143,7 @@ def start(source_accounts, sink_accounts):
                 n_lock.acquire()
                 if _get_nonce(endpoints[src_shard], src_address) < n:
                     n_lock.release()
-                    time.sleep(1)  # Sleep instead to prevent needless spam.
+                    time.sleep(1)  # Sleep to reduce needless loops
                     continue
                 ref_nonce[src_name][src_shard][0] += 1
                 n_lock.release()
