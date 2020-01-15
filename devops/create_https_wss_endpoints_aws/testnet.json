@@ -1,9 +1,13 @@
 {
   "network": "testnet",
+  "domain_name": "pga.hmny.io",
   "num_of_shards": 3,
-  "explorers_0" : ["35.174.154.109", "35.174.154.109"],
-  "explorers_1" : ["34.209.142.115"],
-  "explorers_2" : ["54.183.201.121"],
+  "num_of_regions": 4,
+  "regions": ["us-east-1", "us-east-2", "us-west-1"],
+  "regions_code": ["iad", "cmh", "sfo", "pdx"],
+  "explorers_0" : ["54.191.139.12", "54.71.27.215"],
+  "explorers_1" : ["54.241.155.180"],
+  "explorers_2" : ["54.91.183.211"],
   "tg_s0" : ["tg-s0-api-pga-https-test", "tg-s0-api-pga-wss-test"],
   "tg_s1" : ["tg-s1-api-pga-https-test", "tg-s1-api-pga-wss-test"],
   "tg_s2" : ["tg-s2-api-pga-https-test", "tg-s2-api-pga-wss-test"]
