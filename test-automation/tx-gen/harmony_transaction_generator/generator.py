@@ -39,6 +39,14 @@ def _get_nonce(endpoint, address):
     return int(util.json_load(response.content)["result"], 16)
 
 
+def _random_list_cycler(lst):
+    lst = lst[:]
+    while True:
+        random.shuffle(lst)
+        for el in lst:
+            yield el
+
+
 def create_accounts(count, name_prefix="generated"):
     config = get_config()
     assert count > 0
@@ -116,8 +124,8 @@ def start(source_accounts, sink_accounts):
         nonlocal txn_count
         ref_nonce = {n: [[_get_nonce(endpoints[j], cli.get_address(n)), Lock()] for j in range(len(endpoints))]
                      for n in src_accounts}
-        src_accounts_iter = itertools.cycle(src_accounts)
-        snk_accounts_iter = itertools.cycle(snk_accounts)
+        src_accounts_iter = _random_list_cycler(src_accounts)
+        snk_accounts_iter = _random_list_cycler(snk_accounts)
         while _is_running:
             src_name = next(src_accounts_iter)
             src_address = cli.get_address(src_name)
