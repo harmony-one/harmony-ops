@@ -16,24 +16,28 @@ from pyhmy import util
 verbose = True
 
 tx_gen.set_config({
-    "AMT_PER_TXN": [1e-9, 1e-9],  # The random range for each transaction in the transaction-generation
+    "AMT_PER_TXN": [1e-9, 1e-6],  # The random range for each transaction in the transaction-generation
     "NUM_SRC_ACC": 16,  # The number of possible source accounts for all transactions
     "NUM_SNK_ACC": 1,  # The number of possible destination / sink accounts for all transaction
     "MAX_TXN_GEN_COUNT": None,  # The upper bound of the number generated transaction, regardless of if `stop` is called
     "ONLY_CROSS_SHARD": True,  # If true, forces source and destination shards to be different
+    "ENFORCE_NONCE": True, 
     "ESTIMATED_GAS_PER_TXN": 1e-3,  # The estimated gas, hardcoded
     "INIT_SRC_ACC_BAL_PER_SHARD": 1,  # The initial balance for EVERY source account
     "TXN_WAIT_TO_CONFIRM": 60,  # The timeout when a transaction is sent (only used in setup related functions)
-    "MAX_THREAD_COUNT": 8,  # Max thread is recommended to be less than your v-core count
+    "MAX_THREAD_COUNT": None,  # Max thread is recommended to be less than your v-core count
     "ENDPOINTS": [  # Endpoints for all transaction, index i = shard i
         "http://localhost:9500/",
-        "http://localhost:9501/"
+        "http://localhost:9501/",
+        "http://localhost:9502/"
     ],
     "SRC_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
         1,                  # Bigger number = higher likelihood of shard i begin chosen
-        1                   # 0 = 0% chance of being chosen
+        0,                   # 0 = 0% chance of being chosen
+        0
     ],
     "SNK_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
+        0,
         1,
         1
     ],
@@ -72,7 +76,7 @@ if __name__ == "__main__":
     config = tx_gen.get_config()
     # funding accounts should be loaded if not in CLI's keystore.
     # this means that if we have the fauce keys in the keystore, we do not need the `load_accounts` call.
-    account_manager.load_accounts("./localnet_validator_keys", "", fast_load=True)
+    account_manager.load_accounts("./.hmy/keystore", "", fast_load=True)
     print("CLI's account keystore: ", cli.get_accounts_keystore())  # Allows you to check if correct keys were added
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
@@ -82,7 +86,7 @@ if __name__ == "__main__":
     tx_gen_pool = ThreadPool(processes=1)
     start_time = datetime.datetime.utcnow()  # MUST be utc
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
-    time.sleep(30)
+    time.sleep(360)
     tx_gen.stop()
     end_time = datetime.datetime.utcnow()  # MUST be utc
     tx_gen.return_balances(source_accounts)
