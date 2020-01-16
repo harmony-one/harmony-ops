@@ -83,4 +83,7 @@ if __name__ == "__main__":
     accounts = tx_gen.create_accounts(args.count, args.name)
     tx_gen.fund_accounts(accounts)
     print(f"Keystore path: {cli.get_account_keystore_path()}")
-    print(f"Accounts added: {[(cli.get_address(n), n, export_private_key(n)) for n in accounts]}")
+    print(f"Accounts added: {[(cli.get_address(n), n) for n in accounts]}")
+    with open("added_keys.txt", 'w') as f:
+        for n in accounts:
+            f.write(str((cli.get_address(n), export_private_key(n).strip())) + "\n")
