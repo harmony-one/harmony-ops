@@ -151,7 +151,7 @@ def start(source_accounts, sink_accounts):
                 n_lock.acquire()
                 if _get_nonce(endpoints[src_shard], src_address) < n:
                     n_lock.release()
-                    time.sleep(1)  # Sleep to reduce needless loops
+                    time.sleep(0.25)  # Sleep to reduce needless loops
                     continue
                 ref_nonce[src_name][src_shard][0] += 1
                 n_lock.release()

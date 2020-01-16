@@ -49,6 +49,10 @@ def log_writer(interval):
         time.sleep(interval)
 
 
+def export_private_key(name):
+    return cli.single_call(f"hmy keys export-private-key {cli.get_address(name)}")
+
+
 if __name__ == "__main__":
     args = parse_args()
     setup()
@@ -79,4 +83,4 @@ if __name__ == "__main__":
     accounts = tx_gen.create_accounts(args.count, args.name)
     tx_gen.fund_accounts(accounts)
     print(f"Keystore path: {cli.get_account_keystore_path()}")
-    print(f"Accounts added: {[(cli.get_address(n), n) for n in accounts]}")
+    print(f"Accounts added: {[(cli.get_address(n), n, export_private_key(n)) for n in accounts]}")
