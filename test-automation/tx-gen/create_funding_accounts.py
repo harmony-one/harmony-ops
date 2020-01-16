@@ -20,9 +20,14 @@ def parse_args():
     parser = argparse.ArgumentParser(description='A quick account generator with funding')
     parser.add_argument("--count", dest="count", default=multiprocessing.cpu_count(),
                         help="Number of accounts to generate and fund. Default is the CPU core count.", type=int)
-    parser.add_argument("--faucet_key_dir", dest="faucet_key_dir", default="./faucet_key",
+    parser.add_argument("--amount", dest="amount", default=1000.00,
+                        help="Initial balance on each shard for each account. Default is 1000.00", type=float)
+    parser.add_argument("--name", dest="name", default="NEW_FUNDED_ACC",
+                        help="Name / alias used in CLI keystore for each generated key. "
+                             "Default is 'NEW_FUNDED_ACC'", type=str)
+    parser.add_argument("--faucet_keys_dir", dest="faucet_keys_dir", default="./faucet_key",
                         help="The directory of the faucet/funding keys. Default is './faucet_key'", type=str)
-    parser.add_argument("--faucet_key_pw", dest="faucet_key_pw", default="",
+    parser.add_argument("--faucet_keys_pw", dest="faucet_keys_pw", default="",
                         help="The passphrase of ALL faucet/funding keys (must all be the same)"
                              " Default is ''", type=str)
     return parser.parse_args()
@@ -48,32 +53,17 @@ if __name__ == "__main__":
     args = parse_args()
     setup()
     tx_gen.set_config({
-        "AMT_PER_TXN": [1e-9, 1e-9],  # Not used
         "NUM_SRC_ACC": args.count,
-        "NUM_SNK_ACC": 1,  # Not used
-        "MAX_TXN_GEN_COUNT": None,  # Not used
-        "ONLY_CROSS_SHARD": False,  # Not used
         "ESTIMATED_GAS_PER_TXN": 1e-3,
-        "INIT_SRC_ACC_BAL_PER_SHARD": 1000,
-        "TXN_WAIT_TO_CONFIRM": 60,
-        "MAX_THREAD_COUNT": 16,
+        "INIT_SRC_ACC_BAL_PER_SHARD": args.amount,
+        "TXN_WAIT_TO_CONFIRM": 75,
+        "MAX_THREAD_COUNT": None,
         "ENDPOINTS": [
             "https://api.s0.pga.hmny.io/",
             "https://api.s1.pga.hmny.io/",
             "https://api.s2.pga.hmny.io/"
         ],
-        "SRC_SHARD_WEIGHTS": [
-            1,
-            1,
-            1
-        ],
-        "SNK_SHARD_WEIGHTS": [
-            1,
-            1,
-            1
-        ],
-        "CHAIN_ID": "devnet",
-        "REFUND_ACCOUNT": "one1zksj3evekayy90xt4psrz8h6j2v3hla4qwz4ur",
+        "CHAIN_ID": "devnet"
     })
 
     # Prints what is being logged.
@@ -85,8 +75,8 @@ if __name__ == "__main__":
     log_writer_pool = ThreadPool(processes=1)
     log_writer_pool.apply_async(log_writer, (5,))
 
-    tx_gen.load_accounts(args.faucet_key_dir, args.faucet_key_pw)
-    accounts = tx_gen.create_accounts(args.count, "NEW_FUNDED_ACC")
-    tx_gen.fund_accounts(accounts)  # Funds all the accounts with 1000 $one on all shards.
+    tx_gen.load_accounts(args.faucet_keys_dir, args.faucet_keys_pw)
+    accounts = tx_gen.create_accounts(args.count, args.name)
+    tx_gen.fund_accounts(accounts)
     print(f"Keystore path: {cli.get_account_keystore_path()}")
-    print(f"Accounts added: {accounts}")
+    print(f"Accounts added: {[(cli.get_address(n), n) for n in accounts]}")

@@ -84,7 +84,9 @@ def _fund_accounts(accounts, shard_index, amount):
     max_threads = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
     min_funding_balance = (config["ESTIMATED_GAS_PER_TXN"] + config['INIT_SRC_ACC_BAL_PER_SHARD']) * len(accounts)
     funding_accounts = sorted(_get_accounts_with_funds(min_funding_balance, shard_index),
-                                     key=lambda e: account_balances[e][shard_index]["amount"], reverse=True)
+                              key=lambda e: account_balances[e][shard_index]["amount"], reverse=True)
+    Loggers.general.info(f"Funding {len(accounts)} accounts on shard {shard_index} "
+                         f"using {len(funding_accounts)} funding accounts.")
     if len(funding_accounts) > max_threads:
         funding_accounts = funding_accounts[:max_threads]
         Loggers.general.warning(f"Have more funding accounts than configured threads, using top {max_threads} funded "
