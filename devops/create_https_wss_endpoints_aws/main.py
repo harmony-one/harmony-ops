@@ -49,10 +49,10 @@ network_config = current_work_path + '/' + args['n'] + '.json'
 dict_tg_arn = dict()
 # store PREVIOUS instance id, key: tg, value: array of instance id
 dict_tg_instanceid = defaultdict(list)
-# store CURRENT instance id, key: tg, value: array of instance id
 
 
-
+# store name of target group, key: tg_https, tg_wss, value: array of target group
+dict_tg_https_wss = defaultdict(list)
 
 
 # TO-DO: move to a helper class later
@@ -64,40 +64,341 @@ def parse_network_config(param):
     return network_config_dict[param]
 
 
-NUM_OF_REGIONS = parse_network_config("num_of_regions")
-NUM_OF_SHARDS = parse_network_config("num_of_shards")
-ARRAY_OF_REGIONS = parse_network_config("regions")
-DOMAIN_NAME = parse_network_config("domain_name")
+NUM_OF_REGIONS                  = parse_network_config("num_of_regions")
+NUM_OF_SHARDS                   = parse_network_config("num_of_shards")
+ARRAY_OF_REGIONS                = parse_network_config("regions")
+ARRAY_OF_VPC                    = parse_network_config("region_vpc")
+ARRAY_OF_WS_ENDPOINTS           = parse_network_config("ws_endpoints")
 
 
-
+BASE_DOMAIN_NAME    = parse_network_config("domain_name")
+ID_DOMAIN_NAME      = BASE_DOMAIN_NAME.split('.')[0]
+array_domain_name   = []
 
 
 
 
 #### CREATE A COMPLETE PIPELINE ####
+dict_region_elb2arn     = defaultdict(list)
+dict_region_sslcerts    = defaultdict(list)
+dict_region_tgarn       = defaultdict(list)
+dict_region_ListenerArn = defaultdict(list)
+
+
 def create_endpoints_new_network():
     """
     COMPLETE PIPELINE
-    * 1/4 - create SSL certificates (https, and wss) on each region
-    * 2/4 - create Target Groups on each region
-    * 3/4 - create ELB
-    * 4/4 - create entries on Route53
+    * 1/ - create SSL certificates (https, and wss) on each region
+    * 2/ - create Target Groups on each region
+    * 3/ - create ELB
+    * 4/ - create listener
+
+    * / - create entries on Route53
     """
 
     # 1/4 - request certificates
+    # test result: passed
     request_ssl_certificates()
 
+    # 2/4 - create tg on each region
+    # test result: passed
+    create_target_group()
+
+    # 3/4 - create elb
+    # test result: passed
+    create_elb2()
+
+    # 4/ - create listener
+    # test result: passed
+    create_listener()
+
+    # 5/ - create rule the current listener
+    # test result: passed
+    create_rule()
+
+    # 6/ - register explorer instances into the target group
+    register_explorers()
+
+
+def register_explorers:
+    """
+    register explorer nodes into the corresponding target group
+        * register the same target into tg-https and tg-wss
+    depends on:
+        * dict_region_tgarn
+        *
+    """
+    for i in range(len(ARRAY_OF_REGIONS)):
+        region = ARRAY_OF_REGIONS[i]
+        for j in range(NUM_OF_SHARDS):
+            elbv2_client = boto3.client('elbv2', region_name=region)
+
+            try:
+                # register targets into tg-s[i]-api-pga-https
+                resp = elbv2_client.register_targets(
+                    TargetGroupArn='string',
+                    Targets=[
+                        {
+                            'Id': 'string',
+                            'Port': 123,
+                        },
+                    ]
+                )
+                # register targets into tg-s[i]-api-pga-wss
+                resp = elbv2_client.register_targets(
+                    TargetGroupArn='string',
+                    Targets=[
+                        {
+                            'Id': 'string',
+                            'Port': 123,
+                        },
+                    ]
+                )
+
+def create_rule():
+    """
+
+
+    """
+    print("\n==== step 5: creating a customized rule such that traffic will be forwarded to tg-s[i]-api-pga-wss "
+          "when host is ws.s[i].pga.hmny.io \n")
+     # deliberately use index instead of obj to retrieve array item, this index needs to be reused to retrieve
+    for i in range(len(ARRAY_OF_REGIONS)):
+        region = ARRAY_OF_REGIONS[i]
+        for j in range(NUM_OF_SHARDS):
+            elbv2_client = boto3.client('elbv2', region_name=region)
+            try:
+                resp = elbv2_client.create_rule(
+                    ListenerArn=dict_region_ListenerArn[region][j],
+                    Conditions=[
+                        {
+                            'Field': 'host-header',
+                            'Values': [
+                                ARRAY_OF_WS_ENDPOINTS[j],
+                            ],
+                        },
+                    ],
+                    Priority=1,
+                    Actions=[
+                        {
+                            'Type': 'forward',
+                            'TargetGroupArn': dict_region_tgarn[region][j+3],
+                            'ForwardConfig': {
+                                'TargetGroups': [
+                                    {
+                                        'TargetGroupArn': dict_region_tgarn[region][j+3],
+                                        'Weight': 1
+                                    },
+                                ],
+                                'TargetGroupStickinessConfig': {
+                                    'Enabled': False,
+                                    'DurationSeconds': 1
+                                }
+                            }
+                        },
+                    ]
+                )
+                print("--creating a customized elb2 rule in region " + region + " for LoadBalancerArn: " + dict_region_elb2arn[region][i])
+                sleep(4)
+            except Exception as e:
+                print("Unexpected error to create the listener: %s" % e)
 
 
 
+def create_listener():
+    """
+    depends on:
+        * dict_region_elb2arn
+        * dict_region_sslcerts
+        * dict_region_tgarn
+    *
+    """
+
+    print("\n==== step 4: creating https listener on the created elb2, ListenerArn will be stored into dict_region_ListenerArn \n")
+    for region in ARRAY_OF_REGIONS:
+        elbv2_client = boto3.client('elbv2', region_name=region)
+
+        try:
+            for i in range(NUM_OF_SHARDS):
+                resp = elbv2_client.create_listener(
+                    LoadBalancerArn=dict_region_elb2arn[region][i],
+                    Protocol='HTTPS',
+                    Port=443,
+                    SslPolicy='ELBSecurityPolicy-2016-08',
+                    Certificates=[{'CertificateArn': dict_region_sslcerts[region][i]}],
+                    DefaultActions=[
+                        {
+                            'Type': 'forward',
+                            # tg-s[i]-api-pga-https
+                            'TargetGroupArn': dict_region_tgarn[region][i],
+                            'ForwardConfig': {
+                                'TargetGroups': [
+                                    {
+                                        # tg-s[i]-api-pga-https
+                                        'TargetGroupArn': dict_region_tgarn[region][i],
+                                        'Weight': 1
+                                    },
+                                ],
+                                'TargetGroupStickinessConfig': {
+                                    'Enabled': False,
+                                }
+                            }
+                        },
+                    ]
+                )
+                dict_region_ListenerArn[region].append(resp['Listeners'][0]['ListenerArn'])
+                print("--creating https listener with attaching ssl certificat in region " + region + ", LoadBalancerArn: " + dict_region_elb2arn[region][i])
+                sleep(4)
+        except Exception as e:
+            print("Unexpected error to create the listener: %s" % e)
+
+    pp.pprint(dict_region_ListenerArn)
+
+
+def create_elb2():
+    """
+    numbers of elb2 in each region = number of shards
+
+    """
+    print("\n==== step 3: creating elb2, LoadBalancerArn will be stored into dict_region_elb2arn \n")
+
+    for region in ARRAY_OF_REGIONS:
+        elbv2_client = boto3.client('elbv2', region_name=region)
+        # need to create $NUM_OF_SHARDS elb2  in each region
+        for i in range(NUM_OF_SHARDS):
+            elb2_name = 's' + str(i) + '-' + ID_DOMAIN_NAME + '-' + region
+            try:
+                pass
+                resp = elbv2_client.create_load_balancer(
+                    Name=elb2_name,
+                    Subnets=parse_network_config('subnet_' + region),
+                    SecurityGroups=parse_network_config('sg_' + region),
+                    Scheme='internet-facing',
+                    Type='application',
+                    IpAddressType='ipv4'
+                )
+                dict_region_elb2arn[region].append(resp['LoadBalancers'][0]['LoadBalancerArn'])
+                print("--creating Elastic/Application Load Balancer in region " + region + ", elb name: " + elb2_name)
+                sleep(4)
+            except Exception as e:
+                print("Unexpected error to create the elb2: %s" % e)
+
+    pp.pprint(dict_region_elb2arn)
+
+
+def create_dict_tg():
+    """
+    * number of tg in each region = number of shards X 2 (one for https, and one for wss)
+    * the names of tgs are identical in each region
+    * the config for each tg (https and wss) are different, need to group them in this dict
+    """
+    for i in range(NUM_OF_SHARDS):
+        key_tg = "tg_s" + str(i)
+        array_target_group = parse_network_config(key_tg)
+        dict_tg_https_wss["tg_https"].append(array_target_group[0])
+        dict_tg_https_wss["tg_wss"].append(array_target_group[1])
+
+
+def create_target_group():
+
+    create_dict_tg()
+
+    print("\n==== step 2: creating target group in each region, TargetGroupArn will be stored into dict_region_tgarn \n")
+    # deliberately use index instead of obj to retrieve array item, this index needs to be reused to retrieve VpcId
+    for i in range(len(ARRAY_OF_REGIONS)):
+        region = ARRAY_OF_REGIONS[i]
+        elbv2_client = boto3.client('elbv2', region_name=ARRAY_OF_REGIONS[i])
+        for tg_name in ["tg_https", "tg_wss"]:
+            if tg_name == "tg_https":
+                for name in dict_tg_https_wss[tg_name]:
+                    try:
+                        resp = elbv2_client.create_target_group(
+                            Name=name,
+                            Protocol='HTTP',
+                            Port=9500,
+                            VpcId=ARRAY_OF_VPC[i],
+                            HealthCheckProtocol='HTTP',
+                            HealthCheckPort='traffic-port',
+                            HealthCheckEnabled=True,
+                            HealthCheckPath='/',
+                            HealthCheckIntervalSeconds=30,
+                            HealthCheckTimeoutSeconds=5,
+                            HealthyThresholdCount=5,
+                            UnhealthyThresholdCount=2,
+                            Matcher={
+                                'HttpCode': '200'
+                            },
+                            TargetType='instance'
+                        )
+                        dict_region_tgarn[region].append(resp['TargetGroups'][0]['TargetGroupArn'])
+                        print("--creating target group in region " + region + ", target group name: " + name)
+                        sleep(4)
+                    except Exception as e:
+                        print("Unexpected error to create the target group: %s" % e)
+            if tg_name == "tg_wss":
+                for name in dict_tg_https_wss[tg_name]:
+                    try:
+                        resp = elbv2_client.create_target_group(
+                            Name=name,
+                            Protocol='HTTP',
+                            Port=9800,
+                            VpcId=ARRAY_OF_VPC[i],
+                            HealthCheckProtocol='HTTP',
+                            HealthCheckPort='traffic-port',
+                            HealthCheckEnabled=True,
+                            HealthCheckPath='/',
+                            HealthCheckIntervalSeconds=30,
+                            HealthCheckTimeoutSeconds=5,
+                            HealthyThresholdCount=5,
+                            UnhealthyThresholdCount=2,
+                            Matcher={
+                                'HttpCode': '400'
+                            },
+                            TargetType='instance'
+                        )
+                        dict_region_tgarn[region].append(resp['TargetGroups'][0]['TargetGroupArn'])
+                        print("--creating target group in region " + region + ", target group name: " + name)
+                        sleep(4)
+                    except Exception as e:
+                        print("Unexpected error to create the target group: %s" % e)
+
+    pp.pprint(dict_region_tgarn)
 
 def request_ssl_certificates():
+    """
+    number of ssl certificates per region = NUM_OF_SHARDS * 2 (HTTPS and WSS)
+    * idempotent ops
+    * store CertificateArn to dict_region_sslcerts
+    """
+    create_domain_name()
+
+    print("\n==== step 1: request SSL certificates in each region, CertificateArn will be stored into dict_region_sslcerts \n")
     for region in ARRAY_OF_REGIONS:
         acm_client = boto3.client(service_name='acm', region_name=region)
+        for dn in array_domain_name:
+            try:
+                resp = acm_client.request_certificate(
+                        DomainName = dn,
+                        ValidationMethod = 'DNS',
+                )
+                dict_region_sslcerts[region].append(resp['CertificateArn'])
+                print("--creating ssl certificate in region " + region + " for domain name " + dn)
+                print(dn + ': ' + resp['CertificateArn'])
+                sleep(10)
+            except Exception as e:
+                print("Unexpected error to request certificates: %s" % e)
+
+    pp.pprint(dict_region_sslcerts)
 
 def create_domain_name():
-    pass
+    """
+    for each region, there should be 2 X NUM_OF_SHARDS domain names
+    for instance:
+        s0: api.s0.pga.hmny.io and ws.s0.pga.hmny.io
+    """
+    for prefix in ["api.s", "ws.s"]:
+        for i in range(NUM_OF_SHARDS):
+            array_domain_name.append(prefix + str(i) + "." + BASE_DOMAIN_NAME)
 
 
 def shcmd2(cmd, ignore_error=False):
