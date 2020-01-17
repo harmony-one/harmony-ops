@@ -501,7 +501,7 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 func (m *monitor) manager(
 	jobs chan work, interval int, nodeList []string,
 	rpc string, group *sync.WaitGroup,
-	channels map[string](chan reply), monitor chan bool,
+	channels map[string](chan reply),
 ) {
 	requestFields := map[string]interface{}{
 		"jsonrpc": versionJSONRPC,
@@ -562,7 +562,6 @@ func (m *monitor) manager(
 			m.inUse.Lock()
 			m.blockHeaderCopy(m.WorkingBlockHeader)
 			m.inUse.Unlock()
-			monitor <- true
 		}
 		channels[rpc] = make(chan reply, len(nodeList))
 	}
@@ -600,13 +599,12 @@ func (m *monitor) update(
 		case metadataRPC:
 			go m.manager(
 				jobs, params.InspectSchedule.NodeMetadata, nodeList,
-				rpc, syncGroups[rpc], replyChannels, nil,
+				rpc, syncGroups[rpc], replyChannels,
 			)
 		case blockHeaderRPC:
-			healthMonitorChan := make(chan bool)
 			go m.manager(
 				jobs, params.InspectSchedule.BlockHeader, nodeList, rpc,
-				syncGroups[rpc], replyChannels, healthMonitorChan,
+				syncGroups[rpc], replyChannels,
 			)
 			go m.consensusMonitor(
 				uint64(params.ShardHealthReporting.Consensus.Warning),
