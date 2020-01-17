@@ -135,7 +135,7 @@ def remove_accounts(accounts, backup=True):
 
 
 def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
-                     pw='', wait=True, retry=False, max_tries=5):
+                     nonce=None, pw='', wait=True, retry=False, max_tries=5):
     config = get_config()
     assert cli.check_address(from_address), "source address must be in the CLI's keystore."
     attempt_count = 0
@@ -144,7 +144,9 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
               f"--from-shard={src_shard} --to-shard={dst_shard} " \
               f"--amount={amount} --passphrase={pw} --chain-id={config['CHAIN_ID']} "
     if wait:
-        command += f"--wait-for-confirm {config['TXN_WAIT_TO_CONFIRM']}"
+        command += f"--wait-for-confirm {config['TXN_WAIT_TO_CONFIRM']} "
+    if nonce:
+        command += f"--nonce {nonce} "
     info = {
         'from': from_address, 'to': to_address,
         'from-shard': src_shard, 'to-shard': dst_shard,
