@@ -151,7 +151,7 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
         'from': from_address, 'to': to_address,
         'from-shard': src_shard, 'to-shard': dst_shard,
         'amount': amount, 'hash': None, 'send-time-utc': str(datetime.datetime.utcnow()),
-        'error': None
+        'nonce': nonce, 'error': None
     }
     while True:
         try:
