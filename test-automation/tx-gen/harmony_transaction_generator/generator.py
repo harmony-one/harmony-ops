@@ -20,6 +20,7 @@ from .account_manager import (
     send_transaction
 )
 
+_implicit_txns_per_gen = 15
 _is_running = False
 _generator_threads = []
 _generator_pool = ThreadPool()
@@ -151,7 +152,7 @@ def start(source_accounts, sink_accounts):
                 n_lock.acquire()
                 if _get_nonce(endpoints[src_shard], src_address) < n:
                     n_lock.release()
-                    time.sleep(0.25)  # Sleep to reduce needless loops
+                    time.sleep(0.1)  # Sleep to reduce needless loops
                     continue
                 ref_nonce[src_name][src_shard][0] += 1
                 n_lock.release()
@@ -160,9 +161,21 @@ def start(source_accounts, sink_accounts):
                 if txn_count >= config["MAX_TXN_GEN_COUNT"]:
                     lock.release()
                     return
-                txn_count += 1
+                if config["ENFORCE_NONCE"]:
+                    txn_count += 1
+                else:
+                    txn_count += _implicit_txns_per_gen
                 lock.release()
-            send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
+            if config["ENFORCE_NONCE"]:
+                send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
+            else:
+                curr_nonce = _get_nonce(endpoints[src_shard], src_address)
+                gen_count = _implicit_txns_per_gen
+                if config["MAX_TXN_GEN_COUNT"]:
+                    gen_count = min(config["MAX_TXN_GEN_COUNT"] - txn_count, gen_count)
+                for j in range(gen_count):
+                    send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt,
+                                     nonce=curr_nonce+j, wait=False)
 
     Loggers.general.info("Started transaction generator...")
     thread_count = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
