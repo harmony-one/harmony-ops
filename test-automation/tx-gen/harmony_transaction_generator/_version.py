@@ -7,5 +7,5 @@ Provides harmony_transaction_generator version information.
 
 from incremental import Version
 
-__version__ = Version('harmony_transaction_generator', 20, 1, 24)
+__version__ = Version('harmony_transaction_generator', 20, 1, 27)
 __all__ = ["__version__"]

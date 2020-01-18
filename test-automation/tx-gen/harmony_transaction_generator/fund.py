@@ -96,6 +96,7 @@ def _fund_accounts(accounts, shard_index, amount):
     return transaction_hashes
 
 
+# TODO add logic to not fund if the accounts already have min_funds as balance.
 def fund_accounts(accounts, shard_indexes=None, amount=None):
     """
     :param accounts: An iterable of account names to be funded

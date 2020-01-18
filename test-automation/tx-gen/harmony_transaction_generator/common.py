@@ -107,6 +107,13 @@ def set_config(input_config):
     """
     :param input_config: A dictionary specifying the config
     """
+    input_keys = input_config.keys()
+    assert "ENDPOINTS" in input_keys, "Must specify endpoints"
+    assert isinstance(input_config["ENDPOINTS"], list)
+    if "SRC_SHARD_WEIGHTS" not in input_keys:
+        input_config["SRC_SHARD_WEIGHTS"] = [1] * len(input_config["ENDPOINTS"])
+    if "SNK_SHARD_WEIGHTS" not in input_keys:
+        input_config["SNK_SHARD_WEIGHTS"] = [1] * len(input_config["ENDPOINTS"])
     _config.update(input_config)
     _validate_config()
 
