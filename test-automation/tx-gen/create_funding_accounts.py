@@ -1,9 +1,3 @@
-"""
-Example of how to fund accounts quickly using parts of the transaction generation.
-
-Note that we need to place the faucet account keys in a directory similar to `./localnet_validator_key`
-"""
-
 import logging
 import sys
 import argparse

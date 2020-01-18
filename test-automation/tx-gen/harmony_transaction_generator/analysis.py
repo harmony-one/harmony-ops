@@ -1,6 +1,8 @@
 import json
 import datetime
 import os
+from threading import Lock
+from multiprocessing.pool import ThreadPool
 from collections import defaultdict
 
 import requests
@@ -25,6 +27,7 @@ def _get_transaction_by_hash(endpoint, txn_hash):
     Internal get transaction by has to speed up analysis.
     Note that this functionality will eventually be migrated to the `pyhmy`
     """
+    print("checking", txn_hash)
     url = endpoint
     payload = "{\"jsonrpc\": \"2.0\", \"method\": \"hmy_getTransactionByHash\"," \
               "\"params\": [\"" + txn_hash + "\"],\"id\": 1}"
@@ -35,6 +38,7 @@ def _get_transaction_by_hash(endpoint, txn_hash):
     return json_load(response.content)
 
 
+# TODO check if parallelize code works.
 def verify_transactions(transaction_log_dir, start_time, end_time):
     """
     :param transaction_log_dir: The file path to the log file of transactions
@@ -131,15 +135,15 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
 
     for txn_log in transaction_logs:
         txn_hash = txn_log["hash"]
-        src_shard, dst_shard = str(txn_log["from-shard"]), str(txn_log["to-shard"])
+        src, dst = str(txn_log["from-shard"]), str(txn_log["to-shard"])
         if txn_hash is None:
             failed_sent_txn_count += 1
-            failed_sent_shard_txn_total[f"({src_shard}, {dst_shard})"] += 1
-            failed_sent_txn_per_shard[src_shard].append(txn_log)
+            failed_sent_shard_txn_total[f"({src}, {dst})"] += 1
+            failed_sent_txn_per_shard[src].append(txn_log)
         elif txn_hash not in sent_txn_hashes:
             sent_txn_hashes.add(txn_hash)
-            sent_shard_txn_total[f"({src_shard}, {dst_shard})"] += 1
-            sent_txn_per_shard[src_shard].append(txn_log)
+            sent_shard_txn_total[f"({src}, {dst})"] += 1
+            sent_txn_per_shard[src].append(txn_log)
 
     sent_transaction_report = {
         "sent-transactions-total": len(sent_txn_hashes),
@@ -157,21 +161,33 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
     failed_txn_count = 0
     failed_txn_shard_count = defaultdict(int)
     failed_txn_per_shard = defaultdict(list)
-    curr_count = 0
+    lock = Lock()
+
+    def check_hash(src_shard, dst_shard, src_endpoint, h):
+        nonlocal successful_txn_count, failed_txn_count
+        response = _get_transaction_by_hash(src_endpoint, h)
+        lock.acquire()
+        if response['result'] is not None:
+            successful_txn_count += 1
+            successful_txn_shard_count[f"({src_shard}, {dst_shard})"] += 1
+            successful_txn_per_shard[shard].append(txn_log)
+        else:
+            failed_txn_count += 1
+            failed_txn_shard_count[f"({src_shard}, {dst_shard})"] += 1
+            failed_txn_per_shard[shard].append(txn_log)
+        lock.release()
+
+    pool = ThreadPool()
+    threads = []
     for shard, txn_log_list in sent_txn_per_shard.items():
         endpoint = config["ENDPOINTS"][int(shard)]
         for txn_log in txn_log_list:
-            src_shard, dst_shard = str(txn_log["from-shard"]), str(txn_log["to-shard"])
-            response = _get_transaction_by_hash(endpoint, txn_log['hash'])
-            curr_count += 1
-            if response['result'] is not None:
-                successful_txn_count += 1
-                successful_txn_shard_count[f"({src_shard}, {dst_shard})"] += 1
-                successful_txn_per_shard[shard].append(txn_log)
-            else:
-                failed_txn_count += 1
-                failed_txn_shard_count[f"({src_shard}, {dst_shard})"] += 1
-                failed_txn_per_shard[shard].append(txn_log)
+            src, dst = str(txn_log["from-shard"]), str(txn_log["to-shard"])
+            threads.append(pool.apply_async(check_hash, (src, dst, endpoint, txn_log['hash'])))
+    for t in threads:
+        t.get()
+    pool.join()
+    pool.close()
 
     received_transaction_report = {
         "successful-transactions-total": successful_txn_count,

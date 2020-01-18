@@ -134,6 +134,7 @@ def remove_accounts(accounts, backup=True):
         Loggers.general.info(f"Removed Account: {removed_account}")
 
 
+# TODO: add gas optional arguments and add to config...
 def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
                      nonce=None, pw='', wait=True, retry=False, max_tries=5):
     config = get_config()

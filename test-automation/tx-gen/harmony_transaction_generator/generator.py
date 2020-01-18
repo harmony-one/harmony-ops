@@ -44,8 +44,7 @@ def _random_list_cycler(lst):
     lst = lst[:]
     while True:
         random.shuffle(lst)
-        for el in lst:
-            yield el
+        yield from lst
 
 
 def create_accounts(count, name_prefix="generated"):
@@ -123,10 +122,11 @@ def start(source_accounts, sink_accounts):
 
     def generate_transactions(src_accounts, snk_accounts):
         nonlocal txn_count
+        thread_pool = ThreadPool()
         ref_nonce = {n: [[_get_nonce(endpoints[j], cli.get_address(n)), Lock()] for j in range(len(endpoints))]
                      for n in src_accounts}
         src_accounts_iter = _random_list_cycler(src_accounts)
-        snk_accounts_iter = _random_list_cycler(snk_accounts)
+        snk_accounts_iter = itertools.cycle(snk_accounts)
         while _is_running:
             src_name = next(src_accounts_iter)
             src_address = cli.get_address(src_name)
@@ -161,10 +161,7 @@ def start(source_accounts, sink_accounts):
                 if txn_count >= config["MAX_TXN_GEN_COUNT"]:
                     lock.release()
                     return
-                if config["ENFORCE_NONCE"]:
-                    txn_count += 1
-                else:
-                    txn_count += _implicit_txns_per_gen
+                txn_count += 1 if config["ENFORCE_NONCE"] else _implicit_txns_per_gen
                 lock.release()
             if config["ENFORCE_NONCE"]:
                 send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
@@ -173,9 +170,15 @@ def start(source_accounts, sink_accounts):
                 gen_count = _implicit_txns_per_gen
                 if config["MAX_TXN_GEN_COUNT"]:
                     gen_count = min(config["MAX_TXN_GEN_COUNT"] - txn_count, gen_count)
+                threads = []
                 for j in range(gen_count):
-                    send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt,
-                                     nonce=curr_nonce+j, wait=False)
+                    # TODO: check if threading is worth, might have to remove lambda
+                    threads.append(thread_pool.apply_async(lambda: send_transaction(src_address, snk_address,
+                                                                                    src_shard, snk_shard, txn_amt,
+                                                                                    nonce=curr_nonce + j, wait=False)))
+                for t in threads:
+                    t.get()
+                thread_pool.join()
 
     Loggers.general.info("Started transaction generator...")
     thread_count = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
