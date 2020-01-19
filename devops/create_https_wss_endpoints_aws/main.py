@@ -64,19 +64,14 @@ def parse_network_config(param):
     return network_config_dict[param]
 
 
-NUM_OF_REGIONS                  = parse_network_config("num_of_regions")
-NUM_OF_SHARDS                   = parse_network_config("num_of_shards")
-ARRAY_OF_REGIONS                = parse_network_config("regions")
-ARRAY_OF_VPC                    = parse_network_config("region_vpc")
-ARRAY_OF_WS_ENDPOINTS           = parse_network_config("ws_endpoints")
+NUM_OF_SHARDS           = parse_network_config("num_of_shards")
+ARRAY_OF_REGIONS        = parse_network_config("regions")
+ARRAY_OF_VPC            = parse_network_config("region_vpc")
+ARRAY_OF_WS_ENDPOINTS   = parse_network_config("ws_endpoints")
 
-
-BASE_DOMAIN_NAME    = parse_network_config("domain_name")
-ID_DOMAIN_NAME      = BASE_DOMAIN_NAME.split('.')[0]
-array_domain_name   = []
-
-
-
+BASE_DOMAIN_NAME        = parse_network_config("domain_name")
+ID_DOMAIN_NAME          = BASE_DOMAIN_NAME.split('.')[0]
+array_domain_name       = []
 
 #### CREATE A COMPLETE PIPELINE ####
 dict_region_elb2arn     = defaultdict(list)
@@ -120,7 +115,7 @@ def create_endpoints_new_network():
     register_explorers()
 
 
-def register_explorers:
+def register_explorers():
     """
     register explorer nodes into the corresponding target group
         * register the same target into tg-https and tg-wss
@@ -132,28 +127,35 @@ def register_explorers:
         region = ARRAY_OF_REGIONS[i]
         for j in range(NUM_OF_SHARDS):
             elbv2_client = boto3.client('elbv2', region_name=region)
-
-            try:
-                # register targets into tg-s[i]-api-pga-https
-                resp = elbv2_client.register_targets(
-                    TargetGroupArn='string',
-                    Targets=[
-                        {
-                            'Id': 'string',
-                            'Port': 123,
-                        },
-                    ]
-                )
-                # register targets into tg-s[i]-api-pga-wss
-                resp = elbv2_client.register_targets(
-                    TargetGroupArn='string',
-                    Targets=[
-                        {
-                            'Id': 'string',
-                            'Port': 123,
-                        },
-                    ]
-                )
+            array_of_exp_shard = parse_network_config(region+'-exp-'+str(j))
+            array_instance_id_exp = retrieve_instance_id(array_of_exp_shard)
+            # REGISTER each instance_id into the TWO target groups
+            for instance in array_instance_id_exp:
+                try:
+                    # register targets into tg-s[i]-api-pga-https
+                    resp = elbv2_client.register_targets(
+                        TargetGroupArn=dict_region_tgarn[region][j],
+                        Targets=[
+                            {
+                                'Id': instance,
+                                'Port': 9500,
+                            },
+                        ]
+                    )
+                    # register targets into tg-s[i]-api-pga-wss
+                    resp2 = elbv2_client.register_targets(
+                        TargetGroupArn=dict_region_tgarn[region][j+NUM_OF_SHARDS],
+                        Targets=[
+                            {
+                                'Id': instance,
+                                'Port': 9800,
+                            },
+                        ]
+                    )
+                    print("--registering an explorer node into TWO target groups (tg-https and tg-wss) in region " + region)
+                    sleep(4)
+                except Exception as e:
+                    print("Unexpected error to create the listener: %s" % e)
 
 def create_rule():
     """
@@ -182,11 +184,11 @@ def create_rule():
                     Actions=[
                         {
                             'Type': 'forward',
-                            'TargetGroupArn': dict_region_tgarn[region][j+3],
+                            'TargetGroupArn': dict_region_tgarn[region][j+NUM_OF_SHARDS],
                             'ForwardConfig': {
                                 'TargetGroups': [
                                     {
-                                        'TargetGroupArn': dict_region_tgarn[region][j+3],
+                                        'TargetGroupArn': dict_region_tgarn[region][j+NUM_OF_SHARDS],
                                         'Weight': 1
                                     },
                                 ],
@@ -332,7 +334,7 @@ def create_target_group():
                         )
                         dict_region_tgarn[region].append(resp['TargetGroups'][0]['TargetGroupArn'])
                         print("--creating target group in region " + region + ", target group name: " + name)
-                        sleep(4)
+                        sleep(2)
                     except Exception as e:
                         print("Unexpected error to create the target group: %s" % e)
             if tg_name == "tg_wss":
@@ -384,7 +386,7 @@ def request_ssl_certificates():
                 dict_region_sslcerts[region].append(resp['CertificateArn'])
                 print("--creating ssl certificate in region " + region + " for domain name " + dn)
                 print(dn + ': ' + resp['CertificateArn'])
-                sleep(10)
+                sleep(1)
             except Exception as e:
                 print("Unexpected error to request certificates: %s" % e)
 
@@ -396,7 +398,7 @@ def create_domain_name():
     for instance:
         s0: api.s0.pga.hmny.io and ws.s0.pga.hmny.io
     """
-    for prefix in ["api.s", "ws.s"]:
+    for prefix in ["api.s"]:
         for i in range(NUM_OF_SHARDS):
             array_domain_name.append(prefix + str(i) + "." + BASE_DOMAIN_NAME)
 
@@ -506,6 +508,7 @@ def main():
 
     # create the complete pipeline of https/wss endpoints
     # need to comment out the following func `update_target_groups()`
+    # refer to testnet.json to create a new configuration
     create_endpoints_new_network()
 
     # updated target groups only, assuming other services have been created and configured
