@@ -186,7 +186,6 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
             threads.append(pool.apply_async(check_hash, (src, dst, endpoint, txn_log['hash'])))
     for t in threads:
         t.get()
-    pool.join()
     pool.close()
 
     received_transaction_report = {
