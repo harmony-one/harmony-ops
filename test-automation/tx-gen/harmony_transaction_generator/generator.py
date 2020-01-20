@@ -40,11 +40,22 @@ def _get_nonce(endpoint, address):
     return int(util.json_load(response.content)["result"], 16)
 
 
-def _random_list_cycler(lst):
-    lst = lst[:]
-    while True:
-        random.shuffle(lst)
-        yield from lst
+def generate_to_and_from_shard():
+    config = get_config()
+    shard_choices = list(range(0, len(config["ENDPOINTS"])))
+    src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
+    snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
+    retry_count = 0
+    if config["ONLY_CROSS_SHARD"]:
+        while src_shard == snk_shard:
+            if retry_count > 50:
+                Loggers.general.warning("Trying to force 'from' and 'to' shards to be different, "
+                                        "are source and sink shard weights correct in config?")
+                Loggers.general.write()
+            src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
+            snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
+            retry_count += 1
+    return src_shard, snk_shard
 
 
 def create_accounts(count, name_prefix="generated"):
@@ -122,63 +133,47 @@ def start(source_accounts, sink_accounts):
 
     def generate_transactions(src_accounts, snk_accounts):
         nonlocal txn_count
-        thread_pool = ThreadPool()
         ref_nonce = {n: [[_get_nonce(endpoints[j], cli.get_address(n)), Lock()] for j in range(len(endpoints))]
                      for n in src_accounts}
-        src_accounts_iter = _random_list_cycler(src_accounts)
-        snk_accounts_iter = itertools.cycle(snk_accounts)
+        src_accounts_iter = itertools.cycle(src_accounts)
+        z = [acc for _ in range(len(src_accounts)) for acc in snk_accounts]
+        snk_accounts_iter = itertools.cycle(acc for _ in range(len(src_accounts)) for acc in snk_accounts)
         while _is_running:
             src_name = next(src_accounts_iter)
             src_address = cli.get_address(src_name)
-            snk_address = cli.get_address(next(snk_accounts_iter))
-            shard_choices = list(range(0, len(config["ENDPOINTS"])))
-            src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
-            snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
-            retry_count = 0
-            if config["ONLY_CROSS_SHARD"]:
-                while src_shard == snk_shard:
-                    if config["MAX_TXN_GEN_COUNT"] is not None and txn_count >= config["MAX_TXN_GEN_COUNT"]:
-                        return  # quit early if txn_count happens to exceed max, true check is done when txn is sent
-                    if retry_count > 50:
-                        Loggers.general.warning("Trying to force 'from' and 'to' shards to be different, "
-                                                "are source and sink shard weights correct in config?")
-                        Loggers.general.write()
-                    src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
-                    snk_shard = random.choices(shard_choices, weights=config["SNK_SHARD_WEIGHTS"], k=1)[0]
-                    retry_count += 1
-            txn_amt = round(random.uniform(config["AMT_PER_TXN"][0], config["AMT_PER_TXN"][1]), 18)
-            if config["ENFORCE_NONCE"]:
-                n, n_lock = ref_nonce[src_name][src_shard]
-                n_lock.acquire()
-                if _get_nonce(endpoints[src_shard], src_address) < n:
+            for _ in range(len(snk_accounts)):
+                snk_address = cli.get_address(next(snk_accounts_iter))
+                txn_amt = round(random.uniform(config["AMT_PER_TXN"][0], config["AMT_PER_TXN"][1]), 18)
+                src_shard, snk_shard = generate_to_and_from_shard()
+                if config["ENFORCE_NONCE"]:
+                    n, n_lock = ref_nonce[src_name][src_shard]
+                    n_lock.acquire()
+                    curr_nonce = _get_nonce(endpoints[src_shard], src_address)
+                    if curr_nonce < n:
+                        n_lock.release()
+                        continue
+                    if curr_nonce > n:  # sync nonce if too big
+                        ref_nonce[src_name][src_shard][0] = curr_nonce
+                    ref_nonce[src_name][src_shard][0] += 1
                     n_lock.release()
-                    time.sleep(0.1)  # Sleep to reduce needless loops
-                    continue
-                ref_nonce[src_name][src_shard][0] += 1
-                n_lock.release()
-            if config["MAX_TXN_GEN_COUNT"] is not None:
-                lock.acquire()
-                if txn_count >= config["MAX_TXN_GEN_COUNT"]:
+                if config["MAX_TXN_GEN_COUNT"] is not None:
+                    lock.acquire()
+                    if txn_count >= config["MAX_TXN_GEN_COUNT"]:
+                        lock.release()
+                        return
+                    txn_count += 1 if config["ENFORCE_NONCE"] else _implicit_txns_per_gen
                     lock.release()
-                    return
-                txn_count += 1 if config["ENFORCE_NONCE"] else _implicit_txns_per_gen
-                lock.release()
-            if config["ENFORCE_NONCE"]:
-                send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
-            else:
-                curr_nonce = _get_nonce(endpoints[src_shard], src_address)
-                gen_count = _implicit_txns_per_gen
-                if config["MAX_TXN_GEN_COUNT"]:
-                    gen_count = min(config["MAX_TXN_GEN_COUNT"] - txn_count, gen_count)
-                threads = []
-                for j in range(gen_count):
-                    # TODO: check if threading is worth, might have to remove lambda
-                    threads.append(thread_pool.apply_async(lambda: send_transaction(src_address, snk_address,
-                                                                                    src_shard, snk_shard, txn_amt,
-                                                                                    nonce=curr_nonce + j, wait=False)))
-                for t in threads:
-                    t.get()
-                thread_pool.join()
+                if config["ENFORCE_NONCE"]:
+                    send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
+                else:
+                    curr_nonce = _get_nonce(endpoints[src_shard], src_address)
+                    gen_count = _implicit_txns_per_gen
+                    if config["MAX_TXN_GEN_COUNT"]:
+                        gen_count = min(config["MAX_TXN_GEN_COUNT"] - txn_count, gen_count)
+                    for j in range(gen_count):
+                        send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt,
+                                         nonce=curr_nonce+j, wait=False)
+            # TODO: put logic here to send transactions as a plan
 
     Loggers.general.info("Started transaction generator...")
     thread_count = multiprocessing.cpu_count() if not config['MAX_THREAD_COUNT'] else config['MAX_THREAD_COUNT']
