@@ -4,19 +4,17 @@ A simple script ot fund all accounts for P-OPS and internal accounts.
 Note: It assumes the devnet faucet keyfile is in `./devnet_faucet_key` and has an empty string as the passphrase.
 
 To run, execute the following in the terminal:
-```
-python3 fund_devnet.py
-```
+    $ python3 fund_devnet.py
 
-After that you will get:
-3 directories:
-    - Private key directory containing all the key files for 'mini' faucets (15 keys).
-    - P-ops key directory containing all the key files for p-ops (270 keys).
-    - Internal key directory containing all the key files for internal usages (20 keys).
-3 txt files:
-    - Private key text file containing all the addresses and private keys for 'mini' faucets (15 keys).
-    - P-ops key text file containing all the addresses and private keys for p-ops (270 keys).
-    - Internal key directory containing all the addresses and private keys for internal usage (20 keys).
+After that, you will get:
+    3 directories:
+        - Private key directory containing all the key files for 'mini' faucets (15 keys).
+        - P-ops key directory containing all the key files for p-ops (270 keys).
+        - Internal key directory containing all the key files for internal usages (20 keys).
+    3 txt files:
+        - Private key text file containing all the addresses and private keys for 'mini' faucets (15 keys).
+        - P-ops key text file containing all the addresses and private keys for p-ops (270 keys).
+        - Internal key directory containing all the addresses and private keys for internal usage (20 keys).
 """
 
 import logging
@@ -91,7 +89,7 @@ if __name__ == "__main__":
     log_writer_pool.apply_async(log_writer, (5,))
 
     # === Generate private funding keys ===
-    print("Bootstrapping funding process using faucet key in `./devnet_faucet_key`")
+    print("Bootstrapping funding process using faucet key(s) in `./devnet_faucet_key`")
     tx_gen.load_accounts("./devnet_faucet_key", "")
     private_faucet_keys = tx_gen.create_accounts(15, "PRIVATE_FAUCET")
     tx_gen.fund_accounts(private_faucet_keys)
