@@ -13,7 +13,6 @@ from .account_manager import (
     account_balances,
     get_balances,
     load_accounts,
-    create_account,
     is_fast_loaded,
     remove_accounts,
     send_transaction,

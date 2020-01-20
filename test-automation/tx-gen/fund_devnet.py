@@ -10,13 +10,13 @@ python3 fund_devnet.py
 
 After that you will get:
 3 directories:
-    - Private key directory containing all the key files for 'mini' faucets.
-    - P-ops key directory containing all the key files for p-ops.
-    - Internal key directory containing all the key files for internal usages
+    - Private key directory containing all the key files for 'mini' faucets (15 keys).
+    - P-ops key directory containing all the key files for p-ops (270 keys).
+    - Internal key directory containing all the key files for internal usages (20 keys).
 3 txt files:
-    - Private key text file containing all the addresses and private keys for 'mini' faucets.
-    - P-ops key text file containing all the addresses and private keys for p-ops.
-    - Internal key directory containing all the addresses and private keys for internal usage.
+    - Private key text file containing all the addresses and private keys for 'mini' faucets (15 keys).
+    - P-ops key text file containing all the addresses and private keys for p-ops (270 keys).
+    - Internal key directory containing all the addresses and private keys for internal usage (20 keys).
 """
 
 import logging
@@ -116,7 +116,7 @@ if __name__ == "__main__":
         ],
         "CHAIN_ID": "devnet"
     })
-    pops_faucet_keys = tx_gen.create_account(270, "POPS_FAUCET")
+    pops_faucet_keys = tx_gen.create_accounts(270, "POPS_FAUCET")
     tx_gen.fund_accounts(pops_faucet_keys)
     for key_dir in os.listdir(key_store_path):
         if "POPS_FAUCET" in key_dir:
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         ],
         "CHAIN_ID": "devnet"
     })
-    internal_faucet_keys = tx_gen.create_account(20, "INTERNAL_FAUCET")
+    internal_faucet_keys = tx_gen.create_accounts(20, "INTERNAL_FAUCET")
     tx_gen.fund_accounts(internal_faucet_keys)
     for key_dir in os.listdir(key_store_path):
         if "INTERNAL_FAUCET" in key_dir:
