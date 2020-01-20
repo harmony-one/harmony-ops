@@ -9,13 +9,11 @@ from pyhmy import cli
 from .common import (
     Loggers,
     get_config,
-    import_account_name_prefix
 )
 from .account_manager import (
-    create_account,
     send_transaction,
-    return_balances,
     account_balances,
+    get_balances
 )
 
 
@@ -55,6 +53,7 @@ def _fund(src_acc, accounts, amount, shard_index, safe=True):
         txn_hash = send_transaction(from_address, to_address, shard_index, shard_index,
                                     amount, retry=True, wait=safe)
         transaction_hashes.append(txn_hash)
+    # TODO: put in logic to send transactions as a plan.
     return transaction_hashes
 
 
@@ -96,12 +95,11 @@ def _fund_accounts(accounts, shard_index, amount):
     return transaction_hashes
 
 
-# TODO add logic to not fund if the accounts already have min_funds as balance.
 def fund_accounts(accounts, shard_indexes=None, amount=None):
     """
     :param accounts: An iterable of account names to be funded
     :param shard_indexes: An iterable of shard indexes that the accounts should be funded on.
-                          Defaults to ALL shards    .
+                          Defaults to ALL shards.
     :param amount: The amount to each accounts on each shard_index.
     """
     config = get_config()
@@ -110,4 +108,5 @@ def fund_accounts(accounts, shard_indexes=None, amount=None):
         shard_indexes = range(len(config["ENDPOINTS"]))
     assert hasattr(shard_indexes, "__iter__")
     for shard_index in shard_indexes:
-        _fund_accounts(accounts, shard_index, amount)
+        need_to_be_funded = list(filter(lambda n: get_balances(n)[shard_index]["amount"] < amount, accounts))
+        _fund_accounts(need_to_be_funded, shard_index, amount)

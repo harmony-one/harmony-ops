@@ -136,7 +136,6 @@ def start(source_accounts, sink_accounts):
         ref_nonce = {n: [[_get_nonce(endpoints[j], cli.get_address(n)), Lock()] for j in range(len(endpoints))]
                      for n in src_accounts}
         src_accounts_iter = itertools.cycle(src_accounts)
-        z = [acc for _ in range(len(src_accounts)) for acc in snk_accounts]
         snk_accounts_iter = itertools.cycle(acc for _ in range(len(src_accounts)) for acc in snk_accounts)
         while _is_running:
             src_name = next(src_accounts_iter)

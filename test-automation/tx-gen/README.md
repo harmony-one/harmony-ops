@@ -66,7 +66,6 @@ the `filename` attribute of the logger, for example `tx_gen.Loggers.transaction.
 
 
 ## TODO
+* Implement transaction plan logic once CLI has this feature implemented. 
 * Documentation.
-* More testing
 * Verify reset logic for multiple runs.
-* improve config verification to fail early.
