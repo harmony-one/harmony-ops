@@ -23,6 +23,8 @@ _accounts_added = set()
 _fast_loaded_accounts = {}  # keys = acc_names, values = passphrase
 
 
+# TODO: create a transaction plan object that will be called for any chained transaction...
+
 def get_balances(account_name, shard_index=0):
     config = get_config()
     assert shard_index < len(config["ENDPOINTS"])
@@ -110,9 +112,8 @@ def get_fast_loaded_passphrase(account_input):
     return _fast_loaded_accounts.get(account_input, None)
 
 
-def remove_accounts(accounts, backup=True):
+def remove_accounts(accounts, backup=False):
     """
-    TODO: remove logging private keys
     :param accounts: An iterable of accounts names to remove
     :param backup: If true, logs (to the general logger) the private key of the account that was removed.
     """
@@ -134,16 +135,34 @@ def remove_accounts(accounts, backup=True):
         Loggers.general.info(f"Removed Account: {removed_account}")
 
 
-# TODO: add gas optional arguments and add to config...
 def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
-                     nonce=None, pw='', wait=True, retry=False, max_tries=5):
+                     gas_price=1, gas_limit=21000, nonce=None, pw='', wait=True,
+                     retry=False, max_tries=5):
+    """
+    Send a single transaction.
+
+    :param from_address: The 'one1...' address, must be in the CLI's keystore.
+    :param to_address: The 'one1...' address, need not be in the CLI's keystore.
+    :param src_shard: The source shard.
+    :param dst_shard: The destination shard.
+    :param amount: The amount.
+    :param gas_price: An optional gas price, default is 1 Nano.
+    :param gas_limit: An optional gas limit, default is 2100.
+    :param nonce: An optional nonce, default uses latest nonce from the blockchain.
+    :param pw: An optional passphrase associated with the from_address keystore file.
+    :param wait: Wait for finality before returning.
+    :param retry: Attempt to resend if sending caused ANY error
+    :param max_tries: The maximum number of retries
+    :return: The transaction-receipt / hash if a transaction was send, None if there was an error.
+    """
     config = get_config()
     assert cli.check_address(from_address), "source address must be in the CLI's keystore."
     attempt_count = 0
     command = f"hmy --node={config['ENDPOINTS'][src_shard]} transfer " \
               f"--from={from_address} --to={to_address} " \
               f"--from-shard={src_shard} --to-shard={dst_shard} " \
-              f"--amount={amount} --passphrase={pw} --chain-id={config['CHAIN_ID']} "
+              f"--amount={amount} --passphrase={pw} --chain-id={config['CHAIN_ID']} " \
+              f"--gas-price {gas_price} --gas-limit {gas_limit} "
     if wait:
         command += f"--wait-for-confirm {config['TXN_WAIT_TO_CONFIRM']} "
     if nonce:
@@ -152,7 +171,7 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
         'from': from_address, 'to': to_address,
         'from-shard': src_shard, 'to-shard': dst_shard,
         'amount': amount, 'hash': None, 'send-time-utc': str(datetime.datetime.utcnow()),
-        'nonce': nonce, 'error': None
+        'txn-fee': round(gas_price * 1e-9 * gas_limit, 18), 'nonce': nonce, 'error': None
     }
     while True:
         try:

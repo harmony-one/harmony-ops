@@ -18,7 +18,7 @@ from .common import (
 
 
 def live_info(accounts, interval, duration):
-    # TODO: Function to get life (usable) feedback of current status of the tx-gen, during tx-gen.
+    # TODO: Function to get live (usable) feedback of current status of the tx-gen, during tx-gen.
     pass
 
 
@@ -27,7 +27,6 @@ def _get_transaction_by_hash(endpoint, txn_hash):
     Internal get transaction by has to speed up analysis.
     Note that this functionality will eventually be migrated to the `pyhmy`
     """
-    print("checking", txn_hash)
     url = endpoint
     payload = "{\"jsonrpc\": \"2.0\", \"method\": \"hmy_getTransactionByHash\"," \
               "\"params\": [\"" + txn_hash + "\"],\"id\": 1}"
@@ -38,7 +37,6 @@ def _get_transaction_by_hash(endpoint, txn_hash):
     return json_load(response.content)
 
 
-# TODO check if parallelize code works.
 def verify_transactions(transaction_log_dir, start_time, end_time):
     """
     :param transaction_log_dir: The file path to the log file of transactions
