@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.7.4" />
+<title>harmony_transaction_generator.account_manager API documentation</title>
+<meta name="description" content="" />
+<link href='https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.0/normalize.min.css' rel='stylesheet'>
+<link href='https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/8.0.0/sanitize.min.css' rel='stylesheet'>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
+<style>.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{font-weight:bold}#index h4 + ul{margin-bottom:.6em}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>harmony_transaction_generator.account_manager</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">import os
+import shutil
+import math
+import multiprocessing
+import json
+import datetime
+from multiprocessing.pool import ThreadPool
+
+from pyhmy import cli
+from pyhmy.util import (
+    json_load
+)
+
+from .common import (
+    Loggers,
+    get_config,
+    import_account_name_prefix,
+)
+
+account_balances = {}
+
+_accounts_added = set()
+_loaded_passphrase = {}  # keys = acc_names, values = passphrase
+
+
+# TODO: create a transaction plan object that will be called for any chained transaction...
+
+def get_balances(account_name):
+    &#34;&#34;&#34;
+    This gets the balances for the address associated with the `account_name`
+    (aka wallet-name) in the CLI&#39;s keystore.
+    &#34;&#34;&#34;
+    config = get_config()
+    address = cli.get_address(account_name)
+    if not address:
+        return {}
+    response = cli.single_call(f&#34;hmy balances {address} --node={config[&#39;ENDPOINTS&#39;][0]}&#34;, timeout=60)
+    balances = eval(response)  # There is a chance that the CLI returns a malformed json array.
+    info = {&#39;address&#39;: address, &#39;balances&#39;: balances, &#39;time-utc&#39;: str(datetime.datetime.utcnow())}
+    Loggers.balance.info(json.dumps(info))
+    account_balances[account_name] = balances
+    return balances
+
+
+def load_accounts(keystore_path, passphrase, name_prefix=&#34;import&#34;, fast_load=False):
+    &#34;&#34;&#34;
+    Load accounts from `keystore_path`. Note that the directory must contain keystore files only,
+    and **NOT** directory of wallets/account-names containing keystore files. The `passphrase` for
+    **ALL** keystore files but also be provided. One can provide an optional `name_prefix` for the
+    account-name of each imported keystore file. One can specify `fast_load` to blindly copy over
+    files to the CLI&#39;s keystore instead of using the &#34;import-ks&#34; command.
+
+    It will return a list of accounts names that were added.
+    &#34;&#34;&#34;
+    config = get_config()
+    assert os.path.exists(keystore_path)
+    keystore_path = os.path.realpath(keystore_path)
+    key_paths = os.listdir(keystore_path)
+    accounts_added = []
+
+    def load(start, end):
+        for j, file_name in enumerate(key_paths[start: end]):
+            # STRONG assumption about imported key-files.
+            if file_name.endswith(&#34;.key&#34;) or not file_name.startswith(&#34;.&#34;):
+                file_path = f&#34;{keystore_path}/{file_name}&#34;
+                account_name = f&#34;{import_account_name_prefix}{name_prefix}{j+start}&#34;
+                if not cli.get_address(account_name):
+                    cli.remove_account(account_name)  # Just in-case there is a folder with nothing in it.
+                    Loggers.general.info(f&#34;Adding key file: ({j+start}) {file_name}&#34;)
+                    if fast_load:
+                        keystore_acc_dir = f&#34;{cli.get_account_keystore_path()}/{account_name}&#34;
+                        os.makedirs(keystore_acc_dir, exist_ok=True)
+                        shutil.copy(file_path, f&#34;{keystore_acc_dir}/{file_name}&#34;)
+                    else:
+                        cli.single_call(f&#34;hmy keys import-ks {file_path} {account_name} &#34;
+                                        f&#34;--passphrase={passphrase}&#34;)
+                _loaded_passphrase[account_name] = passphrase
+                accounts_added.append(account_name)
+                _accounts_added.add(account_name)
+                account_balances[account_name] = get_balances(account_name)
+
+    max_threads = multiprocessing.cpu_count() if not config[&#39;MAX_THREAD_COUNT&#39;] else config[&#39;MAX_THREAD_COUNT&#39;]
+    max_threads = min(max_threads, len(key_paths))
+    steps = int(math.ceil(len(key_paths) / max_threads))
+
+    threads = []
+    pool = ThreadPool(processes=max_threads)
+    for i in range(max_threads):
+        threads.append(pool.apply_async(load, (i * steps, (i + 1) * steps)))
+    for t in threads:
+        t.get()
+    pool.close()
+    pool.join()
+    return accounts_added
+
+
+def create_account(account_name, exist_ok=True):
+    &#34;&#34;&#34;
+    This will create a single account with `account_name`. One can choose to continue
+    if the account exists by setting `exist_ok` to true.
+    &#34;&#34;&#34;
+    try:
+        cli.single_call(f&#34;hmy keys add {account_name}&#34;)
+    except RuntimeError as e:
+        if not exist_ok:
+            raise e
+    get_balances(account_name)
+    _accounts_added.add(account_name)
+    _loaded_passphrase[account_name] = &#39;&#39;  # Default passphrase used by the CLI.
+    return account_name
+
+
+def get_passphrase(account_name):
+    &#34;&#34;&#34;
+    This returns the passphrase associated with the `account_name` (aka wallet-name)
+    in the CLI&#39;s keystore **IF** it was loaded or created using this account manager.
+    Otherwise it will return the CLI&#39;s default passphrase of an empty string.
+    &#34;&#34;&#34;
+    pw = _loaded_passphrase.get(account_name, None)
+    if pw is None:
+        Loggers.general.warning(
+            f&#34;Passphrase unknown for {account_name}, using default passphrase.&#34;)
+        pw = &#39;&#39;  # Default passphrase for CLI
+    return pw
+
+
+def remove_accounts(accounts, backup=False):
+    &#34;&#34;&#34;
+    This will remove all `accounts`, where `accounts` is an iterable of accounts name.
+    One can specify `backup` if one wishes to log the private keys of all removed accounts.
+    &#34;&#34;&#34;
+    for acc in accounts:
+        address = cli.get_address(acc)
+        private_key = &#34;&#34;
+        if backup:
+            try:
+                private_key = cli.single_call(f&#34;hmy keys export-private-key {address}&#34;).strip()
+            except RuntimeError:
+                Loggers.general.error(f&#34;{address} ({acc}) was not imported via CLI, cannot backup&#34;)
+                private_key = &#34;NOT-IMPORTED-USING-CLI&#34;
+        cli.remove_account(acc)
+        if acc in _accounts_added:
+            _accounts_added.remove(acc)
+        if acc in _loaded_passphrase:
+            del _loaded_passphrase[acc]
+        removed_account = {&#34;address&#34;: address, &#34;private-key&#34;: private_key}
+        Loggers.general.info(f&#34;Removed Account: {removed_account}&#34;)
+
+
+def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
+                     gas_price=1, gas_limit=21000, nonce=None, passphrase=&#39;&#39;, wait=True,
+                     retry=False, max_tries=5):
+    &#34;&#34;&#34;
+    This will send a single transaction `from_address` to `to_address` from shard `src_shard`
+    to `dst_shard` for `amount` $ONE with a `gas_price` (default 1) at a `gas_limit` (default 21000)
+    using `nonce`. The `passphrase` is used to unlock the keystore file. One can choose to `wait`
+    for the transaction to confirm before returning. One can choose to `retry` up to `max_tries` times
+    if the transaction fails to send.
+
+    It will return the &#34;transaction-receipt&#34; once the transaction is sent.
+    &#34;&#34;&#34;
+    config = get_config()
+    assert cli.check_address(from_address), &#34;source address must be in the CLI&#39;s keystore.&#34;
+    attempt_count = 0
+    command = f&#34;hmy --node={config[&#39;ENDPOINTS&#39;][src_shard]} transfer &#34; \
+              f&#34;--from={from_address} --to={to_address} &#34; \
+              f&#34;--from-shard={src_shard} --to-shard={dst_shard} &#34; \
+              f&#34;--amount={amount} --passphrase={passphrase} --chain-id={config[&#39;CHAIN_ID&#39;]} &#34; \
+              f&#34;--gas-price {gas_price} --gas-limit {gas_limit} &#34;
+    if wait:
+        command += f&#34;--wait-for-confirm {config[&#39;TXN_WAIT_TO_CONFIRM&#39;]} &#34;
+    if nonce:
+        command += f&#34;--nonce {nonce} &#34;
+    info = {
+        &#39;from&#39;: from_address, &#39;to&#39;: to_address,
+        &#39;from-shard&#39;: src_shard, &#39;to-shard&#39;: dst_shard,
+        &#39;amount&#39;: amount, &#39;hash&#39;: None, &#39;send-time-utc&#39;: str(datetime.datetime.utcnow()),
+        &#39;txn-fee&#39;: round(gas_price * 1e-9 * gas_limit, 18), &#39;nonce&#39;: nonce, &#39;error&#39;: None
+    }
+    while True:
+        try:
+            response = cli.single_call(command, timeout=config[&#39;TXN_WAIT_TO_CONFIRM&#39;]).strip()
+            if wait:
+                info[&#39;hash&#39;] = json_load(response)[&#34;result&#34;][&#34;transactionHash&#34;]
+            else:
+                info[&#39;hash&#39;] = json_load(response)[&#34;transaction-receipt&#34;]
+            Loggers.transaction.info(json.dumps(info))
+            return info[&#39;hash&#39;]
+        except (RuntimeError, json.JSONDecodeError) as e:
+            if not retry or attempt_count &gt;= max_tries:
+                info[&#39;error&#39;] = str(e)
+                Loggers.transaction.error(json.dumps(info))
+                Loggers.transaction.write()
+                return None
+            attempt_count += 1
+            Loggers.general.warning(f&#34;[Trying Again] Failure sending from {from_address} (s{src_shard}) &#34;
+                                    f&#34;to {to_address} (s{dst_shard})\n&#34;
+                                    f&#34;\tError: {e}&#34;)
+
+
+def return_balances(accounts, wait=False):
+    &#34;&#34;&#34;
+    The will return the balance of all accounts in `accounts` to the address specified in
+    the config where `accounts` is an iterable of account-names/wallet-names.
+    One can choose to `wait` for each transaction to succeed.
+
+    This will return a list of &#34;transaction-receipts&#34; once all the transactions is sent.
+    &#34;&#34;&#34;
+    config = get_config()
+    Loggers.general.info(&#34;Refunding accounts...&#34;)
+    txn_hashes = []
+    account_addresses = []
+    for account in accounts:
+        for shard_index in range(len(config[&#39;ENDPOINTS&#39;])):
+            balances = get_balances(account)  # There is a chance that you don&#39;t get all balances (b/c of latency)
+            if shard_index &lt; len(balances):
+                amount = balances[shard_index][&#34;amount&#34;]
+                amount -= config[&#34;ESTIMATED_GAS_PER_TXN&#34;]
+                if amount &gt; config[&#39;ESTIMATED_GAS_PER_TXN&#39;]:
+                    from_address = cli.get_address(account)
+                    to_address = config[&#39;REFUND_ACCOUNT&#39;]
+                    account_addresses.append(from_address)
+                    passphrase = get_passphrase(account)
+                    txn_hash = send_transaction(from_address, to_address, shard_index, shard_index, amount,
+                                                passphrase=passphrase, wait=wait)
+                    txn_hashes.append({&#34;shard&#34;: shard_index, &#34;hash&#34;: txn_hash})
+    Loggers.general.info(f&#34;Refund transaction hashes: {txn_hashes}&#34;)
+    return txn_hashes
+
+
+def reset(safe=True):
+    &#34;&#34;&#34;
+    Reset the account manager to its initial state. One can choose to do a `safe` reset
+    to ensure all accounts have been refunded and all removed keys have their private keys
+    logged.
+    &#34;&#34;&#34;
+    accounts_added = list(_accounts_added)
+    return_balances(accounts_added, wait=safe)
+    remove_accounts(accounts_added, backup=safe)
+    account_balances.clear()
+    _accounts_added.clear()
+    _loaded_passphrase.clear()</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="harmony_transaction_generator.account_manager.create_account"><code class="name flex">
+<span>def <span class="ident">create_account</span></span>(<span>account_name, exist_ok=True)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>This will create a single account with <code>account_name</code>. One can choose to continue
+if the account exists by setting <code>exist_ok</code> to true.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def create_account(account_name, exist_ok=True):
+    &#34;&#34;&#34;
+    This will create a single account with `account_name`. One can choose to continue
+    if the account exists by setting `exist_ok` to true.
+    &#34;&#34;&#34;
+    try:
+        cli.single_call(f&#34;hmy keys add {account_name}&#34;)
+    except RuntimeError as e:
+        if not exist_ok:
+            raise e
+    get_balances(account_name)
+    _accounts_added.add(account_name)
+    _loaded_passphrase[account_name] = &#39;&#39;  # Default passphrase used by the CLI.
+    return account_name</code></pre>
+</details>
+</dd>
+<dt id="harmony_transaction_generator.account_manager.get_balances"><code class="name flex">
+<span>def <span class="ident">get_balances</span></span>(<span>account_name)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>This gets the balances for the address associated with the <code>account_name</code>
+(aka wallet-name) in the CLI's keystore.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_balances(account_name):
+    &#34;&#34;&#34;
+    This gets the balances for the address associated with the `account_name`
+    (aka wallet-name) in the CLI&#39;s keystore.
+    &#34;&#34;&#34;
+    config = get_config()
+    address = cli.get_address(account_name)
+    if not address:
+        return {}
+    response = cli.single_call(f&#34;hmy balances {address} --node={config[&#39;ENDPOINTS&#39;][0]}&#34;, timeout=60)
+    balances = eval(response)  # There is a chance that the CLI returns a malformed json array.
+    info = {&#39;address&#39;: address, &#39;balances&#39;: balances, &#39;time-utc&#39;: str(datetime.datetime.utcnow())}
+    Loggers.balance.info(json.dumps(info))
+    account_balances[account_name] = balances
+    return balances</code></pre>
+</details>
+</dd>
+<dt id="harmony_transaction_generator.account_manager.get_passphrase"><code class="name flex">
+<span>def <span class="ident">get_passphrase</span></span>(<span>account_name)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>This returns the passphrase associated with the <code>account_name</code> (aka wallet-name)
+in the CLI's keystore <strong>IF</strong> it was loaded or created using this account manager.
+Otherwise it will return the CLI's default passphrase of an empty string.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_passphrase(account_name):
+    &#34;&#34;&#34;
+    This returns the passphrase associated with the `account_name` (aka wallet-name)
+    in the CLI&#39;s keystore **IF** it was loaded or created using this account manager.
+    Otherwise it will return the CLI&#39;s default passphrase of an empty string.
+    &#34;&#34;&#34;
+    pw = _loaded_passphrase.get(account_name, None)
+    if pw is None:
+        Loggers.general.warning(
+            f&#34;Passphrase unknown for {account_name}, using default passphrase.&#34;)
+        pw = &#39;&#39;  # Default passphrase for CLI
+    return pw</code></pre>
+</details>
+</dd>
+<dt id="harmony_transaction_generator.account_manager.load_accounts"><code class="name flex">
+<span>def <span class="ident">load_accounts</span></span>(<span>keystore_path, passphrase, name_prefix='import', fast_load=False)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Load accounts from <code>keystore_path</code>. Note that the directory must contain keystore files only,
+and <strong>NOT</strong> directory of wallets/account-names containing keystore files. The <code>passphrase</code> for
+<strong>ALL</strong> keystore files but also be provided. One can provide an optional <code>name_prefix</code> for the
+account-name of each imported keystore file. One can specify <code>fast_load</code> to blindly copy over
+files to the CLI's keystore instead of using the "import-ks" command.</p>
+<p>It will return a list of accounts names that were added.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load_accounts(keystore_path, passphrase, name_prefix=&#34;import&#34;, fast_load=False):
+    &#34;&#34;&#34;
+    Load accounts from `keystore_path`. Note that the directory must contain keystore files only,
+    and **NOT** directory of wallets/account-names containing keystore files. The `passphrase` for
+    **ALL** keystore files but also be provided. One can provide an optional `name_prefix` for the
+    account-name of each imported keystore file. One can specify `fast_load` to blindly copy over
+    files to the CLI&#39;s keystore instead of using the &#34;import-ks&#34; command.
+
+    It will return a list of accounts names that were added.
+    &#34;&#34;&#34;
+    config = get_config()
+    assert os.path.exists(keystore_path)
+    keystore_path = os.path.realpath(keystore_path)
+    key_paths = os.listdir(keystore_path)
+    accounts_added = []
+
+    def load(start, end):
+        for j, file_name in enumerate(key_paths[start: end]):
+            # STRONG assumption about imported key-files.
+            if file_name.endswith(&#34;.key&#34;) or not file_name.startswith(&#34;.&#34;):
+                file_path = f&#34;{keystore_path}/{file_name}&#34;
+                account_name = f&#34;{import_account_name_prefix}{name_prefix}{j+start}&#34;
+                if not cli.get_address(account_name):
+                    cli.remove_account(account_name)  # Just in-case there is a folder with nothing in it.
+                    Loggers.general.info(f&#34;Adding key file: ({j+start}) {file_name}&#34;)
+                    if fast_load:
+                        keystore_acc_dir = f&#34;{cli.get_account_keystore_path()}/{account_name}&#34;
+                        os.makedirs(keystore_acc_dir, exist_ok=True)
+                        shutil.copy(file_path, f&#34;{keystore_acc_dir}/{file_name}&#34;)
+                    else:
+                        cli.single_call(f&#34;hmy keys import-ks {file_path} {account_name} &#34;
+                                        f&#34;--passphrase={passphrase}&#34;)
+                _loaded_passphrase[account_name] = passphrase
+                accounts_added.append(account_name)
+                _accounts_added.add(account_name)
+                account_balances[account_name] = get_balances(account_name)
+
+    max_threads = multiprocessing.cpu_count() if not config[&#39;MAX_THREAD_COUNT&#39;] else config[&#39;MAX_THREAD_COUNT&#39;]
+    max_threads = min(max_threads, len(key_paths))
+    steps = int(math.ceil(len(key_paths) / max_threads))
+
+    threads = []
+    pool = ThreadPool(processes=max_threads)
+    for i in range(max_threads):
+        threads.append(pool.apply_async(load, (i * steps, (i + 1) * steps)))
+    for t in threads:
+        t.get()
+    pool.close()
+    pool.join()
+    return accounts_added</code></pre>
+</details>
+</dd>
+<dt id="harmony_transaction_generator.account_manager.remove_accounts"><code class="name flex">
+<span>def <span class="ident">remove_accounts</span></span>(<span>accounts, backup=False)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>This will remove all <code>accounts</code>, where <code>accounts</code> is an iterable of accounts name.
+One can specify <code>backup</code> if one wishes to log the private keys of all removed accounts.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def remove_accounts(accounts, backup=False):
+    &#34;&#34;&#34;
+    This will remove all `accounts`, where `accounts` is an iterable of accounts name.
+    One can specify `backup` if one wishes to log the private keys of all removed accounts.
+    &#34;&#34;&#34;
+    for acc in accounts:
+        address = cli.get_address(acc)
+        private_key = &#34;&#34;
+        if backup:
+            try:
+                private_key = cli.single_call(f&#34;hmy keys export-private-key {address}&#34;).strip()
+            except RuntimeError:
+                Loggers.general.error(f&#34;{address} ({acc}) was not imported via CLI, cannot backup&#34;)
+                private_key = &#34;NOT-IMPORTED-USING-CLI&#34;
+        cli.remove_account(acc)
+        if acc in _accounts_added:
+            _accounts_added.remove(acc)
+        if acc in _loaded_passphrase:
+            del _loaded_passphrase[acc]
+        removed_account = {&#34;address&#34;: address, &#34;private-key&#34;: private_key}
+        Loggers.general.info(f&#34;Removed Account: {removed_account}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="harmony_transaction_generator.account_manager.reset"><code class="name flex">
+<span>def <span class="ident">reset</span></span>(<span>safe=True)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>Reset the account manager to its initial state. One can choose to do a <code>safe</code> reset
+to ensure all accounts have been refunded and all removed keys have their private keys
+logged.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reset(safe=True):
+    &#34;&#34;&#34;
+    Reset the account manager to its initial state. One can choose to do a `safe` reset
+    to ensure all accounts have been refunded and all removed keys have their private keys
+    logged.
+    &#34;&#34;&#34;
+    accounts_added = list(_accounts_added)
+    return_balances(accounts_added, wait=safe)
+    remove_accounts(accounts_added, backup=safe)
+    account_balances.clear()
+    _accounts_added.clear()
+    _loaded_passphrase.clear()</code></pre>
+</details>
+</dd>
+<dt id="harmony_transaction_generator.account_manager.return_balances"><code class="name flex">
+<span>def <span class="ident">return_balances</span></span>(<span>accounts, wait=False)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>The will return the balance of all accounts in <code>accounts</code> to the address specified in
+the config where <code>accounts</code> is an iterable of account-names/wallet-names.
+One can choose to <code>wait</code> for each transaction to succeed.</p>
+<p>This will return a list of "transaction-receipts" once all the transactions is sent.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def return_balances(accounts, wait=False):
+    &#34;&#34;&#34;
+    The will return the balance of all accounts in `accounts` to the address specified in
+    the config where `accounts` is an iterable of account-names/wallet-names.
+    One can choose to `wait` for each transaction to succeed.
+
+    This will return a list of &#34;transaction-receipts&#34; once all the transactions is sent.
+    &#34;&#34;&#34;
+    config = get_config()
+    Loggers.general.info(&#34;Refunding accounts...&#34;)
+    txn_hashes = []
+    account_addresses = []
+    for account in accounts:
+        for shard_index in range(len(config[&#39;ENDPOINTS&#39;])):
+            balances = get_balances(account)  # There is a chance that you don&#39;t get all balances (b/c of latency)
+            if shard_index &lt; len(balances):
+                amount = balances[shard_index][&#34;amount&#34;]
+                amount -= config[&#34;ESTIMATED_GAS_PER_TXN&#34;]
+                if amount &gt; config[&#39;ESTIMATED_GAS_PER_TXN&#39;]:
+                    from_address = cli.get_address(account)
+                    to_address = config[&#39;REFUND_ACCOUNT&#39;]
+                    account_addresses.append(from_address)
+                    passphrase = get_passphrase(account)
+                    txn_hash = send_transaction(from_address, to_address, shard_index, shard_index, amount,
+                                                passphrase=passphrase, wait=wait)
+                    txn_hashes.append({&#34;shard&#34;: shard_index, &#34;hash&#34;: txn_hash})
+    Loggers.general.info(f&#34;Refund transaction hashes: {txn_hashes}&#34;)
+    return txn_hashes</code></pre>
+</details>
+</dd>
+<dt id="harmony_transaction_generator.account_manager.send_transaction"><code class="name flex">
+<span>def <span class="ident">send_transaction</span></span>(<span>from_address, to_address, src_shard, dst_shard, amount, gas_price=1, gas_limit=21000, nonce=None, passphrase='', wait=True, retry=False, max_tries=5)</span>
+</code></dt>
+<dd>
+<section class="desc"><p>This will send a single transaction <code>from_address</code> to <code>to_address</code> from shard <code>src_shard</code>
+to <code>dst_shard</code> for <code>amount</code> $ONE with a <code>gas_price</code> (default 1) at a <code>gas_limit</code> (default 21000)
+using <code>nonce</code>. The <code>passphrase</code> is used to unlock the keystore file. One can choose to <code>wait</code>
+for the transaction to confirm before returning. One can choose to <code>retry</code> up to <code>max_tries</code> times
+if the transaction fails to send.</p>
+<p>It will return the "transaction-receipt" once the transaction is sent.</p></section>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
+                     gas_price=1, gas_limit=21000, nonce=None, passphrase=&#39;&#39;, wait=True,
+                     retry=False, max_tries=5):
+    &#34;&#34;&#34;
+    This will send a single transaction `from_address` to `to_address` from shard `src_shard`
+    to `dst_shard` for `amount` $ONE with a `gas_price` (default 1) at a `gas_limit` (default 21000)
+    using `nonce`. The `passphrase` is used to unlock the keystore file. One can choose to `wait`
+    for the transaction to confirm before returning. One can choose to `retry` up to `max_tries` times
+    if the transaction fails to send.
+
+    It will return the &#34;transaction-receipt&#34; once the transaction is sent.
+    &#34;&#34;&#34;
+    config = get_config()
+    assert cli.check_address(from_address), &#34;source address must be in the CLI&#39;s keystore.&#34;
+    attempt_count = 0
+    command = f&#34;hmy --node={config[&#39;ENDPOINTS&#39;][src_shard]} transfer &#34; \
+              f&#34;--from={from_address} --to={to_address} &#34; \
+              f&#34;--from-shard={src_shard} --to-shard={dst_shard} &#34; \
+              f&#34;--amount={amount} --passphrase={passphrase} --chain-id={config[&#39;CHAIN_ID&#39;]} &#34; \
+              f&#34;--gas-price {gas_price} --gas-limit {gas_limit} &#34;
+    if wait:
+        command += f&#34;--wait-for-confirm {config[&#39;TXN_WAIT_TO_CONFIRM&#39;]} &#34;
+    if nonce:
+        command += f&#34;--nonce {nonce} &#34;
+    info = {
+        &#39;from&#39;: from_address, &#39;to&#39;: to_address,
+        &#39;from-shard&#39;: src_shard, &#39;to-shard&#39;: dst_shard,
+        &#39;amount&#39;: amount, &#39;hash&#39;: None, &#39;send-time-utc&#39;: str(datetime.datetime.utcnow()),
+        &#39;txn-fee&#39;: round(gas_price * 1e-9 * gas_limit, 18), &#39;nonce&#39;: nonce, &#39;error&#39;: None
+    }
+    while True:
+        try:
+            response = cli.single_call(command, timeout=config[&#39;TXN_WAIT_TO_CONFIRM&#39;]).strip()
+            if wait:
+                info[&#39;hash&#39;] = json_load(response)[&#34;result&#34;][&#34;transactionHash&#34;]
+            else:
+                info[&#39;hash&#39;] = json_load(response)[&#34;transaction-receipt&#34;]
+            Loggers.transaction.info(json.dumps(info))
+            return info[&#39;hash&#39;]
+        except (RuntimeError, json.JSONDecodeError) as e:
+            if not retry or attempt_count &gt;= max_tries:
+                info[&#39;error&#39;] = str(e)
+                Loggers.transaction.error(json.dumps(info))
+                Loggers.transaction.write()
+                return None
+            attempt_count += 1
+            Loggers.general.warning(f&#34;[Trying Again] Failure sending from {from_address} (s{src_shard}) &#34;
+                                    f&#34;to {to_address} (s{dst_shard})\n&#34;
+                                    f&#34;\tError: {e}&#34;)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="harmony_transaction_generator" href="index.html">harmony_transaction_generator</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="two-column">
+<li><code><a title="harmony_transaction_generator.account_manager.create_account" href="#harmony_transaction_generator.account_manager.create_account">create_account</a></code></li>
+<li><code><a title="harmony_transaction_generator.account_manager.get_balances" href="#harmony_transaction_generator.account_manager.get_balances">get_balances</a></code></li>
+<li><code><a title="harmony_transaction_generator.account_manager.get_passphrase" href="#harmony_transaction_generator.account_manager.get_passphrase">get_passphrase</a></code></li>
+<li><code><a title="harmony_transaction_generator.account_manager.load_accounts" href="#harmony_transaction_generator.account_manager.load_accounts">load_accounts</a></code></li>
+<li><code><a title="harmony_transaction_generator.account_manager.remove_accounts" href="#harmony_transaction_generator.account_manager.remove_accounts">remove_accounts</a></code></li>
+<li><code><a title="harmony_transaction_generator.account_manager.reset" href="#harmony_transaction_generator.account_manager.reset">reset</a></code></li>
+<li><code><a title="harmony_transaction_generator.account_manager.return_balances" href="#harmony_transaction_generator.account_manager.return_balances">return_balances</a></code></li>
+<li><code><a title="harmony_transaction_generator.account_manager.send_transaction" href="#harmony_transaction_generator.account_manager.send_transaction">send_transaction</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.7.4</a>.</p>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad()</script>
+</body>
+</html>

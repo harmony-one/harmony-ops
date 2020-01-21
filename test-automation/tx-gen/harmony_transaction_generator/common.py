@@ -34,6 +34,9 @@ import_account_name_prefix = "_tx_gen_"
 
 
 class Loggers:
+    """
+    A collection of loggers for the transaction generator.
+    """
     general = ControlledLogger(f"general_log_{datetime.datetime.utcnow()}", "./logs/general")
     transaction = ControlledLogger(f"transaction_log_{datetime.datetime.utcnow()}", "./logs/transaction")
     balance = ControlledLogger(f"balance_log_{datetime.datetime.utcnow()}", "./logs/balance")
@@ -41,6 +44,10 @@ class Loggers:
 
 
 def start_new_loggers():
+    """
+    This reinitialize all loggers in `pdoc.Loggers`.
+    Note that new files will be generated in the process.
+    """
     start_new_general_logger()
     start_new_transaction_logger()
     start_new_balance_logger()
@@ -48,22 +55,41 @@ def start_new_loggers():
 
 
 def start_new_general_logger():
+    """
+    This reinitialize the general logger in `pdoc.Loggers`.
+    Note that new files will be generated in the process.
+    """
     Loggers.general = ControlledLogger(f"general_log_{datetime.datetime.utcnow()}", "./logs/general")
 
 
 def start_new_transaction_logger():
+    """
+    This reinitialize the transaction logger in `pdoc.Loggers`.
+    Note that new files will be generated in the process.
+    """
     Loggers.transaction = ControlledLogger(f"transaction_log_{datetime.datetime.utcnow()}", "./logs/transaction")
 
 
 def start_new_balance_logger():
+    """
+    This reinitialize the balance logger in `pdoc.Loggers`.
+    Note that new files will be generated in the process.
+    """
     Loggers.balance = ControlledLogger(f"balance_log_{datetime.datetime.utcnow()}", "./logs/balance")
 
 
 def start_new_report_logger():
+    """
+    This reinitialize the report logger in `pdoc.Loggers`.
+    Note that new files will be generated in the process.
+    """
     Loggers.report = ControlledLogger(f"report_log_{datetime.datetime.utcnow()}", "./logs/report")
 
 
 def write_all_logs():
+    """
+    Write all the logs in `pdoc.Loggers`
+    """
     Loggers.general.write()
     Loggers.transaction.write()
     Loggers.balance.write()
@@ -105,7 +131,7 @@ def _validate_config():
 
 def set_config(input_config):
     """
-    :param input_config: A dictionary specifying the config
+    Validate a config, `input_config`, and set the config for the transaction generator.
     """
     input_keys = input_config.keys()
     assert "ENDPOINTS" in input_keys, "Must specify endpoints"

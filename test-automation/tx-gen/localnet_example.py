@@ -29,17 +29,14 @@ tx_gen.set_config({
     "ENDPOINTS": [  # Endpoints for all transaction, index i = shard i
         "http://localhost:9500/",
         "http://localhost:9501/",
-        "http://localhost:9502/"
     ],
     "SRC_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
         1,                  # Bigger number = higher likelihood of shard i begin chosen
         0,                   # 0 = 0% chance of being chosen
-        0
     ],
     "SNK_SHARD_WEIGHTS": [  # Adjust the likelihood that shard i (i = index) gets chosen to be the source shard
         0,
         1,
-        1
     ],
     "CHAIN_ID": "testnet",  # The chain id for all transaction, should be devnet if not localnet.
     "REFUND_ACCOUNT": "one1j9hwh7vqz94dsk06q4h9hznr4wlr3x5zup6wz3",  # All refunds will be sent to this address
@@ -76,8 +73,7 @@ if __name__ == "__main__":
     config = tx_gen.get_config()
     # funding accounts should be loaded if not in CLI's keystore.
     # this means that if we have the fauce keys in the keystore, we do not need the `load_accounts` call.
-    account_manager.load_accounts("./.hmy/keystore", "", fast_load=True)
-    print("CLI's account keystore: ", cli.get_accounts_keystore())  # Allows you to check if correct keys were added
+    account_manager.load_accounts("./localnet_validator_keys", "", fast_load=True)
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
     tx_gen.fund_accounts(source_accounts)
@@ -86,7 +82,7 @@ if __name__ == "__main__":
     tx_gen_pool = ThreadPool(processes=1)
     start_time = datetime.datetime.utcnow()  # MUST be utc
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
-    time.sleep(360)
+    time.sleep(60)
     tx_gen.stop()
     end_time = datetime.datetime.utcnow()  # MUST be utc
     tx_gen.return_balances(source_accounts)

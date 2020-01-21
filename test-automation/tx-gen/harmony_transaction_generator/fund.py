@@ -1,7 +1,4 @@
-import random
-import math
 import multiprocessing
-import time
 from multiprocessing.pool import ThreadPool
 
 from pyhmy import cli
@@ -13,6 +10,7 @@ from .common import (
 from .account_manager import (
     send_transaction,
     account_balances,
+    get_passphrase,
     get_balances
 )
 
@@ -50,8 +48,9 @@ def _fund(src_acc, accounts, amount, shard_index, safe=True):
         from_address = cli.get_address(src_acc)
         to_address = cli.get_address(account)
         Loggers.general.info(f"Funding {to_address} ({account}) for shard {shard_index}")
+        passphrase = get_passphrase(src_acc)
         txn_hash = send_transaction(from_address, to_address, shard_index, shard_index,
-                                    amount, retry=True, wait=safe)
+                                    amount, passphrase=passphrase, retry=True, wait=safe)
         transaction_hashes.append(txn_hash)
     # TODO: put in logic to send transactions as a plan.
     return transaction_hashes
@@ -97,10 +96,8 @@ def _fund_accounts(accounts, shard_index, amount):
 
 def fund_accounts(accounts, shard_indexes=None, amount=None):
     """
-    :param accounts: An iterable of account names to be funded
-    :param shard_indexes: An iterable of shard indexes that the accounts should be funded on.
-                          Defaults to ALL shards.
-    :param amount: The amount to each accounts on each shard_index.
+    Takes a list of account names as `accounts` and an optional iterable of
+    shard indexes, `shard_indexes`, and funds each account `amount` on all of the `shard_indexes`.
     """
     config = get_config()
     amount = config['INIT_SRC_ACC_BAL_PER_SHARD'] if not amount else amount
