@@ -17,6 +17,7 @@ from .common import (
 )
 from .account_manager import (
     create_account,
+    get_passphrase,
     send_transaction
 )
 
@@ -41,6 +42,9 @@ def _get_nonce(endpoint, address):
 
 
 def generate_to_and_from_shard():
+    """
+    Generate to and from shard randomly follow the config of the transaction generator.
+    """
     config = get_config()
     shard_choices = list(range(0, len(config["ENDPOINTS"])))
     src_shard = random.choices(shard_choices, weights=config["SRC_SHARD_WEIGHTS"], k=1)[0]
@@ -59,6 +63,9 @@ def generate_to_and_from_shard():
 
 
 def create_accounts(count, name_prefix="generated"):
+    """
+    Create `count` accounts where all account-names/wallet-names have the prefix `name_prefix`.
+    """
     config = get_config()
     assert count > 0
     benchmarking_accounts = []
@@ -108,18 +115,15 @@ def stop():
 def start(source_accounts, sink_accounts):
     """
     Starts the transaction generation where for each transaction:
-        The source account is chosen in a cyclic order from an account name list called `source_accounts`
-        The sink / destination account is chosen in a cyclic order from an account name list called `sink_accounts`
-        The to and from shards are chosen at random as defined by the shard weights and options in the config.
+    * The source account is chosen in a cyclic order from an account name list called `source_accounts`
+    * The sink / destination account is chosen in a cyclic order from an account name list called `sink_accounts`
+    * The to and from shards are chosen at random as defined by the shard weights and options in the config.
 
     Note that the cyclic order starts at the first element and wraps around once it reaches the last element.
 
     The transaction generator can force each transaction to have a strictly increasing nonce if the
     option is enabled in the config. If nonce forcing is disabled, it is possible to send multiple transactions
     with the same nonce.
-
-    :param source_accounts: A list that defines the pool of source accounts
-    :param sink_accounts: A list that defines the pool of sink accounts
     """
     global _generator_pool, _is_running
     config = get_config()
@@ -140,6 +144,7 @@ def start(source_accounts, sink_accounts):
         while _is_running:
             src_name = next(src_accounts_iter)
             src_address = cli.get_address(src_name)
+            passphrase = get_passphrase(src_name)
             for _ in range(len(snk_accounts)):
                 snk_address = cli.get_address(next(snk_accounts_iter))
                 txn_amt = round(random.uniform(config["AMT_PER_TXN"][0], config["AMT_PER_TXN"][1]), 18)
@@ -163,7 +168,8 @@ def start(source_accounts, sink_accounts):
                     txn_count += 1 if config["ENFORCE_NONCE"] else _implicit_txns_per_gen
                     lock.release()
                 if config["ENFORCE_NONCE"]:
-                    send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt, wait=False)
+                    send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt,
+                                     passphrase=passphrase,  wait=False)
                 else:
                     curr_nonce = _get_nonce(endpoints[src_shard], src_address)
                     gen_count = _implicit_txns_per_gen
@@ -171,7 +177,7 @@ def start(source_accounts, sink_accounts):
                         gen_count = min(config["MAX_TXN_GEN_COUNT"] - txn_count, gen_count)
                     for j in range(gen_count):
                         send_transaction(src_address, snk_address, src_shard, snk_shard, txn_amt,
-                                         nonce=curr_nonce+j, wait=False)
+                                         passphrase=passphrase, nonce=curr_nonce+j, wait=False)
             # TODO: put logic here to send transactions as a plan
 
     Loggers.general.info("Started transaction generator...")

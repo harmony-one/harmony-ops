@@ -33,6 +33,9 @@ release: clean
 install:
 	python3 -m pip install -e .
 
+doc docs: clean
+	python3 -m pdoc --html harmony_transaction_generator --force
+
 sdist: clean
 ifdef VERSION  # Argument for incremental, reference: https://pypi.org/project/incremental/ .
 	python3 -m incremental.update harmony_transaction_generator --$(VERSION)

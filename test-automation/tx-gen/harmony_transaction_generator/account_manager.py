@@ -20,18 +20,21 @@ from .common import (
 account_balances = {}
 
 _accounts_added = set()
-_fast_loaded_accounts = {}  # keys = acc_names, values = passphrase
+_loaded_passphrase = {}  # keys = acc_names, values = passphrase
 
 
 # TODO: create a transaction plan object that will be called for any chained transaction...
 
-def get_balances(account_name, shard_index=0):
+def get_balances(account_name):
+    """
+    This gets the balances for the address associated with the `account_name`
+    (aka wallet-name) in the CLI's keystore.
+    """
     config = get_config()
-    assert shard_index < len(config["ENDPOINTS"])
     address = cli.get_address(account_name)
     if not address:
         return {}
-    response = cli.single_call(f"hmy balances {address} --node={config['ENDPOINTS'][shard_index]}", timeout=60)
+    response = cli.single_call(f"hmy balances {address} --node={config['ENDPOINTS'][0]}", timeout=60)
     balances = eval(response)  # There is a chance that the CLI returns a malformed json array.
     info = {'address': address, 'balances': balances, 'time-utc': str(datetime.datetime.utcnow())}
     Loggers.balance.info(json.dumps(info))
@@ -41,12 +44,13 @@ def get_balances(account_name, shard_index=0):
 
 def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=False):
     """
-    :param keystore_path: The path to the keystore to import. Note the specific format of the keystore,
-                          Reference './localnet_validator_keys/'.
-    :param passphrase: The passphrase for ALL keys in the keystore.
-    :param name_prefix: The name assigned to each account in the CLI's keystore.
-    :param fast_load: Copy over the file instead of importing the file using `import-ks`.
-    :return: A list of account names (in the CLI's keystore) that were added.
+    Load accounts from `keystore_path`. Note that the directory must contain keystore files only,
+    and **NOT** directory of wallets/account-names containing keystore files. The `passphrase` for
+    **ALL** keystore files but also be provided. One can provide an optional `name_prefix` for the
+    account-name of each imported keystore file. One can specify `fast_load` to blindly copy over
+    files to the CLI's keystore instead of using the "import-ks" command.
+
+    It will return a list of accounts names that were added.
     """
     config = get_config()
     assert os.path.exists(keystore_path)
@@ -67,10 +71,10 @@ def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=Fal
                         keystore_acc_dir = f"{cli.get_account_keystore_path()}/{account_name}"
                         os.makedirs(keystore_acc_dir, exist_ok=True)
                         shutil.copy(file_path, f"{keystore_acc_dir}/{file_name}")
-                        _fast_loaded_accounts[account_name] = passphrase
                     else:
                         cli.single_call(f"hmy keys import-ks {file_path} {account_name} "
                                         f"--passphrase={passphrase}")
+                _loaded_passphrase[account_name] = passphrase
                 accounts_added.append(account_name)
                 _accounts_added.add(account_name)
                 account_balances[account_name] = get_balances(account_name)
@@ -91,6 +95,10 @@ def load_accounts(keystore_path, passphrase, name_prefix="import", fast_load=Fal
 
 
 def create_account(account_name, exist_ok=True):
+    """
+    This will create a single account with `account_name`. One can choose to continue
+    if the account exists by setting `exist_ok` to true.
+    """
     try:
         cli.single_call(f"hmy keys add {account_name}")
     except RuntimeError as e:
@@ -98,24 +106,28 @@ def create_account(account_name, exist_ok=True):
             raise e
     get_balances(account_name)
     _accounts_added.add(account_name)
+    _loaded_passphrase[account_name] = ''  # Default passphrase used by the CLI.
     return account_name
 
 
-def is_fast_loaded(account_name):
-    return account_name in _fast_loaded_accounts.keys()
-
-
-def get_fast_loaded_passphrase(account_input):
-    account_names = cli.get_accounts(account_input)
-    if account_names:  # If given an address for `account_input`, fetch the account name.
-        account_input = account_names[0]
-    return _fast_loaded_accounts.get(account_input, None)
+def get_passphrase(account_name):
+    """
+    This returns the passphrase associated with the `account_name` (aka wallet-name)
+    in the CLI's keystore **IF** it was loaded or created using this account manager.
+    Otherwise it will return the CLI's default passphrase of an empty string.
+    """
+    pw = _loaded_passphrase.get(account_name, None)
+    if pw is None:
+        Loggers.general.warning(
+            f"Passphrase unknown for {account_name}, using default passphrase.")
+        pw = ''  # Default passphrase for CLI
+    return pw
 
 
 def remove_accounts(accounts, backup=False):
     """
-    :param accounts: An iterable of accounts names to remove
-    :param backup: If true, logs (to the general logger) the private key of the account that was removed.
+    This will remove all `accounts`, where `accounts` is an iterable of accounts name.
+    One can specify `backup` if one wishes to log the private keys of all removed accounts.
     """
     for acc in accounts:
         address = cli.get_address(acc)
@@ -129,31 +141,23 @@ def remove_accounts(accounts, backup=False):
         cli.remove_account(acc)
         if acc in _accounts_added:
             _accounts_added.remove(acc)
-        if acc in _fast_loaded_accounts:
-            del _fast_loaded_accounts[acc]
+        if acc in _loaded_passphrase:
+            del _loaded_passphrase[acc]
         removed_account = {"address": address, "private-key": private_key}
         Loggers.general.info(f"Removed Account: {removed_account}")
 
 
 def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
-                     gas_price=1, gas_limit=21000, nonce=None, pw='', wait=True,
+                     gas_price=1, gas_limit=21000, nonce=None, passphrase='', wait=True,
                      retry=False, max_tries=5):
     """
-    Send a single transaction.
+    This will send a single transaction `from_address` to `to_address` from shard `src_shard`
+    to `dst_shard` for `amount` $ONE with a `gas_price` (default 1) at a `gas_limit` (default 21000)
+    using `nonce`. The `passphrase` is used to unlock the keystore file. One can choose to `wait`
+    for the transaction to confirm before returning. One can choose to `retry` up to `max_tries` times
+    if the transaction fails to send.
 
-    :param from_address: The 'one1...' address, must be in the CLI's keystore.
-    :param to_address: The 'one1...' address, need not be in the CLI's keystore.
-    :param src_shard: The source shard.
-    :param dst_shard: The destination shard.
-    :param amount: The amount.
-    :param gas_price: An optional gas price, default is 1 Nano.
-    :param gas_limit: An optional gas limit, default is 2100.
-    :param nonce: An optional nonce, default uses latest nonce from the blockchain.
-    :param pw: An optional passphrase associated with the from_address keystore file.
-    :param wait: Wait for finality before returning.
-    :param retry: Attempt to resend if sending caused ANY error
-    :param max_tries: The maximum number of retries
-    :return: The transaction-receipt / hash if a transaction was send, None if there was an error.
+    It will return the "transaction-receipt" once the transaction is sent.
     """
     config = get_config()
     assert cli.check_address(from_address), "source address must be in the CLI's keystore."
@@ -161,7 +165,7 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
     command = f"hmy --node={config['ENDPOINTS'][src_shard]} transfer " \
               f"--from={from_address} --to={to_address} " \
               f"--from-shard={src_shard} --to-shard={dst_shard} " \
-              f"--amount={amount} --passphrase={pw} --chain-id={config['CHAIN_ID']} " \
+              f"--amount={amount} --passphrase={passphrase} --chain-id={config['CHAIN_ID']} " \
               f"--gas-price {gas_price} --gas-limit {gas_limit} "
     if wait:
         command += f"--wait-for-confirm {config['TXN_WAIT_TO_CONFIRM']} "
@@ -196,9 +200,11 @@ def send_transaction(from_address, to_address, src_shard, dst_shard, amount,
 
 def return_balances(accounts, wait=False):
     """
-    :param accounts: An iterable of account names to be refunded.
-    :param wait: If true, wait for a transaction to succeed before continuing.
-    :return: A list of transaction hashes for all the refund transactions.
+    The will return the balance of all accounts in `accounts` to the address specified in
+    the config where `accounts` is an iterable of account-names/wallet-names.
+    One can choose to `wait` for each transaction to succeed.
+
+    This will return a list of "transaction-receipts" once all the transactions is sent.
     """
     config = get_config()
     Loggers.general.info("Refunding accounts...")
@@ -214,19 +220,24 @@ def return_balances(accounts, wait=False):
                     from_address = cli.get_address(account)
                     to_address = config['REFUND_ACCOUNT']
                     account_addresses.append(from_address)
-                    pw = get_fast_loaded_passphrase(account) if is_fast_loaded(account) else ''
-                    txn_hash = send_transaction(from_address, to_address, shard_index,
-                                                shard_index, amount, pw=pw, wait=wait)
+                    passphrase = get_passphrase(account)
+                    txn_hash = send_transaction(from_address, to_address, shard_index, shard_index, amount,
+                                                passphrase=passphrase, wait=wait)
                     txn_hashes.append({"shard": shard_index, "hash": txn_hash})
     Loggers.general.info(f"Refund transaction hashes: {txn_hashes}")
     return txn_hashes
 
 
 def reset(safe=True):
+    """
+    Reset the account manager to its initial state. One can choose to do a `safe` reset
+    to ensure all accounts have been refunded and all removed keys have their private keys
+    logged.
+    """
     accounts_added = list(_accounts_added)
     return_balances(accounts_added, wait=safe)
     remove_accounts(accounts_added, backup=safe)
     account_balances.clear()
     _accounts_added.clear()
-    _fast_loaded_accounts.clear()
+    _loaded_passphrase.clear()
 

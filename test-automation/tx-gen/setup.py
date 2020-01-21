@@ -27,7 +27,8 @@ setup(
     setup_requires=[
         'incremental',
         'click',
-        'twisted'
+        'twisted',
+        'pdoc3'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

@@ -2,20 +2,31 @@
 
 **This is for python 3.6+ only**
 
-## Installation Requirements
+A transaction generator library for the Harmony Blockchain. It utilizes the [CLI](https://github.com/harmony-one/go-sdk) 
+to generate transactions.
 
-Check that the latest version of pyhmy (20.1.8) is installed. 
-The pyhmy python library is used to interact with our blockchain. You can check your version of pyhmy with: `pip freeze | grep pyhmy`
+Documentation can be found [here](./html/harmony_transaction_generator/index.html) and example scripts
+that use the transaction generator can be found in the root of this directory. 
+
+## Install
+
+You can install the library from pypi using the following command:
+```
+python3 -m pip install harmony-transaction-generator
+```
+
+You will require the `pyhmy` library to be at least version 20.1.9. 
+You can check your version of pyhmy with: `pip freeze | grep pyhmy`
  
 > If your version is not updated or pyhmy is not listed, run:
 >```
->python3 -m pip install pyhmy==20.1.8
+>python3 -m pip install pyhmy==20.1.9
 >``` 
 
 
-## Installation
+## Development Installation
 
-Clone this repo (https://github.com/Daniel-VDM/harmony-ops), change into the directory (.../harmony-ops/test-automation/tx-gen) and run:
+On in this current directory run:
 ```
 make install
 ```
@@ -40,7 +51,7 @@ Note that one account does NOT have to have funds on all shard, but across all a
 ## How it works
 A video demoing library can be seen [here](https://www.youtube.com/watch?v=rTp9wZn1EqE&feature=youtu.be)
 
-The full documentation is in progress, but please look at the `localnet_example.py` for some idea of how it works.
+Take a look at the `localnet_example.py` for some idea of how it works.
 Essentially, it follows a source / sink model for transaction generation (explained more in the `start` function
 of `./harmony_transaction_generator/generator.py`). Moreover, the annotations of the config in `localnet_example.py`
 should give a better idea of how to use the library.
