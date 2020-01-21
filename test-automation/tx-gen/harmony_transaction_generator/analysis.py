@@ -55,7 +55,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
                         <transaction log>
                     ]
                 },
-                "sent-transactions-total": 15,
+                "sent-transactions-total": <count>,
                 "sent-transactions-total-per-shard": {
                     "(<src_shard>, <dst_shard>)" : <count>
                 },
@@ -67,7 +67,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
                         <transaction log>
                     ]
                 },
-                "failed-sent-transactions-total": 15,
+                "failed-sent-transactions-total": <count>,
                 "failed-sent-transactions-total-per-shard": {
                     "(<src_shard>, <dst_shard>)" : <count>
                 }
@@ -184,7 +184,6 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
         for txn_log in txn_log_list:
             src, dst = str(txn_log["from-shard"]), str(txn_log["to-shard"])
             threads.append(pool.apply_async(check_hash, (src, dst, endpoint, txn_log)))
-            time.sleep(0.25)  # Sleep a little to not spam endpoint.
     for t in threads:
         t.get()
     pool.close()

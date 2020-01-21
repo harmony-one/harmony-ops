@@ -25,7 +25,7 @@ tx_gen.set_config({
     "ESTIMATED_GAS_PER_TXN": 1e-3,  # The estimated gas, hardcoded
     "INIT_SRC_ACC_BAL_PER_SHARD": 1,  # The initial balance for EVERY source account
     "TXN_WAIT_TO_CONFIRM": 60,  # The timeout when a transaction is sent (only used in setup related functions)
-    "MAX_THREAD_COUNT": None,  # Max thread is recommended to be less than your v-core count
+    "MAX_THREAD_COUNT": 8,  # Max thread is recommended to be less than your v-core count
     "ENDPOINTS": [  # Endpoints for all transaction, index i = shard i
         "http://localhost:9500/",
         "http://localhost:9501/",
