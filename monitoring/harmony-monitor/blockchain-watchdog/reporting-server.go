@@ -19,10 +19,9 @@ import (
 const (
 	badVersionString   = "BAD_VERSION_STRING"
 	versionJSONRPC     = "2.0"
-	blocksPerEpoch     = 16384
-	blockTime          = time.Second * 15 // Come back to this
 	metadataRPC        = "hmy_getNodeMetadata"
 	blockHeaderRPC     = "hmy_latestHeader"
+	cxPendingRPC       = "hmy_getPendingCxReceipts"
 	blockHeaderReport  = "block-header"
 	nodeMetadataReport = "node-metadata"
 	timeFormat         = "15:04:05 Jan _2 MST" // https://golang.org/pkg/time/#Time.Format
@@ -95,6 +94,11 @@ Time since last new block: %d seconds (%f minutes)
 See: http://watchdog.hmny.io/report-%s
 
 --%s
+`
+	cxPendingPoolWarning    = `
+Cx Transaction Pool too large on shard %s!
+
+Count: %d
 `
 )
 
@@ -456,7 +460,6 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 
 		currentUTCTime := now.UTC()
 
-		//fmt.Print(blockHeaderData)
 		for shard, summary := range blockHeaderData {
 			currentBlockHeight := summary.(any)[blockMax].(uint64)
 			currentBlockHeader := summary.(any)["latest-block"].(headerInfoRPCResult)
@@ -477,7 +480,7 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 						if err != nil {
 							errlog.Print(err)
 						} else {
-							stdlog.Print("Sent PagerDuty alert!")
+							stdlog.Print("Sent PagerDuty alert! %s", incidentKey)
 						}
 						consensusStatus[fmt.Sprintf("shard-%s", shard)] = false
 						continue
@@ -495,6 +498,129 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 		m.consensusProgress = consensusStatus
 		m.inUse.Unlock()
 		replyChannels[blockHeaderRPC] = make(chan reply, len(nodeList))
+	}
+}
+
+func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
+	cxRequestFields := map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"method":  cxPendingRPC,
+		"params":  []interface{}{},
+	}
+	nodeRequestFields := map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"method":  metadataRPC,
+		"params":  []interface{}{},
+	}
+
+	jobs := make(chan work, len(nodeList))
+	replyChannels := make(map[string](chan reply))
+	syncGroups := make(map[string]*sync.WaitGroup)
+	for _, rpc := range []string{metadataRPC, cxPendingRPC} {
+		replyChannels[rpc] = make(chan reply, len(nodeList))
+		switch rpc {
+		case metadataRPC:
+			var mGroup sync.WaitGroup
+			syncGroups[rpc] = &mGroup
+		case cxPendingRPC:
+			var cxGroup sync.WaitGroup
+			syncGroups[rpc] = &cxGroup
+		}
+	}
+
+	for i := 0; i < poolSize; i++ {
+		go m.worker(jobs, replyChannels, syncGroups)
+	}
+
+	type r struct {
+		Result nodeMetadata `json:"result"`
+	}
+
+	type a struct {
+		Result uint64 `json:"result"`
+	}
+
+	for range time.Tick(time.Duration(interval) * time.Second) {
+		queryID := 0
+		// Send requests to find potential shard leaders
+		for n := range nodeList {
+			nodeRequestFields["id"] = strconv.Itoa(queryID)
+			requestBody, _ := json.Marshal(nodeRequestFields)
+			jobs <- work{nodeList[n], metadataRPC, requestBody}
+			queryID++
+			syncGroups[metadataRPC].Add(1)
+		}
+		syncGroups[metadataRPC].Wait()
+		close(replyChannels[metadataRPC])
+
+		leaders := make(map[int][]string)
+		for d := range replyChannels[metadataRPC] {
+			if d.oops == nil {
+				oneReport := r{}
+				json.Unmarshal(d.rpcResult, &oneReport)
+				if oneReport.Result.IsLeader {
+					shard := int(oneReport.Result.ShardID)
+					if _, exists := leaders[shard]; exists {
+						leaders[shard] = append(leaders[shard], d.address)
+					} else {
+						leaders[shard] = []string{d.address}
+					}
+				}
+			}
+		}
+
+		// What do in case of no leader shown (skip cycle for shard)
+		// No reply also skip
+		queryID = 0
+		for _, node := range leaders {
+			for _, n := range node {
+				cxRequestFields["id"] = strconv.Itoa(queryID)
+				requestBody, _ := json.Marshal(cxRequestFields)
+				jobs <- work{n, cxPendingRPC, requestBody}
+				queryID++
+				syncGroups[cxPendingRPC].Add(1)
+			}
+		}
+		syncGroups[cxPendingRPC].Wait()
+		close(replyChannels[cxPendingRPC])
+
+		cxPoolSize := make(map[int][]uint64)
+		for i := range replyChannels[cxPendingRPC] {
+			if i.oops == nil {
+				report := a{}
+				json.Unmarshal(i.rpcResult, &report)
+				shard := 0
+				for s, v := range leaders {
+					for _, n := range v {
+						if n == i.address {
+							shard = s
+							break
+						}
+					}
+				}
+				if _, exists := cxPoolSize[shard]; exists {
+					cxPoolSize[shard] = append(cxPoolSize[shard], report.Result)
+				} else {
+					cxPoolSize[shard] = []uint64{report.Result}
+				}
+				if report.Result > uint64(1000) {
+					message := fmt.Sprintf(cxPendingPoolWarning, shard, report.Result)
+					incidentKey := fmt.Sprintf("Shard %s cx transaction pool size > 1000!", shard)
+					err := notify(pdServiceKey, incidentKey, chain, message)
+					if err != nil {
+						errlog.Print(err)
+					} else {
+						stdlog.Print("Sent PagerDuty alert! %s", incidentKey)
+					}
+				}
+			}
+		}
+
+		stdlog.Print(leaders)
+		stdlog.Print(cxPoolSize)
+
+		replyChannels[metadataRPC] = make(chan reply, len(nodeList))
+		replyChannels[cxPendingRPC] = make(chan reply, len(nodeList))
 	}
 }
 
@@ -608,6 +734,13 @@ func (m *monitor) update(
 			)
 			go m.consensusMonitor(
 				uint64(params.ShardHealthReporting.Consensus.Warning),
+				params.Performance.WorkerPoolSize,
+				params.Auth.PagerDuty.EventServiceKey,
+				params.Network.TargetChain,
+				nodeList,
+			)
+			go m.cxMonitor(
+				uint64(params.InspectSchedule.CxPending),
 				params.Performance.WorkerPoolSize,
 				params.Auth.PagerDuty.EventServiceKey,
 				params.Network.TargetChain,

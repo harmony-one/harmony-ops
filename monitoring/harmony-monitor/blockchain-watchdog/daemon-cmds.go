@@ -134,6 +134,7 @@ func generateSampleYAML() *cobra.Command {
 												sampleParams.Network.RPCPort = 9500
 												sampleParams.InspectSchedule.BlockHeader = 15
 												sampleParams.InspectSchedule.NodeMetadata = 30
+												sampleParams.InspectSchedule.CxPending = 300
 												sampleParams.Performance.WorkerPoolSize = 32
 												sampleParams.Performance.HTTPTimeout = 1
 												sampleParams.HTTPReporter.Port = 8080
