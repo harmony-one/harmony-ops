@@ -24,7 +24,10 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from .common import (
+<pre><code class="python">import sys
+import warnings
+
+from .common import (
     Loggers,
     set_config,
     get_config,
@@ -51,7 +54,25 @@ from .generator import (
     create_accounts,
     start,
     stop,
-)</code></pre>
+)
+
+if sys.version_info.major &lt; 3:
+    warnings.simplefilter(&#34;always&#34;, DeprecationWarning)
+    warnings.warn(
+        DeprecationWarning(
+            &#34;`pyhmy` does not support Python 2. Please use Python 3.&#34;
+        )
+    )
+    warnings.resetwarnings()
+
+if sys.platform.startswith(&#39;win32&#39;) or sys.platform.startswith(&#39;cygwin&#39;):
+    warnings.simplefilter(&#34;always&#34;, ImportWarning)
+    warnings.warn(
+        ImportWarning(
+            &#34;`pyhmy` does not work on Windows or Cygwin.&#34;
+        )
+    )
+    warnings.resetwarnings()</code></pre>
 </details>
 </section>
 <section>
