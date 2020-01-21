@@ -199,6 +199,7 @@ type watchParams struct {
 	InspectSchedule struct {
 		BlockHeader  int `yaml:"block-header"`
 		NodeMetadata int `yaml:"node-metadata"`
+		CxPending    int `yaml:"cx-pending"`
 	} `yaml:"inspect-schedule"`
 	Performance struct {
 		WorkerPoolSize int `yaml:"num-workers"`
@@ -293,6 +294,9 @@ func (w *watchParams) sanityCheck() error {
 	if w.InspectSchedule.NodeMetadata == 0 {
 		errList = append(errList, "Missing node-metadata under inspect-schedule in yaml config")
 	}
+	if w.InspectSchedule.CxPending == 0 {
+		errList = append(errList, "Missing cx-pending under inspect-schedule in yaml config")
+	}
 	if w.Performance.WorkerPoolSize == 0 {
 		errList = append(errList, "Missing num-workers under performance in yaml config")
 	}
@@ -303,7 +307,7 @@ func (w *watchParams) sanityCheck() error {
 		errList = append(errList, "Missing port under http-reporter in yaml config")
 	}
 	if w.ShardHealthReporting.Consensus.Warning == 0 {
-		errList = append(errList, "Missing warmomg under shard-health-reporting, consensus in yaml config")
+		errList = append(errList, "Missing warning under shard-health-reporting, consensus in yaml config")
 	}
 	if len(errList) == 0 {
 		return nil

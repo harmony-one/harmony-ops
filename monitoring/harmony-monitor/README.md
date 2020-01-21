@@ -16,6 +16,7 @@ network-config:
 inspect-schedule:
   block-header: 15
   node-metadata: 30
+  cx-pending: 300
 
 # Number of concurrent go threads sending HTTP requests
 # Time in seconds to wait for the HTTP request to succeed
