@@ -27,6 +27,7 @@
 <pre><code class="python">import json
 import datetime
 import os
+import time
 from threading import Lock
 from multiprocessing.pool import ThreadPool
 from collections import defaultdict
@@ -80,7 +81,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
                         &lt;transaction log&gt;
                     ]
                 },
-                &#34;sent-transactions-total&#34;: 15,
+                &#34;sent-transactions-total&#34;: &lt;count&gt;,
                 &#34;sent-transactions-total-per-shard&#34;: {
                     &#34;(&lt;src_shard&gt;, &lt;dst_shard&gt;)&#34; : &lt;count&gt;
                 },
@@ -92,7 +93,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
                         &lt;transaction log&gt;
                     ]
                 },
-                &#34;failed-sent-transactions-total&#34;: 15,
+                &#34;failed-sent-transactions-total&#34;: &lt;count&gt;,
                 &#34;failed-sent-transactions-total-per-shard&#34;: {
                     &#34;(&lt;src_shard&gt;, &lt;dst_shard&gt;)&#34; : &lt;count&gt;
                 }
@@ -188,27 +189,27 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
     failed_txn_per_shard = defaultdict(list)
     lock = Lock()
 
-    def check_hash(src_shard, dst_shard, src_endpoint, h):
+    def check_hash(src_shard, dst_shard, src_endpoint, log):
         nonlocal successful_txn_count, failed_txn_count
-        response = _get_transaction_by_hash(src_endpoint, h)
+        response = _get_transaction_by_hash(src_endpoint, log[&#39;hash&#39;])
         lock.acquire()
         if response[&#39;result&#39;] is not None:
             successful_txn_count += 1
             successful_txn_shard_count[f&#34;({src_shard}, {dst_shard})&#34;] += 1
-            successful_txn_per_shard[shard].append(h)
+            successful_txn_per_shard[shard].append(log)
         else:
             failed_txn_count += 1
             failed_txn_shard_count[f&#34;({src_shard}, {dst_shard})&#34;] += 1
-            failed_txn_per_shard[shard].append(h)
+            failed_txn_per_shard[shard].append(log)
         lock.release()
 
-    pool = ThreadPool(processes=100)
+    pool = ThreadPool()
     threads = []
     for shard, txn_log_list in sent_txn_per_shard.items():
         endpoint = config[&#34;ENDPOINTS&#34;][int(shard)]
         for txn_log in txn_log_list:
             src, dst = str(txn_log[&#34;from-shard&#34;]), str(txn_log[&#34;to-shard&#34;])
-            threads.append(pool.apply_async(check_hash, (src, dst, endpoint, txn_log[&#39;hash&#39;])))
+            threads.append(pool.apply_async(check_hash, (src, dst, endpoint, txn_log)))
     for t in threads:
         t.get()
     pool.close()
@@ -268,7 +269,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
                     &lt;transaction log&gt;
                 ]
             },
-            &quot;sent-transactions-total&quot;: 15,
+            &quot;sent-transactions-total&quot;: &lt;count&gt;,
             &quot;sent-transactions-total-per-shard&quot;: {
                 &quot;(&lt;src_shard&gt;, &lt;dst_shard&gt;)&quot; : &lt;count&gt;
             },
@@ -280,7 +281,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
                     &lt;transaction log&gt;
                 ]
             },
-            &quot;failed-sent-transactions-total&quot;: 15,
+            &quot;failed-sent-transactions-total&quot;: &lt;count&gt;,
             &quot;failed-sent-transactions-total-per-shard&quot;: {
                 &quot;(&lt;src_shard&gt;, &lt;dst_shard&gt;)&quot; : &lt;count&gt;
             }
@@ -334,7 +335,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
                         &lt;transaction log&gt;
                     ]
                 },
-                &#34;sent-transactions-total&#34;: 15,
+                &#34;sent-transactions-total&#34;: &lt;count&gt;,
                 &#34;sent-transactions-total-per-shard&#34;: {
                     &#34;(&lt;src_shard&gt;, &lt;dst_shard&gt;)&#34; : &lt;count&gt;
                 },
@@ -346,7 +347,7 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
                         &lt;transaction log&gt;
                     ]
                 },
-                &#34;failed-sent-transactions-total&#34;: 15,
+                &#34;failed-sent-transactions-total&#34;: &lt;count&gt;,
                 &#34;failed-sent-transactions-total-per-shard&#34;: {
                     &#34;(&lt;src_shard&gt;, &lt;dst_shard&gt;)&#34; : &lt;count&gt;
                 }
@@ -442,27 +443,27 @@ def verify_transactions(transaction_log_dir, start_time, end_time):
     failed_txn_per_shard = defaultdict(list)
     lock = Lock()
 
-    def check_hash(src_shard, dst_shard, src_endpoint, h):
+    def check_hash(src_shard, dst_shard, src_endpoint, log):
         nonlocal successful_txn_count, failed_txn_count
-        response = _get_transaction_by_hash(src_endpoint, h)
+        response = _get_transaction_by_hash(src_endpoint, log[&#39;hash&#39;])
         lock.acquire()
         if response[&#39;result&#39;] is not None:
             successful_txn_count += 1
             successful_txn_shard_count[f&#34;({src_shard}, {dst_shard})&#34;] += 1
-            successful_txn_per_shard[shard].append(h)
+            successful_txn_per_shard[shard].append(log)
         else:
             failed_txn_count += 1
             failed_txn_shard_count[f&#34;({src_shard}, {dst_shard})&#34;] += 1
-            failed_txn_per_shard[shard].append(h)
+            failed_txn_per_shard[shard].append(log)
         lock.release()
 
-    pool = ThreadPool(processes=100)
+    pool = ThreadPool()
     threads = []
     for shard, txn_log_list in sent_txn_per_shard.items():
         endpoint = config[&#34;ENDPOINTS&#34;][int(shard)]
         for txn_log in txn_log_list:
             src, dst = str(txn_log[&#34;from-shard&#34;]), str(txn_log[&#34;to-shard&#34;])
-            threads.append(pool.apply_async(check_hash, (src, dst, endpoint, txn_log[&#39;hash&#39;])))
+            threads.append(pool.apply_async(check_hash, (src, dst, endpoint, txn_log)))
     for t in threads:
         t.get()
     pool.close()
