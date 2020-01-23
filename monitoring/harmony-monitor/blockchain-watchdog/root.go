@@ -277,6 +277,9 @@ func newInstructions(yamlPath string) (*instruction, error) {
 			}
 		}
 	}
+	if len(nodeList) == 0 {
+		return nil, errors.New("Empty node list.")
+	}
 	if len(dups) > 0  {
 		return nil, errors.New("Duplicate IPs detected.\n" + strings.Join(dups, "\n"))
 	}

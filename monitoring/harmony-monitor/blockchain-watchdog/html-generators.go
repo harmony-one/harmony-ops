@@ -91,6 +91,22 @@ hr:after {
       </div>
       <hr/>
       <div class="build-stat">
+        {{ with (index .Summary "chain-config") }}
+        {{range $key, $value := .}}
+          <div class="flex-col center stat-box">
+            <a href="#shard-{{$key}}">Shard-{{$key}}</a>
+            <p>Chain ID: {{index $value "chain-id"}}</p>
+            <p>Cross Link Epoch: {{index $value "cross-link-epoch"}}</p>
+            <p>Cross Tx Epoch: {{index $value "cross-tx-epoch"}}</p>
+            <p>Eip155 Epoch: {{index $value "eip155-epoch"}}</p>
+            <p>S3 Epoch: {{index $value "s3-epoch"}}</p>
+            <p>Pre-Staking Epoch: {{index $value "pre-staking-epoch"}}</p>
+            <p>Staking Epoch: {{index $value "staking-epoch"}}</p>
+          </div>
+        {{end}}
+        {{end}}
+      </div>
+      <div class="build-stat">
         {{ with (index .Summary "block-header") }}
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
@@ -256,7 +272,7 @@ hr:after {
             <td>{{.Payload.BLSPublicKey}} </td>
             <td>{{.Payload.Version}} </td>
             <td>{{.Payload.NetworkType}} </td>
-            <td>{{.Payload.ChainID}} </td>
+            <td>{{.Payload.ChainConfig.ChainID}} </td>
             <td>{{.Payload.ShardID}} </td>
             <td>{{.Payload.NodeRole}} </td>
           </tr>

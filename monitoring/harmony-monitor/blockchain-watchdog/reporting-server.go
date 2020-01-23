@@ -31,10 +31,18 @@ type nodeMetadata struct {
 	BLSPublicKey string `json:"blskey"`
 	Version      string `json:"version"`
 	NetworkType  string `json:"network"`
-	ChainID      string `json:"chainid"`
 	IsLeader     bool   `json:"is-leader"`
 	ShardID      uint32 `json:"shard-id"`
 	NodeRole     string `json:"role"`
+	ChainConfig  struct {
+		ChainID          int `json:"chain-id"`
+		CrossLinkEpoch   int `json:"cross-link-epoch"`
+		CrossTxEpoch     int `json:"cross-tx-epoch"`
+		Eip155Epoch      int `json:"eip155-epoch"`
+		PreStakingEpoch  int `json:"prestaking-epoch"`
+		S3Epoch          int `json:"s3-epoch"`
+		StakingEpoch     int `json:"staking-epoch"`
+	} `json:"chain-config"`
 }
 
 type headerInformation struct {
@@ -68,6 +76,7 @@ func identity(x interface{}) interface{} {
 const (
 	metaSumry               = "node-metadata"
 	headerSumry             = "block-header"
+	chainSumry              = "chain-config"
 	blockMax                = "block-max"
 	timestamp               = "timestamp"
 	consensusWarningMessage = `
@@ -155,7 +164,7 @@ type summary map[string]map[string]interface{}
 
 // WARN Be careful, usage of interface{} can make things explode in the goroutine with bad cast
 func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
-	sum := summary{metaSumry: map[string]interface{}{}, headerSumry: map[string]interface{}{}}
+	sum := summary{metaSumry: map[string]interface{}{}, headerSumry: map[string]interface{}{}, chainSumry: map[string]interface{}{}}
 	for i, n := range headers {
 		if s := n.Payload.LastCommitSig; len(s) > 0 {
 			shorted := s[:5] + "..." + s[len(s)-5:]
@@ -169,6 +178,25 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
 	})
+
+	linq.From(metas).GroupBy(
+		func(node interface{}) interface{} { return node.(metadataRPCResult).Payload.ShardID }, identity,
+	).ForEach(func(value interface{}) {
+		shardID := value.(linq.Group).Key.(uint32)
+		sample := linq.From(value.(linq.Group).Group).FirstWith(func(c interface{}) bool {
+			return c.(metadataRPCResult).Payload.ShardID == shardID
+		})
+		sum[chainSumry][strconv.Itoa(int(shardID))] = any{
+			"chain-id":          sample.(metadataRPCResult).Payload.ChainConfig.ChainID,
+			"cross-link-epoch":  sample.(metadataRPCResult).Payload.ChainConfig.CrossLinkEpoch,
+			"cross-tx-epoch":    sample.(metadataRPCResult).Payload.ChainConfig.CrossTxEpoch,
+			"eip155-epoch":      sample.(metadataRPCResult).Payload.ChainConfig.Eip155Epoch,
+			"s3-epoch":          sample.(metadataRPCResult).Payload.ChainConfig.S3Epoch,
+			"pre-staking-epoch": sample.(metadataRPCResult).Payload.ChainConfig.PreStakingEpoch,
+			"staking-epoch":     sample.(metadataRPCResult).Payload.ChainConfig.StakingEpoch,
+		}
+	})
+
 	blockHeaderSummary(headers, true, sum[headerSumry])
 	return sum
 }
@@ -286,7 +314,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 						v.(metadataRPCResult).Payload.BLSPublicKey,
 						v.(metadataRPCResult).Payload.Version,
 						v.(metadataRPCResult).Payload.NetworkType,
-						v.(metadataRPCResult).Payload.ChainID,
+						strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ChainConfig.ChainID), 10),
 						strconv.FormatBool(v.(metadataRPCResult).Payload.IsLeader),
 						strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ShardID), 10),
 						v.(metadataRPCResult).Payload.NodeRole,
