@@ -48,6 +48,20 @@ body {font-family: "Open Sans", sans-serif;}
 .is-leader { background-color: #c4b8b178; }
 .center { align-items: center; }
 .stat-box { box-shadow: 0 2px 2px 0px rgba(0, 0, 0, 0.9); padding: 10px; background-color:#7F9A95;}
+.stat-field {
+	display: flex;
+	justify-content:space-between;
+}
+.flex-both {
+	display: flex;
+	flex-direction: column;
+}
+@media only screen and (min-width: 670px) {
+	.flex-both {
+		display: flex;
+		flex-direction: row;
+	}
+}
 th {
   background: #c9d1ac;
   position: sticky;
@@ -90,7 +104,7 @@ hr:after {
         </div>
       </div>
       <hr/>
-      <div class="build-stat">
+      <div class="build-stat flex-both">
         {{ with (index .Summary "chain-config") }}
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
@@ -106,7 +120,7 @@ hr:after {
         {{end}}
         {{end}}
       </div>
-      <div class="build-stat">
+      <div class="build-stat flex-both">
         {{ with (index .Summary "block-header") }}
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
@@ -119,7 +133,7 @@ hr:after {
         {{end}}
         {{end}}
       </div>
-      <div class="build-stat">
+      <div class="build-stat flex-both">
         {{ with (index .Summary "node-metadata") }}
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
