@@ -28,12 +28,13 @@ const (
 )
 
 type nodeMetadata struct {
-	BLSPublicKey string `json:"blskey"`
-	Version      string `json:"version"`
-	NetworkType  string `json:"network"`
-	IsLeader     bool   `json:"is-leader"`
-	ShardID      uint32 `json:"shard-id"`
-	NodeRole     string `json:"role"`
+	BLSPublicKey   string `json:"blskey"`
+	Version        string `json:"version"`
+	NetworkType    string `json:"network"`
+	IsLeader       bool   `json:"is-leader"`
+	ShardID        uint32 `json:"shard-id"`
+	NodeRole       string `json:"role"`
+	BlocksPerEpoch int    `json:"blocks-per-epoch"`
 	ChainConfig  struct {
 		ChainID          int `json:"chain-id"`
 		CrossLinkEpoch   int `json:"cross-link-epoch"`
@@ -194,6 +195,7 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 			"s3-epoch":          sample.(metadataRPCResult).Payload.ChainConfig.S3Epoch,
 			"pre-staking-epoch": sample.(metadataRPCResult).Payload.ChainConfig.PreStakingEpoch,
 			"staking-epoch":     sample.(metadataRPCResult).Payload.ChainConfig.StakingEpoch,
+			"blocks-per-epoch":  sample.(metadataRPCResult).Payload.BlocksPerEpoch,
 		}
 	})
 

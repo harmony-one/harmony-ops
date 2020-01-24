@@ -125,10 +125,10 @@ hr:after {
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
             <a href="#shard-{{$key}}">Shard-{{$key}}</a>
-            <p>count:{{ len (index $value "records") }}</p>
-            <p>max block: {{index $value "block-max"}}</p>
-            <p>max epoch: {{index $value "epoch-max"}}</p>
-            <p>leader: {{index $value "shard-leader"}}</p>
+            <p>Node Count:{{ len (index $value "records") }}</p>
+            <p>Max Block: {{index $value "block-max"}}</p>
+            <p>Max Epoch: {{index $value "epoch-max"}}</p>
+            <p>Leader: {{index $value "shard-leader"}}</p>
           </div>
         {{end}}
         {{end}}
@@ -138,7 +138,7 @@ hr:after {
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
             <a href="#version-{{$key}}">Version-{{$key}}</a>
-            <p>count:{{ len (index $value "records") }}</p>
+            <p>Node Count:{{ len (index $value "records") }}</p>
           </div>
         {{end}}
         {{end}}
@@ -160,7 +160,7 @@ hr:after {
             </p>
           </div>
           <div class="flex-row">
-            <p> distinct down machine count: {{ .DownMachineCount }} </p>
+            <p>Distinct down machine count: {{ .DownMachineCount }} </p>
           </div>
         </div>
       </div>
