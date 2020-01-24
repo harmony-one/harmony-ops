@@ -243,13 +243,15 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		DownMachineCount      int
 	}
 	report := m.networkSnapshot()
-	cnsMsg := "Consensus Progress not known yet"
 	if len(report.ConsensusProgress) != 0 {
-		cM, _ := json.Marshal(m.consensusProgress)
-		cnsMsg = fmt.Sprintf("Consensus Progress: %s", cM)
+		for k, v := range report.ConsensusProgress {
+			if report.Summary[chainSumry][k] != nil {
+				report.Summary[chainSumry][k].(any)["consensus-status"] = v		
+			}
+		}
 	}
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:  []interface{}{report.Chain, cnsMsg},
+		LeftTitle:  []interface{}{report.Chain},
 		RightTitle: []interface{}{report.Build, time.Now().Format(time.RFC3339)},
 		Summary:    report.Summary,
 		NoReply:    report.NoReplies,
@@ -512,13 +514,13 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 						} else {
 							stdlog.Print("Sent PagerDuty alert! %s", incidentKey)
 						}
-						consensusStatus[fmt.Sprintf("shard-%s", shard)] = false
+						consensusStatus[shard] = false
 						continue
 					}
 				}
 			}
 			lastShardData[shard] = lastSuccessfulBlock{currentBlockHeight, time.Unix(currentBlockHeader.Payload.UnixTime, 0).UTC()}
-			consensusStatus[fmt.Sprintf("shard-%s", shard)] = true
+			consensusStatus[shard] = true
 		}
 		stdlog.Printf("Total no reply machines: %d", len(monitorData.Down))
 		stdlog.Print(lastShardData)

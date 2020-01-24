@@ -109,6 +109,7 @@ hr:after {
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
             <a href="#shard-{{$key}}">Shard-{{$key}}</a>
+						<p>Consensus: {{index $value "consensus-status"}}</p>
             <p>Chain ID: {{index $value "chain-id"}}</p>
             <p>Cross Link Epoch: {{index $value "cross-link-epoch"}}</p>
             <p>Cross Tx Epoch: {{index $value "cross-tx-epoch"}}</p>
