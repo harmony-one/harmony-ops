@@ -48,6 +48,20 @@ body {font-family: "Open Sans", sans-serif;}
 .is-leader { background-color: #c4b8b178; }
 .center { align-items: center; }
 .stat-box { box-shadow: 0 2px 2px 0px rgba(0, 0, 0, 0.9); padding: 10px; background-color:#7F9A95;}
+.stat-field {
+	display: flex;
+	justify-content:space-between;
+}
+.flex-both {
+	display: flex;
+	flex-direction: column;
+}
+@media only screen and (min-width: 670px) {
+	.flex-both {
+		display: flex;
+		flex-direction: row;
+	}
+}
 th {
   background: #c9d1ac;
   position: sticky;
@@ -90,25 +104,42 @@ hr:after {
         </div>
       </div>
       <hr/>
-      <div class="build-stat">
-        {{ with (index .Summary "block-header") }}
+      <div class="build-stat flex-both">
+        {{ with (index .Summary "chain-config") }}
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
             <a href="#shard-{{$key}}">Shard-{{$key}}</a>
-            <p>count:{{ len (index $value "records") }}</p>
-            <p>max block: {{index $value "block-max"}}</p>
-            <p>max epoch: {{index $value "epoch-max"}}</p>
-            <p>leader: {{index $value "shard-leader"}}</p>
+						<p>Consensus: {{index $value "consensus-status"}}</p>
+            <p>Chain ID: {{index $value "chain-id"}}</p>
+            <p>Cross Link Epoch: {{index $value "cross-link-epoch"}}</p>
+            <p>Cross Tx Epoch: {{index $value "cross-tx-epoch"}}</p>
+            <p>Eip155 Epoch: {{index $value "eip155-epoch"}}</p>
+            <p>S3 Epoch: {{index $value "s3-epoch"}}</p>
+            <p>Pre-Staking Epoch: {{index $value "pre-staking-epoch"}}</p>
+            <p>Staking Epoch: {{index $value "staking-epoch"}}</p>
           </div>
         {{end}}
         {{end}}
       </div>
-      <div class="build-stat">
+      <div class="build-stat flex-both">
+        {{ with (index .Summary "block-header") }}
+        {{range $key, $value := .}}
+          <div class="flex-col center stat-box">
+            <a href="#shard-{{$key}}">Shard-{{$key}}</a>
+            <p>Node Count:{{ len (index $value "records") }}</p>
+            <p>Max Block: {{index $value "block-max"}}</p>
+            <p>Max Epoch: {{index $value "epoch-max"}}</p>
+            <p>Leader: {{index $value "shard-leader"}}</p>
+          </div>
+        {{end}}
+        {{end}}
+      </div>
+      <div class="build-stat flex-both">
         {{ with (index .Summary "node-metadata") }}
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
             <a href="#version-{{$key}}">Version-{{$key}}</a>
-            <p>count:{{ len (index $value "records") }}</p>
+            <p>Node Count:{{ len (index $value "records") }}</p>
           </div>
         {{end}}
         {{end}}
@@ -130,7 +161,7 @@ hr:after {
             </p>
           </div>
           <div class="flex-row">
-            <p> distinct down machine count: {{ .DownMachineCount }} </p>
+            <p>Distinct down machine count: {{ .DownMachineCount }} </p>
           </div>
         </div>
       </div>
@@ -256,7 +287,7 @@ hr:after {
             <td>{{.Payload.BLSPublicKey}} </td>
             <td>{{.Payload.Version}} </td>
             <td>{{.Payload.NetworkType}} </td>
-            <td>{{.Payload.ChainID}} </td>
+            <td>{{.Payload.ChainConfig.ChainID}} </td>
             <td>{{.Payload.ShardID}} </td>
             <td>{{.Payload.NodeRole}} </td>
           </tr>
