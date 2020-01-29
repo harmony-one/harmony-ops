@@ -203,8 +203,8 @@ def create_simple_validators(validator_count):
         proc.expect("Enter the bls passphrase:\r\n")
         proc.sendline("")  # Use default CLI passphrase
         process_passphrase(proc, args.passphrase)
-        proc.expect(pexpect.EOF)
         curr_epoch = get_current_epoch(endpoint)
+        proc.expect(pexpect.EOF)
         txn = json_load(proc.before.decode())
         assert "transaction-receipt" in txn.keys()
         assert txn["transaction-receipt"] is not None
@@ -292,8 +292,8 @@ def create_custom_validators():
         proc.expect("Enter the bls passphrase:\r\n")
         proc.sendline("")  # Use default CLI passphrase
         process_passphrase(proc, args.passphrase)
-        proc.expect(pexpect.EOF)
         curr_epoch = get_current_epoch(endpoint)
+        proc.expect(pexpect.EOF)
         txn = json_load(proc.before.decode())
         assert "transaction-receipt" in txn.keys()
         assert txn["transaction-receipt"] is not None
@@ -398,11 +398,11 @@ def edit_validators(validator_addresses):
                                f"--website harmony.one --node={endpoint} "
                                f"--remove-bls-key {old_bls_key}  --add-bls-key {bls_key['public-key']} "
                                f"--chain-id={args.chain_id} --passphrase")
-        process_passphrase(proc, args.passphrase)
         proc.expect("Enter the absolute path to the encrypted bls private key file:\r\n")
         proc.sendline(bls_key["encrypted-private-key-path"])
         proc.expect("Enter the bls passphrase:\r\n")
-        proc.sendline(f"{args.passphrase}")
+        proc.sendline("")  # Use default CLI passphrase
+        process_passphrase(proc, args.passphrase)
         curr_epoch = get_current_epoch(endpoint)
         proc.expect(pexpect.EOF)
         txn = json_load(proc.before.decode())
@@ -438,7 +438,6 @@ def create_simple_delegators(validator_addresses):
                                f"--delegator-addr {delegator_address} --amount {amount} "
                                f"--node={endpoint} --chain-id={args.chain_id} --passphrase ")
         process_passphrase(proc, args.passphrase)
-        proc.wait()
         txn = json_load(proc.read().decode())
         assert "transaction-receipt" in txn.keys()
         assert txn["transaction-receipt"] is not None
@@ -507,7 +506,6 @@ def undelegate(validator_addresses, delegator_addresses):
                                    f"--delegator-addr {d_address} --amount {amount} "
                                    f"--node={endpoint} --chain-id={args.chain_id} --passphrase=")
             process_passphrase(proc, args.passphrase)
-            proc.wait()
             txn = json_load(proc.read().decode())
             assert "transaction-receipt" in txn.keys()
             assert txn["transaction-receipt"] is not None
@@ -567,7 +565,6 @@ def collect_rewards(address):
                       f"--node={endpoint} --chain-id={args.chain_id} --passphrase "
     proc = cli.expect_call(staking_command)
     process_passphrase(proc, args.passphrase)
-    proc.wait()
     txn = json_load(proc.read().decode())
     assert "transaction-receipt" in txn.keys()
     assert txn["transaction-receipt"] is not None
@@ -607,14 +604,14 @@ def create_single_validator_many_keys(bls_keys_count):
                            f"--max-total-delegation {max_total_delegation} "
                            f"--amount {amount} --bls-pubkeys {bls_key_string} "
                            f"--chain-id {args.chain_id} --passphrase")
-    process_passphrase(proc, args.passphrase)
     for key in bls_keys:
         pub_key_str = key["public-key"].replace("0x", "")
         proc.expect(f"For bls public key: {pub_key_str}\r\n")
         proc.expect("Enter the absolute path to the encrypted bls private key file:\r\n")
         proc.sendline(key["encrypted-private-key-path"])
         proc.expect("Enter the bls passphrase:\r\n")
-        proc.sendline(f"{args.passphrase}")
+        proc.sendline("")  # Use default CLI passphrase
+    process_passphrase(proc, args.passphrase)
     curr_epoch = get_current_epoch(endpoint)
     proc.expect(pexpect.EOF)
     txn = json_load(proc.before.decode())
