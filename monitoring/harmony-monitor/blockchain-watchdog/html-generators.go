@@ -85,6 +85,13 @@ hr:after {
   font-size: 1.5em;
   padding: 0 0.25em;
 }
+
+.stat-box > p {
+  display:flex;
+  justify-content: space-between;
+  width: 100%%;
+}
+
 </style>
   </head>
   <body>
@@ -109,14 +116,14 @@ hr:after {
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
             <a href="#shard-{{$key}}">Shard-{{$key}}</a>
-						<p>Consensus: {{index $value "consensus-status"}}</p>
-            <p>Chain ID: {{index $value "chain-id"}}</p>
-            <p>Cross Link Epoch: {{index $value "cross-link-epoch"}}</p>
-            <p>Cross Tx Epoch: {{index $value "cross-tx-epoch"}}</p>
-            <p>Eip155 Epoch: {{index $value "eip155-epoch"}}</p>
-            <p>S3 Epoch: {{index $value "s3-epoch"}}</p>
-            <p>Pre-Staking Epoch: {{index $value "pre-staking-epoch"}}</p>
-            <p>Staking Epoch: {{index $value "staking-epoch"}}</p>
+            <p><span>Consensus:</span><span> {{index $value "consensus-status"}}</span></p>
+            <p><span>Chain ID:</span><span> {{index $value "chain-id"}}</span></p>
+            <p><span>Cross Link Epoch:</span><span>{{index $value "cross-link-epoch"}}</span></p>
+            <p><span>Cross Tx Epoch:</span><span>{{index $value "cross-tx-epoch"}}</span></p>
+            <p><span>Eip155 Epoch:</span><span>{{index $value "eip155-epoch"}}</span></p>
+            <p><span>S3 Epoch:</span><span>{{index $value "s3-epoch"}}</span></p>
+            <p><span>Pre-Staking Epoch:</span><span>{{index $value "pre-staking-epoch"}}</span></p>
+            <p><span>Staking Epoch:</span><span>{{index $value "staking-epoch"}}</span></p>
           </div>
         {{end}}
         {{end}}
@@ -126,10 +133,10 @@ hr:after {
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
             <a href="#shard-{{$key}}">Shard-{{$key}}</a>
-            <p>Node Count:{{ len (index $value "records") }}</p>
-            <p>Max Block: {{index $value "block-max"}}</p>
-            <p>Max Epoch: {{index $value "epoch-max"}}</p>
-            <p>Leader: {{index $value "shard-leader"}}</p>
+            <p><span>Node Count:</span><span>{{ len (index $value "records") }}</span></p>
+            <p><span>Max Block:</span><span>{{index $value "block-max"}}</span></p>
+            <p><span>Max Epoch:</span><span>{{index $value "epoch-max"}}</span></p>
+            <p><span>Leader:</span><span>{{index $value "shard-leader"}}</span></p>
           </div>
         {{end}}
         {{end}}
