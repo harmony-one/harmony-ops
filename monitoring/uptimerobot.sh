@@ -143,7 +143,7 @@ function get_monitors()
 function find_monitor()
 {
    local name=$1
-   id=$(grep -m 1 $name $DBDIR/ids.csv | cut -f1 -d,)
+   id=$(grep -m 1 -w "$name" $DBDIR/ids.csv | cut -f1 -d,)
    echo $id
 }
 
