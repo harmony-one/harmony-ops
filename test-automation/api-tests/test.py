@@ -35,8 +35,8 @@ def parse_args():
                         help="Path to test directory. Default is './tests/default'", type=str)
     parser.add_argument("--iterations", dest="iterations", default=5,
                         help="Number of attempts for a successful test. Default is 5.", type=int)
-    parser.add_argument("--start_epoch", dest="start_epoch", default=1,
-                        help="The minimum epoch before starting tests. Default is 1.", type=int)
+    parser.add_argument("--start_epoch", dest="start_epoch", default=0,
+                        help="The minimum epoch before starting tests. Default is 0.", type=int)
     parser.add_argument("--rpc_endpoint_src", dest="endpoint_src", default="https://api.s0.b.hmny.io/",
                         help="Source endpoint for Cx. Default is https://api.s0.b.hmny.io/", type=str)
     parser.add_argument("--rpc_endpoint_dst", dest="endpoint_dst", default="https://api.s1.b.hmny.io/",
