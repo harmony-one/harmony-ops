@@ -7,7 +7,7 @@ delay=30
 iters=5
 wait=60
 
-while getopts hw:d:i option; do
+while getopts hw:d:i: option; do
   case "${option}" in
 
   w) wait=${OPTARG} ;;
