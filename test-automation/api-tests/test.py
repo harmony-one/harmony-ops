@@ -131,6 +131,7 @@ def load_keys():
     assert os.path.isdir(args.keys_dir), "Could not find keystore directory"
     ACC_NAMES_ADDED.extend(account_manager.load_accounts(args.keys_dir, args.passphrase, fast_load=True))
     assert len(ACC_NAMES_ADDED) > 1, "Must load at least 2 keys and must match CLI's keystore format"
+    tx_gen.write_all_logs()
 
 
 @announce
