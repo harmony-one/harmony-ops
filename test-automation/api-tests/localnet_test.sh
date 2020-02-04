@@ -53,6 +53,6 @@ echo "Sleeping ${wait} seconds to generate some funds..."
 sleep ${wait}
 
 # TODO: Enable staking tests...
-python3 ${DIR}/test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" \
+python3 -u ${DIR}/test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" \
   --rpc_endpoint_dst="http://localhost:9501/" --delay=${delay} --iterations=${iters} --cli_passphrase='' \
   --ignore_staking_test
