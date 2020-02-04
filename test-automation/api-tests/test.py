@@ -767,7 +767,7 @@ def transactions_test():
         "AMT_PER_TXN": [1e-9, 1e-6],
         "NUM_SRC_ACC": 32,
         "MAX_THREAD_COUNT": os.cpu_count()//2,
-        "INIT_SRC_ACC_BAL_PER_SHARD": 1,
+        "INIT_SRC_ACC_BAL_PER_SHARD": .1,
         "ENDPOINTS": [
             args.endpoint_src,
             args.endpoint_dst,
