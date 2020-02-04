@@ -765,7 +765,7 @@ def transactions_test():
 
     tx_gen.set_config({
         "AMT_PER_TXN": [1e-9, 1e-6],
-        "NUM_SRC_ACC": 32,
+        "NUM_SRC_ACC": 8,
         "INIT_SRC_ACC_BAL_PER_SHARD": .1,
         "ENDPOINTS": [
             args.endpoint_src,
