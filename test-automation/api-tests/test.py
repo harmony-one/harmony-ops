@@ -7,6 +7,8 @@ import shutil
 import time
 import sys
 import subprocess
+import logging
+from multiprocessing.pool import ThreadPool
 
 import pexpect
 from pyhmy.util import (
@@ -14,6 +16,9 @@ from pyhmy.util import (
     datetime_format,
     Typgpy
 )
+import harmony_transaction_generator as tx_gen
+from harmony_transaction_generator import account_manager
+from harmony_transaction_generator import analysis
 
 from utils import *
 
@@ -21,8 +26,8 @@ ACC_NAMES_ADDED = []
 ACC_NAME_PREFIX = "_Test_key_"
 
 
-# TODO: update this to use the latest version of pyhmy -- should not take a very long time.
 # TODO: fix the dump of the setting JSON file...
+# TODO: update readme
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Python script to test the Harmony blockchain using the hmy CLI.')
@@ -53,15 +58,17 @@ def parse_args():
     parser.add_argument("--cli_passphrase", dest="passphrase", default='',
                         help=f"Passphrase used to unlock the keystore. "
                              f"Default is ''", type=str)
-    parser.add_argument("--keystore", dest="keys_dir", default="TestnetValidatorKeys",
-                        help=f"Directory of keystore to import. Must follow the format of CLI's keystore. "
-                             f"Default is ./TestnetValidatorKeys", type=str)
+    parser.add_argument("--keystore", dest="keys_dir", default=None,
+                        help=f"Directory of keystore to import. Must be a directory of keystore files. "
+                             f"Default will look in the main repo's `.hmy` keystore.", type=str)
     parser.add_argument("--staking_epoch", dest="staking_epoch", default=4,
                         help=f"The epoch to start the staking integration tests. Default is 4.", type=int)
     parser.add_argument("--ignore_regression_test", dest="ignore_regression_test", action='store_true', default=False,
                         help="Disable the regression tests.")
     parser.add_argument("--ignore_staking_test", dest="ignore_staking_test", action='store_true', default=False,
                         help="Disable the staking tests.")
+    parser.add_argument("--ignore_transactions_test", dest="ignore_transactions_test", action='store_true', default=False,
+                        help="Disable the transactions tests.")
     parser.add_argument("--debug", dest="debug", action='store_true', default=False,
                         help="Enable debug printing.")
     return parser.parse_args()
@@ -121,23 +128,8 @@ def load_keys():
     """
     Makes assumption that keyfile is not a hidden file
     """
-    key_paths = os.listdir(args.keys_dir)
-    for i, key in enumerate(key_paths):
-        if not os.path.isdir(f"{args.keys_dir}/{key}"):
-            continue
-        key_content = os.listdir(f"{args.keys_dir}/{key}")
-        account_name = f"{ACC_NAME_PREFIX}funding_{i}"
-        cli.remove_account(account_name)
-        keystore_path = cli.get_account_keystore_path()
-        for file_name in key_content:
-            if file_name.startswith("."):
-                continue
-            from_key_file_path = f"{os.path.abspath(args.keys_dir)}/{key}/{file_name}"
-            to_key_file_path = f"{keystore_path}/{account_name}"
-            if not os.path.isdir(to_key_file_path):
-                os.mkdir(to_key_file_path)
-            shutil.copy(from_key_file_path, to_key_file_path)
-            ACC_NAMES_ADDED.append(account_name)
+    assert os.path.isdir(args.keys_dir), "Could not find keystore directory"
+    ACC_NAMES_ADDED.extend(account_manager.load_accounts(args.keys_dir, args.passphrase, fast_load=True))
     assert len(ACC_NAMES_ADDED) > 1, "Must load at least 2 keys and must match CLI's keystore format"
 
 
@@ -224,95 +216,6 @@ def create_simple_validators(validator_count):
             print(f"Reference data for {val_address}: {json.dumps(ref_data, indent=4)}")
         validator_data[val_address] = ref_data
     return validator_data
-
-
-@test
-def create_custom_validators():
-    """
-    Similar to create_simple_validators except we are using acc keys + BLS keys from main repo.
-
-    Note that this assumes that the keystore of the CLI has the appropriate keys and that the
-    given passphrase can unlock it. BLS keys will
-
-    TODO: Verify transaction-receipt
-    """
-    main_repo_accs = [
-        ("one1ghkz3frhske7emk79p7v2afmj4a5t0kmjyt4s5",
-         "eca09c1808b729ca56f1b5a6a287c6e1c3ae09e29ccf7efa35453471fcab07d9f73cee249e2b91f5ee44eb9618be3904"),
-        ("one1d7jfnr6yraxnrycgaemyktkmhmajhp8kl0yahv",
-         "f47238daef97d60deedbde5302d05dea5de67608f11f406576e363661f7dcbc4a1385948549b31a6c70f6fde8a391486"),
-        ("one1r4zyyjqrulf935a479sgqlpa78kz7zlcg2jfen",
-         "fc4b9c535ee91f015efff3f32fbb9d32cdd9bfc8a837bb3eee89b8fff653c7af2050a4e147ebe5c7233dc2d5df06ee0a"),
-        ("one1p7ht2d4kl8ve7a8jxw746yfnx4wnfxtp8jqxwe",
-         "ca86e551ee42adaaa6477322d7db869d3e203c00d7b86c82ebee629ad79cb6d57b8f3db28336778ec2180e56a8e07296"),
-        ("one1z05g55zamqzfw9qs432n33gycdmyvs38xjemyl",
-         "95117937cd8c09acd2dfae847d74041a67834ea88662a7cbed1e170350bc329e53db151e5a0ef3e712e35287ae954818"),
-        ("one1ljznytjyn269azvszjlcqvpcj6hjm822yrcp2e",
-         "68ae289d73332872ec8d04ac256ca0f5453c88ad392730c5741b6055bc3ec3d086ab03637713a29f459177aaa8340615"),
-        ("one1uyshu2jgv8w465yc8kkny36thlt2wvel89tcmg",
-         "a547a9bf6fdde4f4934cde21473748861a3cc0fe8bbb5e57225a29f483b05b72531f002f8187675743d819c955a86100"),
-        ("one103q7qe5t2505lypvltkqtddaef5tzfxwsse4z7",
-         "678ec9670899bf6af85b877058bea4fc1301a5a3a376987e826e3ca150b80e3eaadffedad0fedfa111576fa76ded980c"),
-        ("one1658znfwf40epvy7e46cqrmzyy54h4n0qa73nep",
-         "576d3c48294e00d6be4a22b07b66a870ddee03052fe48a5abbd180222e5d5a1f8946a78d55b025de21635fd743bbad90"),
-        ("one1d2rngmem4x2c6zxsjjz29dlah0jzkr0k2n88wc",
-         "16513c487a6bb76f37219f3c2927a4f281f9dd3fd6ed2e3a64e500de6545cf391dd973cc228d24f9bd01efe94912e714")
-    ]
-    endpoint = get_endpoint(0, args.endpoint_src)
-    amount = 3  # Must be > 1 b/c of min-self-delegation
-    faucet_acc_name = get_faucet_account(len(main_repo_accs) * (amount + 1))  # +1/new_acc for gas overhead
-    validator_addresses = {}
-
-    gopath = cli.get_gopath()
-    for val_address, key in main_repo_accs:
-        val_names = list(filter(lambda s: s.startswith(ACC_NAME_PREFIX), cli.get_accounts(val_address)))
-        if not val_names:
-            continue
-        if float(get_balance(endpoint, name=val_names[0])[0]["amount"]) < amount + 1:
-            fund_account(faucet_acc_name, val_names[0], amount + 1)  # +1 for gas overhead.
-        key_path = f"{gopath}/src/github.com/harmony-one/harmony/.hmy/{key}.key"
-        assert os.path.isfile(key_path)
-        rates = round(random.uniform(0, 1), 18), round(random.uniform(0, 1), 18)
-        rate, max_rate = min(rates), max(rates)
-        max_change_rate = round(random.uniform(0, max_rate - 1e-9), 18)
-        max_total_delegation = random.randint(amount + 1, 100)  # +1 for delegation.
-        proc = cli.expect_call(f"hmy --node={endpoint} staking create-validator "
-                               f"--validator-addr {val_address} --name {val_names[0]} "
-                               f"--identity test_account --website harmony.one "
-                               f"--security-contact Daniel-VDM --details none --rate {rate} --max-rate {max_rate} "
-                               f"--max-change-rate {max_change_rate} --min-self-delegation 1 "
-                               f"--max-total-delegation {max_total_delegation} "
-                               f"--amount {amount} --bls-pubkeys {key} "
-                               f"--chain-id {args.chain_id} --passphrase")
-        proc.expect(f"For bls public key: {key.replace('0x', '')}\r\n")
-        proc.expect("Enter the absolute path to the encrypted bls private key file:\r\n")
-        proc.sendline(key_path)
-        proc.expect("Enter the bls passphrase:\r\n")
-        proc.sendline("")  # Use default CLI passphrase
-        process_passphrase(proc, args.passphrase)
-        curr_epoch = get_current_epoch(endpoint)
-        proc.expect(pexpect.EOF)
-        txn = json_load(proc.before.decode())
-        assert "transaction-receipt" in txn.keys()
-        assert txn["transaction-receipt"] is not None
-        print(f"{Typgpy.OKGREEN}Sent create validator for "
-              f"{val_address}:{Typgpy.ENDC}\n{json.dumps(txn, indent=4)}\n")
-        ref_data = {
-            "time_created": datetime.datetime.utcnow().strftime(datetime_format),
-            "last_edit_epoch": curr_epoch,
-            "pub_bls_keys": [key],
-            "amount": amount,
-            "rate": rate,
-            "max_rate": max_rate,
-            "max_change_rate": max_change_rate,
-            "max_total_delegation": max_total_delegation,
-            "min_self_delegation": 1,
-            "keystore_name": val_names[0],
-        }
-        if args.debug:
-            print(f"Reference data for {val_address}: {json.dumps(ref_data, indent=4)}")
-        validator_addresses[val_address] = ref_data
-    return validator_addresses
 
 
 @test
@@ -654,9 +557,9 @@ def get_raw_cx(passphrase, chain_id, node, src_shard, dst_shard):
                                    f"--from-shard={src_shard} --to-shard={dst_shard} --amount={1e-9} "
                                    f"--chain-id={chain_id} --dry-run --passphrase")
             process_passphrase(proc, args.passphrase)
-            proc.wait()
             response = json_load(proc.read().decode())
             print(f"\tTransaction for {chain_id}")
+            print(f"{json.dumps(response, indent=4)}")
             return response['raw-transaction']
     raise RuntimeError(f"None of the loaded accounts have funds on shard {src_shard}")
 
@@ -849,6 +752,59 @@ def regression_test():
     return False
 
 
+def transactions_test():
+    """
+    Make sure to run this test last...
+    """
+    print(f"{Typgpy.UNDERLINE}{Typgpy.BOLD}== Running transactions test =={Typgpy.ENDC}")
+
+    def log_writer(interval):
+        while True:
+            tx_gen.write_all_logs()
+            time.sleep(interval)
+
+    tx_gen.set_config({
+        "AMT_PER_TXN": [1e-9, 1e-6],
+        "NUM_SRC_ACC": 32,
+        "MAX_THREAD_COUNT": os.cpu_count()//2,
+        "INIT_SRC_ACC_BAL_PER_SHARD": 1,
+        "ENDPOINTS": [
+            args.endpoint_src,
+            args.endpoint_dst,
+        ],
+        "CHAIN_ID": args.chain_id
+    })
+
+    tx_gen.Loggers.general.logger.addHandler(logging.StreamHandler(sys.stdout))
+    tx_gen.Loggers.balance.logger.addHandler(logging.StreamHandler(sys.stdout))
+    tx_gen.Loggers.transaction.logger.addHandler(logging.StreamHandler(sys.stdout))
+    tx_gen.Loggers.report.logger.addHandler(logging.StreamHandler(sys.stdout))
+
+    log_writer_pool = ThreadPool(processes=1)
+    log_writer_pool.apply_async(log_writer, (5,))
+
+    config = tx_gen.get_config()
+    source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
+    sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
+    tx_gen.fund_accounts(source_accounts)
+    tx_gen_pool = ThreadPool(processes=1)
+    start_time = datetime.datetime.utcnow()
+    tx_gen.set_batch_amount(10)
+    tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
+    time.sleep(30)
+    tx_gen.stop()
+    end_time = datetime.datetime.utcnow()
+    tx_gen.remove_accounts(source_accounts)
+    tx_gen.remove_accounts(sink_accounts)
+    time.sleep(60)
+    report = analysis.verify_transactions(tx_gen.Loggers.transaction.filename, start_time, end_time)
+    if report["received-transaction-report"]["failed-transactions-total"] == 0:
+        print(f"\n{Typgpy.OKGREEN}Passed{Typgpy.ENDC} {Typgpy.UNDERLINE}Transactions Test{Typgpy.ENDC}\n")
+        return True
+    print(f"\n{Typgpy.FAIL}FAILED{Typgpy.ENDC} {Typgpy.UNDERLINE}Transactions Test{Typgpy.ENDC}\n")
+    return False
+
+
 if __name__ == "__main__":
     args = parse_args()  # TODO change this to loading a config file.
     setup_pyhmy()
@@ -856,14 +812,24 @@ if __name__ == "__main__":
     print(f"CLI Version: {pyhmy_version}")
     version_str = re.search('version v.*-', pyhmy_version).group(0).split('-')[0].replace("version v", "")
     assert int(version_str) >= 238, "CLI binary is the wrong version."
-    assert os.path.isdir(args.keys_dir), "Could not find keystore directory"
     assert is_active_shard(args.endpoint_src), "The source shard endpoint is NOT active."
     assert is_active_shard(args.endpoint_dst), "The destination shard endpoint is NOT active."
     if args.chain_id not in json_load(cli.single_call("hmy blockchain known-chains")):
         args.chain_id = "testnet"
 
+    tx_gen.set_config({
+        "ENDPOINTS": [
+            args.endpoint_src,
+            args.endpoint_dst,
+        ],
+        "CHAIN_ID": args.chain_id
+    })
+
     test_results = {}
     try:
+        if args.keys_dir is None:
+            args.keys_dir = f"{pyhmy.get_gopath()}/src/github.com/harmony-one/harmony/.hmy/keystore"
+
         load_keys()
 
         print(f"Waiting for epoch {args.start_epoch} (or later)")
@@ -883,6 +849,9 @@ if __name__ == "__main__":
             test_results["Staking integration test"] = staking_integration_test()
             print(f"{Typgpy.OKGREEN}Doing regression test after staking epoch...{Typgpy.ENDC}")
             test_results["Post-staking epoch regression test"] = regression_test()
+
+        if not args.ignore_transactions_test:
+            test_results["Transactions test"] = transactions_test()
 
     except (RuntimeError, KeyboardInterrupt) as e:
         print("Removing imported keys from CLI's keystore...")
