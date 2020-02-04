@@ -783,7 +783,6 @@ def transactions_test():
     log_writer_pool.apply_async(log_writer, (5,))
 
     config = tx_gen.get_config()
-    ACC_NAMES_ADDED.extend(account_manager.load_accounts(args.keys_dir, args.passphrase, fast_load=True))
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
     tx_gen.fund_accounts(source_accounts)
@@ -827,14 +826,14 @@ if __name__ == "__main__":
 
     test_results = {}
     try:
+        print(f"Waiting for epoch {args.start_epoch} (or later)")
+        while not is_after_epoch(args.start_epoch - 1, args.endpoint_src):
+            time.sleep(5)
+
         if args.keys_dir is None:
             args.keys_dir = f"{pyhmy.get_gopath()}/src/github.com/harmony-one/harmony/.hmy/keystore"
 
         load_keys()
-
-        print(f"Waiting for epoch {args.start_epoch} (or later)")
-        while not is_after_epoch(args.start_epoch - 1, args.endpoint_src):
-            time.sleep(5)
 
         if not args.ignore_regression_test:
             test_results["Pre-staking epoch regression test"] = regression_test()
