@@ -783,6 +783,7 @@ def transactions_test():
     log_writer_pool.apply_async(log_writer, (5,))
 
     config = tx_gen.get_config()
+    ACC_NAMES_ADDED.extend(account_manager.load_accounts(args.keys_dir, args.passphrase, fast_load=True))
     source_accounts = tx_gen.create_accounts(config["NUM_SRC_ACC"], "src_acc")
     sink_accounts = tx_gen.create_accounts(config["NUM_SNK_ACC"], "snk_acc")
     tx_gen.fund_accounts(source_accounts)
