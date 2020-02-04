@@ -9,8 +9,6 @@ import sys
 import subprocess
 
 import pexpect
-import pyhmy
-from pyhmy import cli
 from pyhmy.util import (
     json_load,
     datetime_format,
@@ -174,7 +172,7 @@ def create_simple_validators(validator_count):
     TODO: Verify transaction-receipt
     """
     endpoint = get_endpoint(0, args.endpoint_src)
-    amount = 10  # Must be > 1 b/c of min-self-delegation
+    amount = 3  # Must be > 1 b/c of min-self-delegation
     faucet_acc_name = get_faucet_account(validator_count * (amount + 1))  # +1/new_acc for gas overhead
     validator_data = {}
 
@@ -261,7 +259,7 @@ def create_custom_validators():
          "16513c487a6bb76f37219f3c2927a4f281f9dd3fd6ed2e3a64e500de6545cf391dd973cc228d24f9bd01efe94912e714")
     ]
     endpoint = get_endpoint(0, args.endpoint_src)
-    amount = 10  # Must be > 1 b/c of min-self-delegation
+    amount = 3  # Must be > 1 b/c of min-self-delegation
     faucet_acc_name = get_faucet_account(len(main_repo_accs) * (amount + 1))  # +1/new_acc for gas overhead
     validator_addresses = {}
 
@@ -496,8 +494,8 @@ def undelegate(validator_addresses, delegator_addresses):
         for v_address in d_ref_data["validator_addresses"]:
             if v_address not in validator_addresses.keys():
                 if args.debug:
-                    print(
-                        f"{Typgpy.WARNING}Reference data for validator: {v_address} not found, skipping.{Typgpy.ENDC}")
+                    print(f"{Typgpy.WARNING}Reference data for validator: "
+                          f"{v_address} not found, skipping.{Typgpy.ENDC}")
                 continue
             index = d_ref_data["validator_addresses"].index(v_address)
             amount = d_ref_data["amounts"][index]
