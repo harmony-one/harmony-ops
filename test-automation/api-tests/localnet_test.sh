@@ -53,8 +53,8 @@ function waitBoot() {
   echo "Localnet booted..."
 }
 
-timeout 40 cat <( tryConnect )
-timeout 60 cat <( waitBoot )
+timeout 90 cat <( tryConnect )
+timeout 90 cat <( waitBoot )
 
 echo "Sleeping ${wait} seconds to generate some funds..."
 sleep ${wait}
