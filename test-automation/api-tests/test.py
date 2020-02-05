@@ -822,6 +822,7 @@ if __name__ == "__main__":
             args.endpoint_src,
             args.endpoint_dst,
         ],
+        "TXN_WAIT_TO_CONFIRM": 300,
         "CHAIN_ID": args.chain_id
     })
 
