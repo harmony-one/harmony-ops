@@ -5,22 +5,22 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 delay=30
 iters=5
-wait=60
+timeout_dir=60
 
-while getopts hw:d:i: option; do
+while getopts ht:d:i: option; do
   case "${option}" in
 
-  w) wait=${OPTARG} ;;
+  t) timeout_dir=${OPTARG} ;;
   d) delay=${OPTARG} ;;
   i) iters=${OPTARG} ;;
   h)
     echo "Options:"
     echo ""
-    echo "  Example: ./localnet_test.sh -w 0 -d 30 -i 5"
+    echo "  Example: ./localnet_test.sh -t 60 -d 30 -i 5"
     echo ""
-    echo "    -w <int>  Delay (in seconds) before starting the test. Default is 120 seconds."
+    echo "    -t <int>  Timeout before localnet is spun up. Default is 60 seconds."
     echo "    -d <int>  Cx delay (in seconds) between send and check for tests. Default is 30 seconds."
-    echo "    -i <int>  Max number of iterations before success. Default is 20."
+    echo "    -i <int>  Max number of iterations before success. Default is 5."
     echo "    -h        Help."
     exit 0
     ;;
@@ -53,11 +53,8 @@ function waitBoot() {
   echo "Localnet booted..."
 }
 
-timeout 90 cat <( tryConnect )
-timeout 90 cat <( waitBoot )
-
-echo "Sleeping ${wait} seconds to generate some funds..."
-sleep ${wait}
+timeout "$timeout_dir" cat <( tryConnect )
+timeout "$timeout_dir" cat <( waitBoot )
 
 # TODO: Enable staking tests...
 python3 -u ${DIR}/test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" \
