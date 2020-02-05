@@ -789,7 +789,7 @@ def transactions_test():
     tx_gen.fund_accounts(source_accounts)
     tx_gen_pool = ThreadPool(processes=1)
     start_time = datetime.datetime.utcnow()
-    tx_gen.set_batch_amount(10)
+    tx_gen.set_batch_amount(4)
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
     time.sleep(30)
     tx_gen.stop()
