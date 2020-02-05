@@ -771,6 +771,7 @@ def transactions_test():
     tx_gen.set_config({
         "AMT_PER_TXN": [1e-9, 1e-6],
         "NUM_SRC_ACC": 4,
+        "TXN_WAIT_TO_CONFIRM": 300,
         "INIT_SRC_ACC_BAL_PER_SHARD": .1,
         "ENDPOINTS": [
             args.endpoint_src,
