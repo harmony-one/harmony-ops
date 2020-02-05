@@ -24,6 +24,10 @@ from utils import *
 
 ACC_NAMES_ADDED = []
 ACC_NAME_PREFIX = "_Test_key_"
+tx_gen.Loggers.general.logger.addHandler(logging.StreamHandler(sys.stdout))
+tx_gen.Loggers.balance.logger.addHandler(logging.StreamHandler(sys.stdout))
+tx_gen.Loggers.transaction.logger.addHandler(logging.StreamHandler(sys.stdout))
+tx_gen.Loggers.report.logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 # TODO: fix the dump of the setting JSON file...
@@ -774,11 +778,6 @@ def transactions_test():
         ],
         "CHAIN_ID": args.chain_id
     })
-
-    tx_gen.Loggers.general.logger.addHandler(logging.StreamHandler(sys.stdout))
-    tx_gen.Loggers.balance.logger.addHandler(logging.StreamHandler(sys.stdout))
-    tx_gen.Loggers.transaction.logger.addHandler(logging.StreamHandler(sys.stdout))
-    tx_gen.Loggers.report.logger.addHandler(logging.StreamHandler(sys.stdout))
 
     log_writer_pool = ThreadPool(processes=1)
     log_writer_pool.apply_async(log_writer, (5,))
