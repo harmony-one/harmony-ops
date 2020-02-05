@@ -769,6 +769,7 @@ def transactions_test():
             time.sleep(interval)
 
     tx_gen.set_config({
+        "ENFORCE_NONCE": True,
         "AMT_PER_TXN": [1e-9, 1e-6],
         "NUM_SRC_ACC": 4,
         "TXN_WAIT_TO_CONFIRM": 300,
@@ -791,7 +792,7 @@ def transactions_test():
     start_time = datetime.datetime.utcnow()
     tx_gen.set_batch_amount(4)
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
-    time.sleep(30)
+    time.sleep(60)
     tx_gen.stop()
     end_time = datetime.datetime.utcnow()
     tx_gen.remove_accounts(source_accounts)
