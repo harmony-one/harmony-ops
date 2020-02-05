@@ -55,7 +55,7 @@ function waitBoot() {
 
 timeout "$timeout_dir" cat <( tryConnect )
 timeout "$timeout_dir" cat <( waitBoot )
-
+sleep 15  # Grace b4 starting
 # TODO: Enable staking tests...
 python3 -u ${DIR}/test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" \
   --rpc_endpoint_dst="http://localhost:9501/" --delay=${delay} --iterations=${iters} --cli_passphrase='' \
