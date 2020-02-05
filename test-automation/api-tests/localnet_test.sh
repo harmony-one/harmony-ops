@@ -27,27 +27,34 @@ while getopts hw:d:i: option; do
   esac
 done
 
-until $(curl --silent --location --request POST "localhost:9500" \
-  --header "Content-Type: application/json" \
-  --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' >/dev/null); do
-  echo "Trying to connect..."
-  sleep 3
-done
-
-echo "Waiting for localnet to boot..."
-valid=false
-until ${valid}; do
-  result=$(curl --silent --location --request POST "localhost:9500" \
+function tryConnect() {
+  until $(curl --silent --location --request POST "localhost:9500" \
     --header "Content-Type: application/json" \
-    --data '{"jsonrpc":"2.0","method":"hmy_blockNumber","params":[],"id":1}' |
-    jq '.result')
-  if [[ "$result" == "\"0x0\"" ]]; then
+    --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' >/dev/null); do
+    echo "Trying to connect..."
     sleep 3
-  else
-    valid=true
-  fi
-done
-echo "Localnet booted..."
+  done
+}
+
+function waitBoot() {
+  echo "Waiting for localnet to boot..."
+  valid=false
+  until ${valid}; do
+    result=$(curl --silent --location --request POST "localhost:9500" \
+      --header "Content-Type: application/json" \
+      --data '{"jsonrpc":"2.0","method":"hmy_blockNumber","params":[],"id":1}' |
+      jq '.result')
+    if [[ "$result" == "\"0x0\"" ]]; then
+      sleep 3
+    else
+      valid=true
+    fi
+  done
+  echo "Localnet booted..."
+}
+
+timeout 40 cat <( tryConnect )
+timeout 60 cat <( waitBoot )
 
 echo "Sleeping ${wait} seconds to generate some funds..."
 sleep ${wait}
