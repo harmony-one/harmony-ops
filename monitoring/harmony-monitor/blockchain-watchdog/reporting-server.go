@@ -35,14 +35,14 @@ type nodeMetadata struct {
 	ShardID        uint32 `json:"shard-id"`
 	NodeRole       string `json:"role"`
 	BlocksPerEpoch int    `json:"blocks-per-epoch"`
-	ChainConfig  struct {
-		ChainID          int `json:"chain-id"`
-		CrossLinkEpoch   int `json:"cross-link-epoch"`
-		CrossTxEpoch     int `json:"cross-tx-epoch"`
-		Eip155Epoch      int `json:"eip155-epoch"`
-		PreStakingEpoch  int `json:"prestaking-epoch"`
-		S3Epoch          int `json:"s3-epoch"`
-		StakingEpoch     int `json:"staking-epoch"`
+	ChainConfig    struct {
+		ChainID         int `json:"chain-id"`
+		CrossLinkEpoch  int `json:"cross-link-epoch"`
+		CrossTxEpoch    int `json:"cross-tx-epoch"`
+		Eip155Epoch     int `json:"eip155-epoch"`
+		PreStakingEpoch int `json:"prestaking-epoch"`
+		S3Epoch         int `json:"s3-epoch"`
+		StakingEpoch    int `json:"staking-epoch"`
 	} `json:"chain-config"`
 }
 
@@ -89,6 +89,8 @@ Block Hash: %s
 
 Leader: %s
 
+Leader-Location: %s
+
 ViewID: %d
 
 Epoch: %d
@@ -105,7 +107,7 @@ See: http://watchdog.hmny.io/report-%s
 
 --%s
 `
-	cxPendingPoolWarning    = `
+	cxPendingPoolWarning = `
 Cx Transaction Pool too large on shard %s!
 
 Count: %d
@@ -246,7 +248,7 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	if len(report.ConsensusProgress) != 0 {
 		for k, v := range report.ConsensusProgress {
 			if report.Summary[chainSumry][k] != nil {
-				report.Summary[chainSumry][k].(any)["consensus-status"] = v		
+				report.Summary[chainSumry][k].(any)["consensus-status"] = v
 			}
 		}
 	}
@@ -429,7 +431,9 @@ func (m *monitor) worker(
 	}
 }
 
-func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
+func (m *monitor) consensusMonitor(
+	interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string,
+) {
 	jobs := make(chan work, len(nodeList))
 	replyChannels := make(map[string](chan reply))
 	syncGroups := make(map[string]*sync.WaitGroup)
@@ -499,11 +503,22 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 				if currentBlockHeight <= lastBlock.Height {
 					timeSinceLastSuccess := currentUTCTime.Sub(lastBlock.TS)
 					if uint64(timeSinceLastSuccess.Seconds()) > interval {
+						// Do a quick, concurrent metadata pass
+						leader, leaderIP := m.findLeader()
+
+						if leader != currentBlockHeader.Payload.Leader {
+							// todo something wrong
+						}
+
 						message := fmt.Sprintf(consensusWarningMessage,
 							shard, currentBlockHeight, lastBlock.TS.Format(timeFormat),
-							currentBlockHeader.Payload.BlockHash, currentBlockHeader.Payload.Leader,
-							currentBlockHeader.Payload.ViewID, currentBlockHeader.Payload.Epoch,
-							currentBlockHeader.Payload.Timestamp, currentBlockHeader.Payload.LastCommitSig,
+							currentBlockHeader.Payload.BlockHash,
+							currentBlockHeader.Payload.Leader,
+							leaderIP,
+							currentBlockHeader.Payload.ViewID,
+							currentBlockHeader.Payload.Epoch,
+							currentBlockHeader.Payload.Timestamp,
+							currentBlockHeader.Payload.LastCommitSig,
 							currentBlockHeader.Payload.LastCommitBitmap,
 							int64(timeSinceLastSuccess.Seconds()), timeSinceLastSuccess.Minutes(),
 							chain, fmt.Sprintf(nameFMT, chain))
