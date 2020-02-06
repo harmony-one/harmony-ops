@@ -224,7 +224,7 @@ def create_simple_validators(validator_count):
 
 
 @test
-def check_validators(validator_addresses):
+def check_validators(validator_data):
     """
     This test checks the validator against their respective reference data.
     # TODO: verify that refactor worked...
@@ -237,7 +237,7 @@ def check_validators(validator_addresses):
     assert all_active_val["result"] is not None
     print(f"{Typgpy.OKGREEN}Current ACTIVE validators:{Typgpy.ENDC}\n{json.dumps(all_active_val, indent=4)}")
 
-    for address, ref_data in validator_addresses.items():
+    for address, ref_data in validator_data.items():
         print(f"\n{'=' * 85}\n")
         print(f"{Typgpy.HEADER}Validator address: {address}{Typgpy.ENDC}")
         if address not in all_val["result"]:
@@ -284,7 +284,7 @@ def check_validators(validator_addresses):
 
 
 @test
-def edit_validators(validator_addresses):
+def edit_validators(validator_data):
     """
     This test edits all validators that it is given.
 
@@ -292,8 +292,8 @@ def edit_validators(validator_addresses):
     TODO: Verify transaction-receipt
     """
     endpoint = get_endpoint(0, args.endpoint_src)
-    for (address, ref_data), bls_key in zip(validator_addresses.items(),
-                                            bls_generator(len(validator_addresses.keys()), key_dir="/tmp/edit_val")):
+    for (address, ref_data), bls_key in zip(validator_data.items(),
+                                            bls_generator(len(validator_data.keys()), key_dir="/tmp/edit_val")):
         max_total_delegation = ref_data['max_total_delegation'] + random.randint(1, 10)
         old_bls_key = ref_data['pub_bls_keys'].pop()
         proc = cli.expect_call(f"hmy staking edit-validator --validator-addr {address} "
@@ -323,7 +323,7 @@ def edit_validators(validator_addresses):
 
 
 @test
-def create_simple_delegators(validator_addresses):
+def create_simple_delegators(validator_data):
     """
     This test creates delegators that only delegate to 1 (unique) given validator.
 
@@ -332,7 +332,7 @@ def create_simple_delegators(validator_addresses):
     """
     delegator_data = {}
     endpoint = get_endpoint(0, args.endpoint_src)
-    for i, (validator_address, data) in enumerate(validator_addresses.items()):
+    for i, (validator_address, data) in enumerate(validator_data.items()):
         account_name = f"{ACC_NAME_PREFIX}delegator{i}"
         cli.remove_account(account_name)
         add_key(account_name)
@@ -361,13 +361,13 @@ def create_simple_delegators(validator_addresses):
 
 
 @test
-def check_delegators(delegator_addresses):
+def check_delegators(delegator_data):
     """
     This test checks the delegators against their respective reference data.
     """
     endpoint = get_endpoint(0, args.endpoint_src)
-    for address, ref_data in delegator_addresses.items():
-        print(f"\n{'=' * 85}\n")
+    for address, ref_data in delegator_data.items():
+        print(f"\n{'=' * 85}")
         print(f"{Typgpy.HEADER}Delegator address: {address}{Typgpy.ENDC}")
         del_delegation = json_load(cli.single_call(f"hmy blockchain delegation by-delegator {address} "
                                                    f"--node={endpoint}"))
@@ -384,12 +384,12 @@ def check_delegators(delegator_addresses):
             assert delegation["amount"] - ref_data["amounts"][index] * 1e18 == 0
             if len(delegation["Undelegations"]) != 0:
                 assert json.dumps(delegation["Undelegations"]) == ref_data["undelegations"][index]
-        print(f"\n{'=' * 85}\n")
+        print(f"{'=' * 85}\n")
     return True
 
 
 @test
-def undelegate(validator_addresses, delegator_addresses):
+def undelegate(validator_data, delegator_data):
     """
     This test undelegates all from their respective validators.
 
@@ -398,9 +398,9 @@ def undelegate(validator_addresses, delegator_addresses):
     undelegation_epochs = {}  # Format: (d_addr, v_addr): epoch
     endpoint = get_endpoint(0, args.endpoint_src)
 
-    for d_address, d_ref_data in delegator_addresses.items():
+    for d_address, d_ref_data in delegator_data.items():
         for v_address in d_ref_data["validator_addresses"]:
-            if v_address not in validator_addresses.keys():
+            if v_address not in validator_data.keys():
                 if args.debug:
                     print(f"{Typgpy.WARNING}Reference data for validator: "
                           f"{v_address} not found, skipping.{Typgpy.ENDC}")
@@ -410,7 +410,7 @@ def undelegate(validator_addresses, delegator_addresses):
             undelegation_epochs[(d_address, v_address)] = get_current_epoch(endpoint)
             proc = cli.expect_call(f"hmy staking undelegate --validator-addr {v_address} "
                                    f"--delegator-addr {d_address} --amount {amount} "
-                                   f"--node={endpoint} --chain-id={args.chain_id} --passphrase=")
+                                   f"--node={endpoint} --chain-id={args.chain_id} --passphrase")
             process_passphrase(proc, args.passphrase)
             txn = json_load(proc.read().decode())
             assert "transaction-receipt" in txn.keys()
@@ -422,15 +422,15 @@ def undelegate(validator_addresses, delegator_addresses):
     time.sleep(args.txn_delay)
 
     print(f"{Typgpy.OKBLUE}{Typgpy.BOLD}Verifying undelegations{Typgpy.ENDC}\n")
-    for d_address, d_ref_data in delegator_addresses.items():
+    for d_address, d_ref_data in delegator_data.items():
         for v_address in d_ref_data["validator_addresses"]:
-            if v_address not in validator_addresses.keys():
+            if v_address not in validator_data.keys():
                 if args.debug:
                     print(f"{Typgpy.WARNING}Reference data for validator: "
                           f"{v_address} not found, skipping.{Typgpy.ENDC}")
                 continue
-            v_ref_data = validator_addresses[v_address]
-            print(f"\n{'=' * 85}\n")
+            v_ref_data = validator_data[v_address]
+            print(f"\n{'=' * 85}")
             print(f"{Typgpy.HEADER}Validator address: {v_address}{Typgpy.ENDC}")
             print(f"{Typgpy.HEADER}Delegator address: {d_address}{Typgpy.ENDC}")
             index = d_ref_data["validator_addresses"].index(v_address)
@@ -446,6 +446,7 @@ def undelegate(validator_addresses, delegator_addresses):
                 if d_address == delegation["delegator_address"]:
                     assert not delegator_is_present, "should not see same delegator twice"
                     delegator_is_present = True
+                    # TODO: look into this undelegate logic and see if this is correct semantically.
                     assert len(delegation["Undelegations"]) >= 1
                     d_ref_data["undelegations"][index] = json.dumps(delegation["Undelegations"])
                     undelegation_is_present = False
@@ -459,7 +460,7 @@ def undelegate(validator_addresses, delegator_addresses):
                     assert undelegation_is_present
             assert delegator_is_present
             d_ref_data["amounts"][index] = 0
-            print(f"\n{'=' * 85}\n")
+            print(f"{'=' * 85}\n")
     return True
 
 
