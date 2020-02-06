@@ -288,6 +288,7 @@ def edit_validators(validator_data):
     """
     This test edits all validators that it is given.
 
+    TODO: fix / look into edit validator, got error: `too few elements for types.EditValidator`
     TODO: Create test to add / remove multiple BLS keys.
     TODO: Verify transaction-receipt
     """
