@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -35,14 +36,14 @@ type nodeMetadata struct {
 	ShardID        uint32 `json:"shard-id"`
 	NodeRole       string `json:"role"`
 	BlocksPerEpoch int    `json:"blocks-per-epoch"`
-	ChainConfig  struct {
-		ChainID          int `json:"chain-id"`
-		CrossLinkEpoch   int `json:"cross-link-epoch"`
-		CrossTxEpoch     int `json:"cross-tx-epoch"`
-		Eip155Epoch      int `json:"eip155-epoch"`
-		PreStakingEpoch  int `json:"prestaking-epoch"`
-		S3Epoch          int `json:"s3-epoch"`
-		StakingEpoch     int `json:"staking-epoch"`
+	ChainConfig    struct {
+		ChainID         int `json:"chain-id"`
+		CrossLinkEpoch  int `json:"cross-link-epoch"`
+		CrossTxEpoch    int `json:"cross-tx-epoch"`
+		Eip155Epoch     int `json:"eip155-epoch"`
+		PreStakingEpoch int `json:"prestaking-epoch"`
+		S3Epoch         int `json:"s3-epoch"`
+		StakingEpoch    int `json:"staking-epoch"`
 	} `json:"chain-config"`
 }
 
@@ -105,7 +106,7 @@ See: http://watchdog.hmny.io/report-%s
 
 --%s
 `
-	cxPendingPoolWarning    = `
+	cxPendingPoolWarning = `
 Cx Transaction Pool too large on shard %s!
 
 Count: %d
@@ -144,6 +145,15 @@ func blockHeaderSummary(
 		uniqBlockNums := []uint64{}
 		epoch.Distinct().ToSlice(&uniqEpochs)
 		block.Distinct().ToSlice(&uniqBlockNums)
+
+		sort.SliceStable(uniqEpochs, func(i, j int) bool {
+			return uniqEpochs[i] > uniqEpochs[j]
+		})
+
+		sort.SliceStable(uniqBlockNums, func(i, j int) bool {
+			return uniqBlockNums[i] > uniqBlockNums[j]
+		})
+
 		sum[shardID] = any{
 			"block-min":   block.Min(),
 			blockMax:      block.Max(),
@@ -246,7 +256,7 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	if len(report.ConsensusProgress) != 0 {
 		for k, v := range report.ConsensusProgress {
 			if report.Summary[chainSumry][k] != nil {
-				report.Summary[chainSumry][k].(any)["consensus-status"] = v		
+				report.Summary[chainSumry][k].(any)["consensus-status"] = v
 			}
 		}
 	}
