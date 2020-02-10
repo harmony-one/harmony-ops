@@ -431,6 +431,62 @@ func (m *monitor) worker(
 	}
 }
 
+func (m *monitor) findLeader(
+	interval uint64, nodeList *[]string, poolSize int,
+	replyChannels map[string](chan reply), syncGroups map[string]*sync.WaitGroup,
+) map[int][]string {
+	jobs := make(chan work, len(*nodeList))
+
+	replyChannels[metadataRPC] = make(chan reply, len(*nodeList))
+	var mGroup sync.WaitGroup
+	syncGroups[metadataRPC] = &mGroup
+
+	for i := 0; i < poolSize; i++ {
+		go m.worker(jobs, replyChannels, syncGroups)
+	}
+
+	nodeRequestFields := map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"method":  metadataRPC,
+		"params":  []interface{}{},
+	}
+
+	type result struct {
+		Result nodeMetadata `json:"result"`
+	}
+
+	leaders := make(map[int][]string)
+
+	queryID := 0
+	// Send requests to find potential shard leaders
+	for n := range *nodeList {
+		nodeRequestFields["id"] = strconv.Itoa(queryID)
+		requestBody, _ := json.Marshal(nodeRequestFields)
+		jobs <- work{(*nodeList)[n], metadataRPC, requestBody}
+		queryID++
+		syncGroups[metadataRPC].Add(1)
+	}
+	syncGroups[metadataRPC].Wait()
+	close(replyChannels[metadataRPC])
+
+	for d := range replyChannels[metadataRPC] {
+		if d.oops == nil {
+			oneReport := result{}
+			json.Unmarshal(d.rpcResult, &oneReport)
+			if oneReport.Result.IsLeader {
+				shard := int(oneReport.Result.ShardID)
+				if _, exists := leaders[shard]; exists {
+					leaders[shard] = append(leaders[shard], d.address)
+				} else {
+					leaders[shard] = []string{d.address}
+				}
+			}
+		}
+	}
+	replyChannels[metadataRPC] = make(chan reply, len(*nodeList))
+	return leaders
+}
+
 func (m *monitor) consensusMonitor(
 	interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string,
 ) {
@@ -504,17 +560,19 @@ func (m *monitor) consensusMonitor(
 					timeSinceLastSuccess := currentUTCTime.Sub(lastBlock.TS)
 					if uint64(timeSinceLastSuccess.Seconds()) > interval {
 						// Do a quick, concurrent metadata pass
-						leader, leaderIP := m.findLeader()
+						leader := m.findLeader(interval, &nodeList, poolSize, replyChannels, syncGroups)
 
-						if leader != currentBlockHeader.Payload.Leader {
-							// todo something wrong
-						}
+						// if leader != currentBlockHeader.Payload.Leader {
+						// 	// todo something wrong
+						// }
+
+						shardAsInt, _ := strconv.Atoi(shard)
 
 						message := fmt.Sprintf(consensusWarningMessage,
 							shard, currentBlockHeight, lastBlock.TS.Format(timeFormat),
 							currentBlockHeader.Payload.BlockHash,
 							currentBlockHeader.Payload.Leader,
-							leaderIP,
+							leader[shardAsInt],
 							currentBlockHeader.Payload.ViewID,
 							currentBlockHeader.Payload.Epoch,
 							currentBlockHeader.Payload.Timestamp,
@@ -522,7 +580,7 @@ func (m *monitor) consensusMonitor(
 							currentBlockHeader.Payload.LastCommitBitmap,
 							int64(timeSinceLastSuccess.Seconds()), timeSinceLastSuccess.Minutes(),
 							chain, fmt.Sprintf(nameFMT, chain))
-						incidentKey := fmt.Sprintf("Shard %s consensus stuck!", shard)
+						incidentKey := fmt.Sprintf("%s Shard %s consensus stuck!", chain, shard)
 						err := notify(pdServiceKey, incidentKey, chain, message)
 						if err != nil {
 							errlog.Print(err)
@@ -652,7 +710,7 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 				}
 				if report.Result > uint64(1000) {
 					message := fmt.Sprintf(cxPendingPoolWarning, shard, report.Result)
-					incidentKey := fmt.Sprintf("Shard %s cx transaction pool size > 1000!", shard)
+					incidentKey := fmt.Sprintf("%s Shard %s cx transaction pool size > 1000!", chain, shard)
 					err := notify(pdServiceKey, incidentKey, chain, message)
 					if err != nil {
 						errlog.Print(err)
