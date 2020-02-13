@@ -260,8 +260,8 @@ def check_validators(validator_data):
         reference_keys = set(map(lambda e: int(e, 16), ref_data["pub_bls_keys"]))
         for key in val_info["result"]["bls-public-keys"]:
             assert int(key, 16) in reference_keys
-        assert ref_data["max_total_delegation"] * 1e18 - val_info["result"]["max-total-delegation"] == 0
-        assert ref_data["min_self_delegation"] * 1e18 - val_info["result"]["min-self-delegation"] == 0
+        assert ref_data["max_total_delegation"] * 1e18 - float(val_info["result"]["max-total-delegation"]) == 0
+        assert ref_data["min_self_delegation"] * 1e18 - float(val_info["result"]["min-self-delegation"]) == 0
         commission_rates = val_info["result"]["commission"]
         assert ref_data["rate"] == float(commission_rates["rate"])
         assert ref_data["max_rate"] == float(commission_rates["max-rate"])
@@ -677,7 +677,7 @@ def staking_integration_test():
     print(f"{Typgpy.UNDERLINE}{Typgpy.BOLD}== Running staking integration test =={Typgpy.ENDC}")
 
     local_return_values = []
-    test_validators_data = create_simple_validators(validator_count=3)
+    test_validators_data = create_simple_validators(validator_count=1)
     local_return_values.append(test_validators_data)
 
     print(f"{Typgpy.OKBLUE}Sleeping {args.txn_delay} seconds for finality...{Typgpy.ENDC}")
@@ -691,6 +691,8 @@ def staking_integration_test():
     time.sleep(args.txn_delay)
 
     local_return_values.append(check_delegators(test_delegators_data))
+
+    # TODO: fix everything below this, break here....
     local_return_values.append(edit_validators(test_validators_data))
 
     print(f"{Typgpy.OKBLUE}Sleeping {args.txn_delay} seconds for finality...{Typgpy.ENDC}")
