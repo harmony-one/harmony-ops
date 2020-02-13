@@ -71,25 +71,6 @@ var (
 	client                     fasthttp.Client
 )
 
-//NOTE: maps for marshalling RPC request body
-var (
-	cxRequestFields = map[string]interface{}{
-		"jsonrpc": versionJSONRPC,
-		"method":  cxPendingRPC,
-		"params":  []interface{}{},
-	}
-	nodeRequestFields = map[string]interface{}{
-		"jsonrpc": versionJSONRPC,
-		"method":  metadataRPC,
-		"params":  []interface{}{},
-	}
-	blockHeaderRequestFields = map[string]interface{}{
-		"jsonrpc": versionJSONRPC,
-		"method":  blockHeaderRPC,
-		"params":  []interface{}{},
-	}
-)
-
 func identity(x interface{}) interface{} {
 	return x
 }
@@ -108,8 +89,6 @@ Block height stuck at %d starting at %s
 Block Hash: %s
 
 Leader: %s
-
-Leader-Location: %s
 
 ViewID: %d
 
@@ -435,11 +414,9 @@ type monitor struct {
 }
 
 type work struct {
-	address      string
-	rpc          string
-	body         []byte
-	replyChannel chan reply
-	syncGroup    *sync.WaitGroup
+	address string
+	rpc     string
+	body    []byte
 }
 
 type reply struct {
@@ -450,74 +427,35 @@ type reply struct {
 	oops       error
 }
 
-func (m *monitor) worker(jobs chan work) {
+func (m *monitor) worker(
+	jobs chan work, channels map[string](chan reply), groups map[string]*sync.WaitGroup,
+) {
 	for j := range jobs {
 		result := reply{address: j.address, rpc: j.rpc}
 		result.rpcResult, result.rpcPayload, result.oops = request(
 			"http://"+j.address, j.body)
-		j.replyChannel <- result
-		j.syncGroup.Done()
+		channels[j.rpc] <- result
+		groups[j.rpc].Done()
 	}
 }
 
-func (m *monitor) findLeader(
-	interval uint64, nodeList *[]string, poolSize int,
-) map[int][]string {
-	jobs := make(chan work, len(*nodeList))
-
-	replyChannel := make(chan reply, len(*nodeList))
-	var mGroup sync.WaitGroup
-
-	for i := 0; i < poolSize; i++ {
-		go m.worker(jobs)
-	}
-
-	type result struct {
-		Result nodeMetadata `json:"result"`
-	}
-
-	leaders := make(map[int][]string)
-
-	queryID := 0
-	// Send requests to find potential shard leaders
-	for n := range *nodeList {
-		nodeRequestFields["id"] = strconv.Itoa(queryID)
-		requestBody, _ := json.Marshal(nodeRequestFields)
-		jobs <- work{(*nodeList)[n], metadataRPC, requestBody, replyChannel, &mGroup}
-		queryID++
-		mGroup.Add(1)
-	}
-	mGroup.Wait()
-	close(replyChannel)
-
-	for d := range replyChannel {
-		if d.oops == nil {
-			oneReport := result{}
-			json.Unmarshal(d.rpcResult, &oneReport)
-			if oneReport.Result.IsLeader {
-				shard := int(oneReport.Result.ShardID)
-				if _, exists := leaders[shard]; exists {
-					leaders[shard] = append(leaders[shard], d.address)
-				} else {
-					leaders[shard] = []string{d.address}
-				}
-			}
-		}
-	}
-	replyChannel = make(chan reply, len(*nodeList))
-	return leaders
-}
-
-func (m *monitor) consensusMonitor(
-	interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string,
-) {
+func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
 	jobs := make(chan work, len(nodeList))
+	replyChannels := make(map[string](chan reply))
+	syncGroups := make(map[string]*sync.WaitGroup)
 
-	replyChannel := make(chan reply, len(nodeList))
+	replyChannels[blockHeaderRPC] = make(chan reply, len(nodeList))
 	var bhGroup sync.WaitGroup
+	syncGroups[blockHeaderRPC] = &bhGroup
 
 	for i := 0; i < poolSize; i++ {
-		go m.worker(jobs)
+		go m.worker(jobs, replyChannels, syncGroups)
+	}
+
+	requestFields := map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"method":  blockHeaderRPC,
+		"params":  []interface{}{},
 	}
 
 	type s struct {
@@ -535,17 +473,17 @@ func (m *monitor) consensusMonitor(
 	for now := range time.Tick(time.Duration(interval) * time.Second) {
 		queryID := 0
 		for n := range nodeList {
-			blockHeaderRequestFields["id"] = strconv.Itoa(queryID)
-			requestBody, _ := json.Marshal(blockHeaderRequestFields)
-			jobs <- work{nodeList[n], blockHeaderRPC, requestBody, replyChannel, &bhGroup}
+			requestFields["id"] = strconv.Itoa(queryID)
+			requestBody, _ := json.Marshal(requestFields)
+			jobs <- work{nodeList[n], blockHeaderRPC, requestBody}
 			queryID++
-			bhGroup.Add(1)
+			syncGroups[blockHeaderRPC].Add(1)
 		}
-		bhGroup.Wait()
-		close(replyChannel)
+		syncGroups[blockHeaderRPC].Wait()
+		close(replyChannels[blockHeaderRPC])
 
 		monitorData := BlockHeaderContainer{}
-		for d := range replyChannel {
+		for d := range replyChannels[blockHeaderRPC] {
 			if d.oops != nil {
 				monitorData.Down = append(m.WorkingBlockHeader.Down,
 					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
@@ -571,24 +509,15 @@ func (m *monitor) consensusMonitor(
 				if currentBlockHeight <= lastBlock.Height {
 					timeSinceLastSuccess := currentUTCTime.Sub(lastBlock.TS)
 					if uint64(timeSinceLastSuccess.Seconds()) > interval {
-						// Do a quick, concurrent metadata pass
-						leader := m.findLeader(interval, &nodeList, poolSize)
-
-						shardAsInt, _ := strconv.Atoi(shard)
-
 						message := fmt.Sprintf(consensusWarningMessage,
 							shard, currentBlockHeight, lastBlock.TS.Format(timeFormat),
-							currentBlockHeader.Payload.BlockHash,
-							currentBlockHeader.Payload.Leader,
-							leader[shardAsInt],
-							currentBlockHeader.Payload.ViewID,
-							currentBlockHeader.Payload.Epoch,
-							currentBlockHeader.Payload.Timestamp,
-							currentBlockHeader.Payload.LastCommitSig,
+							currentBlockHeader.Payload.BlockHash, currentBlockHeader.Payload.Leader,
+							currentBlockHeader.Payload.ViewID, currentBlockHeader.Payload.Epoch,
+							currentBlockHeader.Payload.Timestamp, currentBlockHeader.Payload.LastCommitSig,
 							currentBlockHeader.Payload.LastCommitBitmap,
 							int64(timeSinceLastSuccess.Seconds()), timeSinceLastSuccess.Minutes(),
 							chain, fmt.Sprintf(nameFMT, chain))
-						incidentKey := fmt.Sprintf("%s Shard %s consensus stuck!", chain, shard)
+						incidentKey := fmt.Sprintf("Shard %s consensus stuck!", shard)
 						err := notify(pdServiceKey, incidentKey, chain, message)
 						if err != nil {
 							errlog.Print(err)
@@ -610,19 +539,39 @@ func (m *monitor) consensusMonitor(
 		m.inUse.Lock()
 		m.consensusProgress = consensusStatus
 		m.inUse.Unlock()
-		replyChannel = make(chan reply, len(nodeList))
+		replyChannels[blockHeaderRPC] = make(chan reply, len(nodeList))
 	}
 }
 
 func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
+	cxRequestFields := map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"method":  cxPendingRPC,
+		"params":  []interface{}{},
+	}
+	nodeRequestFields := map[string]interface{}{
+		"jsonrpc": versionJSONRPC,
+		"method":  metadataRPC,
+		"params":  []interface{}{},
+	}
+
 	jobs := make(chan work, len(nodeList))
-	metadataReplyChannel := make(chan reply, len(nodeList))
-	cxPendingReplyChannel := make(chan reply, len(nodeList))
-	var mGroup sync.WaitGroup
-	var cxGroup sync.WaitGroup
+	replyChannels := make(map[string](chan reply))
+	syncGroups := make(map[string]*sync.WaitGroup)
+	for _, rpc := range []string{metadataRPC, cxPendingRPC} {
+		replyChannels[rpc] = make(chan reply, len(nodeList))
+		switch rpc {
+		case metadataRPC:
+			var mGroup sync.WaitGroup
+			syncGroups[rpc] = &mGroup
+		case cxPendingRPC:
+			var cxGroup sync.WaitGroup
+			syncGroups[rpc] = &cxGroup
+		}
+	}
 
 	for i := 0; i < poolSize; i++ {
-		go m.worker(jobs)
+		go m.worker(jobs, replyChannels, syncGroups)
 	}
 
 	type r struct {
@@ -639,15 +588,15 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 		for n := range nodeList {
 			nodeRequestFields["id"] = strconv.Itoa(queryID)
 			requestBody, _ := json.Marshal(nodeRequestFields)
-			jobs <- work{nodeList[n], metadataRPC, requestBody, metadataReplyChannel, &mGroup}
+			jobs <- work{nodeList[n], metadataRPC, requestBody}
 			queryID++
-			mGroup.Add(1)
+			syncGroups[metadataRPC].Add(1)
 		}
-		mGroup.Wait()
-		close(metadataReplyChannel)
+		syncGroups[metadataRPC].Wait()
+		close(replyChannels[metadataRPC])
 
 		leaders := make(map[int][]string)
-		for d := range metadataReplyChannel {
+		for d := range replyChannels[metadataRPC] {
 			if d.oops == nil {
 				oneReport := r{}
 				json.Unmarshal(d.rpcResult, &oneReport)
@@ -669,16 +618,16 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 			for _, n := range node {
 				cxRequestFields["id"] = strconv.Itoa(queryID)
 				requestBody, _ := json.Marshal(cxRequestFields)
-				jobs <- work{n, cxPendingRPC, requestBody, cxPendingReplyChannel, &cxGroup}
+				jobs <- work{n, cxPendingRPC, requestBody}
 				queryID++
-				cxGroup.Add(1)
+				syncGroups[cxPendingRPC].Add(1)
 			}
 		}
-		cxGroup.Wait()
-		close(cxPendingReplyChannel)
+		syncGroups[cxPendingRPC].Wait()
+		close(replyChannels[cxPendingRPC])
 
 		cxPoolSize := make(map[int][]uint64)
-		for i := range cxPendingReplyChannel {
+		for i := range replyChannels[cxPendingRPC] {
 			if i.oops == nil {
 				report := a{}
 				json.Unmarshal(i.rpcResult, &report)
@@ -698,7 +647,7 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 				}
 				if report.Result > uint64(1000) {
 					message := fmt.Sprintf(cxPendingPoolWarning, shard, report.Result)
-					incidentKey := fmt.Sprintf("%s Shard %s cx transaction pool size > 1000!", chain, shard)
+					incidentKey := fmt.Sprintf("Shard %s cx transaction pool size > 1000!", shard)
 					err := notify(pdServiceKey, incidentKey, chain, message)
 					if err != nil {
 						errlog.Print(err)
@@ -712,15 +661,15 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 		stdlog.Print(leaders)
 		stdlog.Print(cxPoolSize)
 
-		metadataReplyChannel = make(chan reply, len(nodeList))
-		cxPendingReplyChannel = make(chan reply, len(nodeList))
+		replyChannels[metadataRPC] = make(chan reply, len(nodeList))
+		replyChannels[cxPendingRPC] = make(chan reply, len(nodeList))
 	}
 }
 
 func (m *monitor) manager(
 	jobs chan work, interval int, nodeList []string,
 	rpc string, group *sync.WaitGroup,
-	channel chan reply,
+	channels map[string](chan reply),
 ) {
 	requestFields := map[string]interface{}{
 		"jsonrpc": versionJSONRPC,
@@ -732,7 +681,7 @@ func (m *monitor) manager(
 		for n := range nodeList {
 			requestFields["id"] = strconv.Itoa(queryID)
 			requestBody, _ := json.Marshal(requestFields)
-			jobs <- work{nodeList[n], rpc, requestBody, channel, group}
+			jobs <- work{nodeList[n], rpc, requestBody}
 			queryID++
 			group.Add(1)
 		}
@@ -743,12 +692,12 @@ func (m *monitor) manager(
 			m.WorkingBlockHeader.TS = now
 		}
 		group.Wait()
-		close(channel)
+		close(channels[rpc])
 
 		first := true
 		switch rpc {
 		case metadataRPC:
-			for d := range channel {
+			for d := range channels[rpc] {
 				if first {
 					m.WorkingMetadata.Down = []noReply{}
 					m.WorkingMetadata.Nodes = []metadataRPCResult{}
@@ -765,7 +714,7 @@ func (m *monitor) manager(
 			m.metadataCopy(m.WorkingMetadata)
 			m.inUse.Unlock()
 		case blockHeaderRPC:
-			for d := range channel {
+			for d := range channels[rpc] {
 				if first {
 					m.WorkingBlockHeader.Down = []noReply{}
 					m.WorkingBlockHeader.Nodes = []headerInfoRPCResult{}
@@ -782,7 +731,7 @@ func (m *monitor) manager(
 			m.blockHeaderCopy(m.WorkingBlockHeader)
 			m.inUse.Unlock()
 		}
-		channel = make(chan reply, len(nodeList))
+		channels[rpc] = make(chan reply, len(nodeList))
 	}
 }
 
@@ -795,14 +744,22 @@ func (m *monitor) update(
 	}
 
 	jobs := make(chan work, len(nodeList))
-
-	metadataReplyChannel := make(chan reply, len(nodeList))
-	blockHeaderReplyChannel := make(chan reply, len(nodeList))
-	var mGroup sync.WaitGroup
-	var bhGroup sync.WaitGroup
+	replyChannels := make(map[string](chan reply))
+	syncGroups := make(map[string]*sync.WaitGroup)
+	for _, rpc := range rpcs {
+		replyChannels[rpc] = make(chan reply, len(nodeList))
+		switch rpc {
+		case metadataRPC:
+			var mGroup sync.WaitGroup
+			syncGroups[rpc] = &mGroup
+		case blockHeaderRPC:
+			var bhGroup sync.WaitGroup
+			syncGroups[rpc] = &bhGroup
+		}
+	}
 
 	for i := 0; i < params.Performance.WorkerPoolSize; i++ {
-		go m.worker(jobs)
+		go m.worker(jobs, replyChannels, syncGroups)
 	}
 
 	for _, rpc := range rpcs {
@@ -810,12 +767,12 @@ func (m *monitor) update(
 		case metadataRPC:
 			go m.manager(
 				jobs, params.InspectSchedule.NodeMetadata, nodeList,
-				rpc, &mGroup, metadataReplyChannel,
+				rpc, syncGroups[rpc], replyChannels,
 			)
 		case blockHeaderRPC:
 			go m.manager(
 				jobs, params.InspectSchedule.BlockHeader, nodeList, rpc,
-				&bhGroup, blockHeaderReplyChannel,
+				syncGroups[rpc], replyChannels,
 			)
 			go m.consensusMonitor(
 				uint64(params.ShardHealthReporting.Consensus.Warning),
