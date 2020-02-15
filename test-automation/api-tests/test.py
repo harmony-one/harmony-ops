@@ -466,17 +466,19 @@ def undelegate(validator_data, delegator_data):
 
 
 @test
-def collect_rewards(address):
+def collect_rewards(data):
     # TODO: put in logic to collect rewards after 7 epochs.
     endpoint = get_endpoint(0, args.endpoint_src)
-    staking_command = f"hmy staking collect-rewards --delegator-addr {address} " \
-                      f"--node={endpoint} --chain-id={args.chain_id} --passphrase "
-    proc = cli.expect_call(staking_command)
-    process_passphrase(proc, args.passphrase)
-    txn = json_load(proc.read().decode())
-    assert "transaction-receipt" in txn.keys()
-    assert txn["transaction-receipt"] is not None
-    print(f"{Typgpy.OKGREEN}Collection rewards response:{Typgpy.ENDC}\n{json.dumps(txn, indent=4)}\n")
+    for address, _ in data.items():
+        staking_command = f"hmy staking collect-rewards --delegator-addr {address} " \
+                          f"--node={endpoint} --chain-id={args.chain_id} --passphrase "
+        print(staking_command)
+        proc = cli.expect_call(staking_command)
+        process_passphrase(proc, args.passphrase)
+        txn = json_load(proc.read().decode())
+        assert "transaction-receipt" in txn.keys()
+        assert txn["transaction-receipt"] is not None
+        print(f"{Typgpy.OKGREEN}Collection rewards response:{Typgpy.ENDC}\n{json.dumps(txn, indent=4)}\n")
     return True
 
 
@@ -715,9 +717,9 @@ def staking_integration_test():
 
     local_return_values.append(check_validators(many_keys_validator_data_singleton))
 
-    # print(f"{Typgpy.OKBLUE}Sleeping {args.txn_delay} seconds for finality...{Typgpy.ENDC}")
-    # time.sleep(args.txn_delay)
-    # clocal_return_values.append(ollect_rewards(test_delegators))  # TODO: implement collect rewards test.
+    print(f"{Typgpy.OKBLUE}Sleeping {args.txn_delay} seconds for finality...{Typgpy.ENDC}")
+    time.sleep(args.txn_delay)
+    local_return_values.append(collect_rewards(test_validators_data))  # TODO: implement collect rewards test.
     if all(local_return_values):
         print(f"\n{Typgpy.OKGREEN}Passed{Typgpy.ENDC} {Typgpy.UNDERLINE}Staking Integration Test{Typgpy.ENDC}\n")
         return True
