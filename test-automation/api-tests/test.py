@@ -29,9 +29,9 @@ tx_gen.Loggers.balance.logger.addHandler(logging.StreamHandler(sys.stdout))
 tx_gen.Loggers.transaction.logger.addHandler(logging.StreamHandler(sys.stdout))
 tx_gen.Loggers.report.logger.addHandler(logging.StreamHandler(sys.stdout))
 
-
+# TODO: fix script for latest staking CLI update...
 # TODO: fix the dump of the setting JSON file...
-# TODO: update readme
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Python script to test the Harmony blockchain using the hmy CLI.')
@@ -147,7 +147,7 @@ def fund_account(from_account_name, to_account_name, amount):
     to_address = cli.get_address(to_account_name)
     proc = cli.expect_call(f"hmy --node={args.endpoint_src} transfer --from {from_address} --to {to_address} "
                            f"--from-shard 0 --to-shard 0 --amount {amount} --chain-id {args.chain_id} "
-                           f"--wait-for-confirm=60 --passphrase ", timeout=60)
+                           f"--timeout 60 --passphrase ", timeout=60)
     process_passphrase(proc, args.passphrase)
     response = json_load(proc.read().decode())
     if args.debug:
@@ -190,7 +190,7 @@ def create_simple_validators(validator_count):
                                f"--max-change-rate {max_change_rate} --min-self-delegation 1 "
                                f"--max-total-delegation {max_total_delegation} "
                                f"--amount {amount} --bls-pubkeys {bls_key['public-key']} "
-                               f"--chain-id {args.chain_id} --passphrase")
+                               f"--chain-id {args.chain_id} --passphrase --timeout 0 ")
         pub_key_str = bls_key["public-key"].replace("0x", "")
         proc.expect(f"For bls public key: {pub_key_str}\r\n")
         proc.expect("Enter the absolute path to the encrypted bls private key file:\r\n")
@@ -304,7 +304,7 @@ def edit_validators(validator_data):
                                f"--min-self-delegation 1 --rate {ref_data['rate']} --security-contact Leo  "
                                f"--website harmony.one --node={endpoint} "
                                f"--remove-bls-key {old_bls_key}  --add-bls-key {bls_key['public-key']} "
-                               f"--chain-id={args.chain_id} --passphrase")
+                               f"--chain-id={args.chain_id} --passphrase --timeout 0 ")
         proc.expect("Enter the absolute path to the encrypted bls private key file:\r\n")
         proc.sendline(bls_key["encrypted-private-key-path"])
         proc.expect("Enter the bls passphrase:\r\n")
@@ -343,7 +343,7 @@ def create_simple_delegators(validator_data):
         fund_account(faucet_acc_name, account_name, amount + 1)  # 1 for gas overhead.
         proc = cli.expect_call(f"hmy staking delegate --validator-addr {validator_address} "
                                f"--delegator-addr {delegator_address} --amount {amount} "
-                               f"--node={endpoint} --chain-id={args.chain_id} --passphrase ")
+                               f"--node={endpoint} --chain-id={args.chain_id} --passphrase --timeout 0")
         process_passphrase(proc, args.passphrase)
         txn = json_load(proc.read().decode())
         assert "transaction-receipt" in txn.keys()
@@ -411,7 +411,7 @@ def undelegate(validator_data, delegator_data):
             undelegation_epochs[(d_address, v_address)] = get_current_epoch(endpoint)
             proc = cli.expect_call(f"hmy staking undelegate --validator-addr {v_address} "
                                    f"--delegator-addr {d_address} --amount {amount} "
-                                   f"--node={endpoint} --chain-id={args.chain_id} --passphrase")
+                                   f"--node={endpoint} --chain-id={args.chain_id} --passphrase --timeout 0 ")
             process_passphrase(proc, args.passphrase)
             txn = json_load(proc.read().decode())
             assert "transaction-receipt" in txn.keys()
@@ -471,7 +471,7 @@ def collect_rewards(data):
     endpoint = get_endpoint(0, args.endpoint_src)
     for address, _ in data.items():
         staking_command = f"hmy staking collect-rewards --delegator-addr {address} " \
-                          f"--node={endpoint} --chain-id={args.chain_id} --passphrase "
+                          f"--node={endpoint} --chain-id={args.chain_id} --passphrase --timeout 0 "
         print(staking_command)
         proc = cli.expect_call(staking_command)
         process_passphrase(proc, args.passphrase)
@@ -513,7 +513,7 @@ def create_single_validator_many_keys(bls_keys_count):
                            f"--max-change-rate {max_change_rate} --min-self-delegation 1 "
                            f"--max-total-delegation {max_total_delegation} "
                            f"--amount {amount} --bls-pubkeys {bls_key_string} "
-                           f"--chain-id {args.chain_id} --passphrase")
+                           f"--chain-id {args.chain_id} --passphrase --timeout 0 ")
     for key in bls_keys:
         pub_key_str = key["public-key"].replace("0x", "")
         proc.expect(f"For bls public key: {pub_key_str}\r\n")
