@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"sync"
@@ -240,7 +241,15 @@ func request(node string, requestBody []byte) ([]byte, []byte, error) {
 }
 
 func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
-	t, e := template.New("report").Parse(reportPage(m.chain))
+	t, e := template.New("report").
+		//Adds to template a function to retrieve github commit id from version
+		Funcs(template.FuncMap{
+			"getCommitId": func(version string) string {
+				r := regexp.MustCompile(`v.*g([\d\w]*)`)
+				return r.FindStringSubmatch(version)[1]
+			},
+		}).
+		Parse(reportPage(m.chain))
 	if e != nil {
 		fmt.Println(e)
 		http.Error(w, "could not generate page:"+e.Error(), http.StatusInternalServerError)
