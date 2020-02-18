@@ -24,6 +24,11 @@ from utils import *
 
 ACC_NAMES_ADDED = []
 ACC_NAME_PREFIX = "_Test_key_"
+endpoints = [
+    "https://api.s0.b.hmny.io/",
+    "https://api.s1.b.hmny.io/",
+    "https://api.s2.b.hmny.io/",
+]
 tx_gen.Loggers.general.logger.addHandler(logging.StreamHandler(sys.stdout))
 tx_gen.Loggers.balance.logger.addHandler(logging.StreamHandler(sys.stdout))
 tx_gen.Loggers.transaction.logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -37,20 +42,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Python script to test the Harmony blockchain using the hmy CLI.')
     parser.add_argument("--test_dir", dest="test_dir", default="./tests/default",
                         help="Path to test directory. Default is './tests/default'", type=str)
+    parser.add_argument("--endpoints", dest="endpoints", default=None,
+                        help="Default is long running testnet.")
     parser.add_argument("--iterations", dest="iterations", default=5,
                         help="Number of attempts for a successful test. Default is 5.", type=int)
     parser.add_argument("--start_epoch", dest="start_epoch", default=1,
-                        help="The minimum epoch before starting tests. Default is 1.", type=int)
-    parser.add_argument("--rpc_endpoint_src", dest="endpoint_src", default="https://api.s0.b.hmny.io/",
-                        help="Source endpoint for Cx. Default is https://api.s0.b.hmny.io/", type=str)
-    parser.add_argument("--rpc_endpoint_dst", dest="endpoint_dst", default="https://api.s1.b.hmny.io/",
-                        help="Destination endpoint for Cx. Default is https://api.s1.b.hmny.io/", type=str)
-    parser.add_argument("--src_shard", dest="src_shard", default=None, type=str,
-                        help=f"The source shard of the Cx. Default assumes associated shard from src endpoint.")
-    parser.add_argument("--dst_shard", dest="dst_shard", default=None, type=str,
-                        help=f"The destination shard of the Cx. Default assumes associated shard from dst endpoint.")
-    parser.add_argument("--exp_endpoint", dest="endpoint_exp", default="http://e0.b.hmny.io:5000/",
-                        help="Default is http://e0.b.hmny.io:5000/", type=str)
+                        help="The minimum epoch of all endpoints before starting tests. Default is 1.", type=int)
     parser.add_argument("--delay", dest="txn_delay", default=45,
                         help="The time to wait before checking if a Cx/Tx is on the blockchain. "
                              "Default is 45 seconds. (Input is in seconds)", type=int)
@@ -59,7 +56,7 @@ def parse_args():
     parser.add_argument("--cli_path", dest="hmy_binary_path", default=None,
                         help=f"ABSOLUTE PATH of CLI binary. "
                              f"Default uses the CLI included in pyhmy module", type=str)
-    parser.add_argument("--cli_passphrase", dest="passphrase", default='',
+    parser.add_argument("--passphrase", dest="passphrase", default='',
                         help=f"Passphrase used to unlock the keystore. "
                              f"Default is ''", type=str)
     parser.add_argument("--keystore", dest="keys_dir", default=None,
@@ -76,6 +73,41 @@ def parse_args():
     parser.add_argument("--debug", dest="debug", action='store_true', default=False,
                         help="Enable debug printing.")
     return parser.parse_args()
+
+
+def setup():
+    setup_pyhmy()
+    pyhmy_version = cli.get_version()
+    print(f"CLI Version: {pyhmy_version}")
+    version_str = re.search('version v.*-', pyhmy_version).group(0).split('-')[0].replace("version v", "")
+    assert int(version_str) >= 282, "CLI binary is the wrong version."
+    if args.chain_id not in json_load(cli.single_call("hmy blockchain known-chains")):
+        args.chain_id = "testnet"
+    if args.keys_dir is None:
+        args.keys_dir = f"{pyhmy.get_gopath()}/src/github.com/harmony-one/harmony/.hmy/keystore"
+    args.endpoints = endpoints if args.endpoints is None else [el.strip() for el in args.endpoints.split(",")]
+    for endpoint in args.endpoints:
+        assert is_active_shard(endpoint), f"`f{endpoint}` is not active"
+
+    tx_gen.set_config({
+        "AMT_PER_TXN": [1e-9, 1e-6],
+        "NUM_SRC_ACC": 16,
+        "NUM_SNK_ACC": 1,
+        "MAX_TXN_GEN_COUNT": 150,
+        "ONLY_CROSS_SHARD": False,
+        "ENFORCE_NONCE": False,
+        "ESTIMATED_GAS_PER_TXN": 1e-3,
+        "INIT_SRC_ACC_BAL_PER_SHARD": .1,
+        "TXN_WAIT_TO_CONFIRM": 60,
+        "MAX_THREAD_COUNT": os.cpu_count()//2,
+        "ENDPOINTS": args.endpoints,
+        "CHAIN_ID": args.chain_id,
+    })
+
+    print(f"Waiting for epoch {args.start_epoch} (or later)")
+    while not all(is_after_epoch(args.start_epoch - 1, ep) for ep in args.endpoints):
+        time.sleep(5)
+    load_keys()
 
 
 def get_balance(node, name=None, address=None):
@@ -100,7 +132,7 @@ def get_faucet_account(min_funds):
     Only looks for accounts that have funds on shard 0.
     """
     for acc_name in ACC_NAMES_ADDED:
-        if float(get_balance(args.endpoint_src, name=acc_name)[0]["amount"]) >= min_funds:
+        if float(get_balance(args.endpoints[0], name=acc_name)[0]["amount"]) >= min_funds:
             return acc_name
     raise RuntimeError(f"None of the loaded accounts have at least {min_funds} on shard 0")
 
@@ -145,7 +177,7 @@ def fund_account(from_account_name, to_account_name, amount):
     """
     from_address = cli.get_address(from_account_name)
     to_address = cli.get_address(to_account_name)
-    proc = cli.expect_call(f"hmy --node={args.endpoint_src} transfer --from {from_address} --to {to_address} "
+    proc = cli.expect_call(f"hmy --node={args.endpoints[0]} transfer --from {from_address} --to {to_address} "
                            f"--from-shard 0 --to-shard 0 --amount {amount} --chain-id {args.chain_id} "
                            f"--timeout 60 --passphrase ", timeout=60)
     process_passphrase(proc, args.passphrase)
@@ -153,7 +185,7 @@ def fund_account(from_account_name, to_account_name, amount):
     if args.debug:
         print(f"Response: {json.dumps(response, indent=4)}")
         print(f"Balances for {to_account_name} ({to_address}):")
-        print(f"{json.dumps(get_balance(args.endpoint_src, name=to_account_name), indent=4)}\n")
+        print(f"{json.dumps(get_balance(args.endpoints[0], name=to_account_name), indent=4)}\n")
     return response
 
 
@@ -168,7 +200,7 @@ def create_simple_validators(validator_count):
 
     TODO: Verify transaction-receipt
     """
-    endpoint = get_endpoint(0, args.endpoint_src)
+    node = args.endpoints[0]
     amount = 3  # Must be > 1 b/c of min-self-delegation
     faucet_acc_name = get_faucet_account(validator_count * (amount + 1))  # +1/new_acc for gas overhead
     validator_data = {}
@@ -183,7 +215,16 @@ def create_simple_validators(validator_count):
         rate, max_rate = min(rates), max(rates)
         max_change_rate = round(random.uniform(0, max_rate - 1e-9), 18)
         max_total_delegation = random.randint(amount + 1, 10)  # +1 for delegation.
-        proc = cli.expect_call(f"hmy --node={endpoint} staking create-validator "
+        print(bls_key)
+        print(f"hmy --node={node} staking create-validator "
+                               f"--validator-addr {val_address} --name {val_name} "
+                               f"--identity test_account --website harmony.one "
+                               f"--security-contact Daniel-VDM --details none --rate {rate} --max-rate {max_rate} "
+                               f"--max-change-rate {max_change_rate} --min-self-delegation 1 "
+                               f"--max-total-delegation {max_total_delegation} "
+                               f"--amount {amount} --bls-pubkeys {bls_key['public-key']} "
+                               f"--chain-id {args.chain_id} --passphrase --timeout 0 ")
+        proc = cli.expect_call(f"hmy --node={node} staking create-validator "
                                f"--validator-addr {val_address} --name {val_name} "
                                f"--identity test_account --website harmony.one "
                                f"--security-contact Daniel-VDM --details none --rate {rate} --max-rate {max_rate} "
@@ -198,7 +239,7 @@ def create_simple_validators(validator_count):
         proc.expect("Enter the bls passphrase:\r\n")
         proc.sendline("")  # Use default CLI passphrase
         process_passphrase(proc, args.passphrase)
-        curr_epoch = get_current_epoch(endpoint)
+        curr_epoch = get_current_epoch(node)
         proc.expect(pexpect.EOF)
         txn = json_load(proc.before.decode())
         assert "transaction-receipt" in txn.keys()
@@ -227,13 +268,12 @@ def create_simple_validators(validator_count):
 def check_validators(validator_data):
     """
     This test checks the validator against their respective reference data.
-    # TODO: verify that refactor worked...
     """
-    endpoint = get_endpoint(0, args.endpoint_src)
-    all_val = json_load(cli.single_call(f"hmy --node={endpoint} blockchain validator all"))
+    node = args.endpoints[0]
+    all_val = json_load(cli.single_call(f"hmy --node={node} blockchain validator all"))
     assert all_val["result"] is not None
     print(f"{Typgpy.OKGREEN}Current validators:{Typgpy.ENDC}\n{json.dumps(all_val, indent=4)}\n")
-    all_active_val = json_load(cli.single_call(f"hmy --node={endpoint} blockchain validator all-active"))
+    all_active_val = json_load(cli.single_call(f"hmy --node={node} blockchain validator all-active"))
     assert all_active_val["result"] is not None
     print(f"{Typgpy.OKGREEN}Current ACTIVE validators:{Typgpy.ENDC}\n{json.dumps(all_active_val, indent=4)}")
 
@@ -251,8 +291,8 @@ def check_validators(validator_data):
         else:
             print(f"{Typgpy.WARNING}Validator in pool of ACTIVE validators.")
             # Don't throw an error, just inform.
-        curr_epoch = get_current_epoch(endpoint)
-        val_info = json_load(cli.single_call(f"hmy --node={endpoint} blockchain validator information {address}"))
+        curr_epoch = get_current_epoch(node)
+        val_info = json_load(cli.single_call(f"hmy --node={node} blockchain validator information {address}"))
         print(f"{Typgpy.OKGREEN}Validator information:{Typgpy.ENDC}\n{json.dumps(val_info, indent=4)}")
         if args.debug:
             print(f"Reference data for {address}: {json.dumps(ref_data, indent=4)}")
@@ -267,7 +307,7 @@ def check_validators(validator_data):
         assert ref_data["max_rate"] == float(commission_rates["max-rate"])
         assert ref_data["max_change_rate"] == float(commission_rates["max-change-rate"])
         val_delegation = json_load(cli.single_call(f"hmy blockchain delegation by-validator {address} "
-                                                   f"--node={endpoint}"))
+                                                   f"--node={node}"))
         print(f"{Typgpy.OKGREEN}Validator delegation:{Typgpy.ENDC}\n{json.dumps(val_delegation, indent=4)}")
         assert val_delegation["result"] is not None
         contains_self_delegation = False
@@ -292,7 +332,7 @@ def edit_validators(validator_data):
     TODO: Create test to add / remove multiple BLS keys.
     TODO: Verify transaction-receipt
     """
-    endpoint = get_endpoint(0, args.endpoint_src)
+    node = args.endpoints[0]
     for (address, ref_data), bls_key in zip(validator_data.items(),
                                             bls_generator(len(validator_data.keys()), key_dir="/tmp/edit_val")):
         max_total_delegation = ref_data['max_total_delegation'] + random.randint(1, 10)
@@ -302,7 +342,7 @@ def edit_validators(validator_data):
                                f"--name {ref_data['keystore_name']} "
                                f"--max-total-delegation {max_total_delegation} "
                                f"--min-self-delegation 1 --rate {ref_data['rate']} --security-contact Leo  "
-                               f"--website harmony.one --node={endpoint} "
+                               f"--website harmony.one --node={node} "
                                f"--remove-bls-key {old_bls_key}  --add-bls-key {bls_key['public-key']} "
                                f"--chain-id={args.chain_id} --passphrase --timeout 0 ")
         proc.expect("Enter the absolute path to the encrypted bls private key file:\r\n")
@@ -310,7 +350,7 @@ def edit_validators(validator_data):
         proc.expect("Enter the bls passphrase:\r\n")
         proc.sendline("")  # Use default CLI passphrase
         process_passphrase(proc, args.passphrase)
-        curr_epoch = get_current_epoch(endpoint)
+        curr_epoch = get_current_epoch(node)
         proc.expect(pexpect.EOF)
         txn = json_load(proc.before.decode())
         assert "transaction-receipt" in txn.keys()
@@ -332,7 +372,7 @@ def create_simple_delegators(validator_data):
     TODO: Verify transaction-receipt
     """
     delegator_data = {}
-    endpoint = get_endpoint(0, args.endpoint_src)
+    node = args.endpoints[0]
     for i, (validator_address, data) in enumerate(validator_data.items()):
         account_name = f"{ACC_NAME_PREFIX}delegator{i}"
         cli.remove_account(account_name)
@@ -343,7 +383,7 @@ def create_simple_delegators(validator_data):
         fund_account(faucet_acc_name, account_name, amount + 1)  # 1 for gas overhead.
         proc = cli.expect_call(f"hmy staking delegate --validator-addr {validator_address} "
                                f"--delegator-addr {delegator_address} --amount {amount} "
-                               f"--node={endpoint} --chain-id={args.chain_id} --passphrase --timeout 0")
+                               f"--node={node} --chain-id={args.chain_id} --passphrase --timeout 0")
         process_passphrase(proc, args.passphrase)
         txn = json_load(proc.read().decode())
         assert "transaction-receipt" in txn.keys()
@@ -366,12 +406,12 @@ def check_delegators(delegator_data):
     """
     This test checks the delegators against their respective reference data.
     """
-    endpoint = get_endpoint(0, args.endpoint_src)
+    node = args.endpoints[0]
     for address, ref_data in delegator_data.items():
         print(f"\n{'=' * 85}")
         print(f"{Typgpy.HEADER}Delegator address: {address}{Typgpy.ENDC}")
         del_delegation = json_load(cli.single_call(f"hmy blockchain delegation by-delegator {address} "
-                                                   f"--node={endpoint}"))
+                                                   f"--node={node}"))
         print(f"{Typgpy.OKGREEN}Delegator delegation:{Typgpy.ENDC}\n{json.dumps(del_delegation, indent=4)}")
         if args.debug:
             print(f"Reference data for {address}: {json.dumps(ref_data, indent=4)}")
@@ -397,7 +437,7 @@ def undelegate(validator_data, delegator_data):
     TODO: verify that this test works as intended with 'complex' delegators
     """
     undelegation_epochs = {}  # Format: (d_addr, v_addr): epoch
-    endpoint = get_endpoint(0, args.endpoint_src)
+    node = args.endpoints[0]
 
     for d_address, d_ref_data in delegator_data.items():
         for v_address in d_ref_data["validator_addresses"]:
@@ -408,10 +448,10 @@ def undelegate(validator_data, delegator_data):
                 continue
             index = d_ref_data["validator_addresses"].index(v_address)
             amount = d_ref_data["amounts"][index]
-            undelegation_epochs[(d_address, v_address)] = get_current_epoch(endpoint)
+            undelegation_epochs[(d_address, v_address)] = get_current_epoch(node)
             proc = cli.expect_call(f"hmy staking undelegate --validator-addr {v_address} "
                                    f"--delegator-addr {d_address} --amount {amount} "
-                                   f"--node={endpoint} --chain-id={args.chain_id} --passphrase --timeout 0 ")
+                                   f"--node={node} --chain-id={args.chain_id} --passphrase --timeout 0 ")
             process_passphrase(proc, args.passphrase)
             txn = json_load(proc.read().decode())
             assert "transaction-receipt" in txn.keys()
@@ -436,7 +476,7 @@ def undelegate(validator_data, delegator_data):
             print(f"{Typgpy.HEADER}Delegator address: {d_address}{Typgpy.ENDC}")
             index = d_ref_data["validator_addresses"].index(v_address)
             val_info = json_load(cli.single_call(f"hmy blockchain delegation by-validator {v_address} "
-                                                 f"--node={endpoint}"))
+                                                 f"--node={node}"))
             assert val_info["result"] is not None
             print(f"{Typgpy.OKGREEN}Validator information:{Typgpy.ENDC}\n{json.dumps(val_info, indent=4)}")
             if args.debug:
@@ -468,10 +508,10 @@ def undelegate(validator_data, delegator_data):
 @test
 def collect_rewards(data):
     # TODO: put in logic to collect rewards after 7 epochs.
-    endpoint = get_endpoint(0, args.endpoint_src)
+    node = args.endpoints[0]
     for address, _ in data.items():
         staking_command = f"hmy staking collect-rewards --delegator-addr {address} " \
-                          f"--node={endpoint} --chain-id={args.chain_id} --passphrase --timeout 0 "
+                          f"--node={node} --chain-id={args.chain_id} --passphrase --timeout 0 "
         print(staking_command)
         proc = cli.expect_call(staking_command)
         process_passphrase(proc, args.passphrase)
@@ -490,7 +530,7 @@ def create_single_validator_many_keys(bls_keys_count):
 
     TODO: Verify transaction-receipt
     """
-    endpoint = get_endpoint(0, args.endpoint_src)
+    node = args.endpoints[0]
     amount = 2  # Must be > 1 b/c of min-self-delegation
     faucet_acc_name = get_faucet_account(amount + 5)  # + 5 for gas overheads.
     validator_addresses = {}
@@ -506,7 +546,7 @@ def create_single_validator_many_keys(bls_keys_count):
     max_total_delegation = random.randint(amount + 1, 10)
     bls_keys = [k for k in bls_generator(bls_keys_count, key_dir="/tmp/single_val_many_keys")]
     bls_key_string = ','.join(el["public-key"] for el in bls_keys)
-    proc = cli.expect_call(f"hmy --node={endpoint} staking create-validator "
+    proc = cli.expect_call(f"hmy --node={node} staking create-validator "
                            f"--validator-addr {val_address} --name {val_name} "
                            f"--identity test_account --website harmony.one "
                            f"--security-contact Daniel-VDM --details none --rate {rate} --max-rate {max_rate} "
@@ -522,7 +562,7 @@ def create_single_validator_many_keys(bls_keys_count):
         proc.expect("Enter the bls passphrase:\r\n")
         proc.sendline("")  # Use default CLI passphrase
     process_passphrase(proc, args.passphrase)
-    curr_epoch = get_current_epoch(endpoint)
+    curr_epoch = get_current_epoch(node)
     proc.expect(pexpect.EOF)
     txn = json_load(proc.before.decode())
     assert "transaction-receipt" in txn.keys()
@@ -574,18 +614,9 @@ def get_raw_cx(passphrase, chain_id, node, src_shard, dst_shard):
 
 
 @announce
-def setup_newman_no_explorer(test_json, global_json, env_json):
-    source_shard = args.src_shard if args.src_shard else get_shard_from_endpoint(args.endpoint_src)
-    destination_shard = args.dst_shard if args.dst_shard else get_shard_from_endpoint(args.endpoint_dst)
+def setup_newman_s0_s1(test_json, global_json, env_json):
     raw_txn = get_raw_cx(passphrase=args.passphrase, chain_id=args.chain_id,
-                         node=args.endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
-
-    if str(source_shard) not in args.endpoint_src:
-        print(f"{Typgpy.WARNING}Source shard {source_shard} may not match "
-              f"source endpoint {args.endpoint_src}{Typgpy.ENDC}")
-    if str(destination_shard) not in args.endpoint_dst:
-        print(f"{Typgpy.WARNING}Destination shard {destination_shard} may not match "
-              f"destination endpoint {args.endpoint_dst}{Typgpy.ENDC}")
+                         node=args.endpoints[0], src_shard=0, dst_shard=1)
 
     for i, var in enumerate(env_json["values"]):
         if var["key"] == "rawTransaction":
@@ -595,79 +626,9 @@ def setup_newman_no_explorer(test_json, global_json, env_json):
 
     for i, var in enumerate(global_json["values"]):
         if var["key"] == "hmy_endpoint_src":
-            global_json["values"][i]["value"] = args.endpoint_src
+            global_json["values"][i]["value"] = args.endpoints[0]
         if var["key"] == "hmy_endpoint_dst":
-            global_json["values"][i]["value"] = args.endpoint_dst
-
-
-@announce
-def setup_newman_only_explorer(test_json, global_json, env_json):
-    if "localhost" in args.endpoint_src or "localhost" in args.endpoint_exp:
-        print("\n\t[WARNING] This test is for testnet or mainnet.\n")
-
-    source_shard = args.src_shard if args.src_shard else get_shard_from_endpoint(args.endpoint_src)
-    destination_shard = args.dst_shard if args.dst_shard else get_shard_from_endpoint(args.endpoint_dst)
-    raw_txn = get_raw_cx(passphrase=args.passphrase, chain_id=args.chain_id,
-                         node=args.endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
-
-    if str(source_shard) not in args.endpoint_src:
-        print(f"{Typgpy.WARNING}Source shard {source_shard} may not match "
-              f"source endpoint {args.endpoint_src}{Typgpy.ENDC}")
-    if str(destination_shard) not in args.endpoint_dst:
-        print(f"{Typgpy.WARNING}Destination shard {destination_shard} may not match "
-              f"destination endpoint {args.endpoint_dst}{Typgpy.ENDC}")
-
-    for i, var in enumerate(env_json["values"]):
-        if var["key"] == "rawTransaction":
-            env_json["values"][i]["value"] = raw_txn
-        if var["key"] == "tx_beta_endpoint":
-            env_json["values"][i]["value"] = args.endpoint_exp
-        if var["key"] == "txn_delay":
-            env_json["values"][i]["value"] = args.txn_delay
-        if var["key"] == "source_shard":
-            env_json["values"][i]["value"] = source_shard
-
-    for i, var in enumerate(global_json["values"]):
-        if var["key"] == "hmy_endpoint_src":
-            global_json["values"][i]["value"] = args.endpoint_exp
-        if var["key"] == "hmy_endpoint_dst":
-            global_json["values"][i]["value"] = args.endpoint_src
-
-
-@announce
-def setup_newman_default(test_json, global_json, env_json):
-    if "localhost" in args.endpoint_src or "localhost" in args.endpoint_exp:
-        print("\n\t[WARNING] This test is for testnet or mainnet.\n")
-
-    source_shard = args.src_shard if args.src_shard else get_shard_from_endpoint(args.endpoint_src)
-    destination_shard = args.dst_shard if args.dst_shard else get_shard_from_endpoint(args.endpoint_dst)
-    raw_txn = get_raw_cx(passphrase=args.passphrase, chain_id=args.chain_id,
-                         node=args.endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
-
-    if str(source_shard) not in args.endpoint_src:
-        print(f"{Typgpy.WARNING}Source shard {source_shard} may not match "
-              f"source endpoint {args.endpoint_src}{Typgpy.ENDC}")
-    if str(destination_shard) not in args.endpoint_dst:
-        print(f"{Typgpy.WARNING}Destination shard {destination_shard} may not match "
-              f"destination endpoint {args.endpoint_dst}{Typgpy.ENDC}")
-
-    for i, var in enumerate(env_json["values"]):
-        if var["key"] == "rawTransaction":
-            env_json["values"][i]["value"] = raw_txn
-        if var["key"] == "tx_beta_endpoint":
-            env_json["values"][i]["value"] = args.endpoint_exp
-        if var["key"] == "txn_delay":
-            env_json["values"][i]["value"] = args.txn_delay
-        if var["key"] == "source_shard":
-            env_json["values"][i]["value"] = source_shard
-
-    for i, var in enumerate(global_json["values"]):
-        if var["key"] == "hmy_endpoint_src":
-            global_json["values"][i]["value"] = args.endpoint_src
-        if var["key"] == "hmy_endpoint_src":
-            global_json["values"][i]["value"] = args.endpoint_dst
-        if var["key"] == "hmy_exp_endpoint":
-            global_json["values"][i]["value"] = args.endpoint_exp
+            global_json["values"][i]["value"] = args.endpoints[1]
 
 
 # TODO: re-work the create / edit to include wait-to-confirm so that we reduce the explicit wait time.
@@ -737,12 +698,7 @@ def regression_test():
     with open(f"{args.test_dir}/env.json", 'r') as f:
         env_json = json.load(f)
 
-    if "Harmony API Tests - no-explorer" in test_json["info"]["name"]:
-        setup_newman_no_explorer(test_json, global_json, env_json)
-    elif "Harmony API Tests - only-explorer" in test_json["info"]["name"]:
-        setup_newman_only_explorer(test_json, global_json, env_json)
-    else:
-        setup_newman_default(test_json, global_json, env_json)
+    setup_newman_s0_s1(test_json, global_json, env_json)
 
     with open(f"{args.test_dir}/global.json", 'w') as f:
         json.dump(global_json, f)
@@ -774,19 +730,6 @@ def transactions_test():
             tx_gen.write_all_logs()
             time.sleep(interval)
 
-    tx_gen.set_config({
-        "ENFORCE_NONCE": True,
-        "AMT_PER_TXN": [1e-9, 1e-6],
-        "NUM_SRC_ACC": 4,
-        "TXN_WAIT_TO_CONFIRM": 300,
-        "INIT_SRC_ACC_BAL_PER_SHARD": .1,
-        "ENDPOINTS": [
-            args.endpoint_src,
-            args.endpoint_dst,
-        ],
-        "CHAIN_ID": args.chain_id
-    })
-
     log_writer_pool = ThreadPool(processes=1)
     log_writer_pool.apply_async(log_writer, (5,))
 
@@ -796,7 +739,7 @@ def transactions_test():
     tx_gen.fund_accounts(source_accounts)
     tx_gen_pool = ThreadPool(processes=1)
     start_time = datetime.datetime.utcnow()
-    tx_gen.set_batch_amount(4)
+    tx_gen.set_batch_amount(5)
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
     time.sleep(60)
     tx_gen.stop()
@@ -813,47 +756,20 @@ def transactions_test():
 
 
 if __name__ == "__main__":
-    args = parse_args()  # TODO change this to loading a config file.
-    setup_pyhmy()
-    pyhmy_version = cli.get_version()
-    print(f"CLI Version: {pyhmy_version}")
-    version_str = re.search('version v.*-', pyhmy_version).group(0).split('-')[0].replace("version v", "")
-    assert int(version_str) >= 238, "CLI binary is the wrong version."
-    assert is_active_shard(args.endpoint_src), "The source shard endpoint is NOT active."
-    assert is_active_shard(args.endpoint_dst), "The destination shard endpoint is NOT active."
-    if args.chain_id not in json_load(cli.single_call("hmy blockchain known-chains")):
-        args.chain_id = "testnet"
-
-    tx_gen.set_config({
-        "ENDPOINTS": [
-            args.endpoint_src,
-            args.endpoint_dst,
-        ],
-        "TXN_WAIT_TO_CONFIRM": 300,
-        "CHAIN_ID": args.chain_id
-    })
-
+    args = parse_args()
+    setup()
     test_results = {}
+
     try:
-        print(f"Waiting for epoch {args.start_epoch} (or later)")
-        while not is_after_epoch(args.start_epoch - 1, args.endpoint_src):
-            time.sleep(5)
-
-        if args.keys_dir is None:
-            args.keys_dir = f"{pyhmy.get_gopath()}/src/github.com/harmony-one/harmony/.hmy/keystore"
-
-        load_keys()
-
         if not args.ignore_regression_test:
             test_results["Pre-staking epoch regression test"] = regression_test()
 
         if not args.ignore_staking_test:
-            s0_endpoint = get_endpoint(shard_number=0, endpoint=args.endpoint_src)
-            current_epoch = get_current_epoch(s0_endpoint)
+            current_epoch = get_current_epoch(args.endpoints[0])
             while current_epoch < args.staking_epoch:
                 print(f"Waiting for staking epoch ({args.staking_epoch}) currently epoch {current_epoch}")
                 time.sleep(5)
-                current_epoch = get_current_epoch(s0_endpoint)
+                current_epoch = get_current_epoch(args.endpoints[0])
             test_results["Staking integration test"] = staking_integration_test()
             print(f"{Typgpy.OKGREEN}Doing regression test after staking epoch...{Typgpy.ENDC}")
             test_results["Post-staking epoch regression test"] = regression_test()
