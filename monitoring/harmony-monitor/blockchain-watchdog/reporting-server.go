@@ -19,46 +19,10 @@ import (
 
 const (
 	badVersionString   = "BAD_VERSION_STRING"
-	versionJSONRPC     = "2.0"
-	metadataRPC        = "hmy_getNodeMetadata"
-	blockHeaderRPC     = "hmy_latestHeader"
-	cxPendingRPC       = "hmy_getPendingCxReceipts"
 	blockHeaderReport  = "block-header"
 	nodeMetadataReport = "node-metadata"
 	timeFormat         = "15:04:05 Jan _2 MST" // https://golang.org/pkg/time/#Time.Format
 )
-
-type nodeMetadata struct {
-	BLSPublicKey   string `json:"blskey"`
-	Version        string `json:"version"`
-	NetworkType    string `json:"network"`
-	IsLeader       bool   `json:"is-leader"`
-	ShardID        uint32 `json:"shard-id"`
-	NodeRole       string `json:"role"`
-	BlocksPerEpoch int    `json:"blocks-per-epoch"`
-	ChainConfig    struct {
-		ChainID         int `json:"chain-id"`
-		CrossLinkEpoch  int `json:"cross-link-epoch"`
-		CrossTxEpoch    int `json:"cross-tx-epoch"`
-		Eip155Epoch     int `json:"eip155-epoch"`
-		PreStakingEpoch int `json:"prestaking-epoch"`
-		S3Epoch         int `json:"s3-epoch"`
-		StakingEpoch    int `json:"staking-epoch"`
-	} `json:"chain-config"`
-}
-
-type headerInformation struct {
-	BlockHash        string `json:"blockHash"`
-	BlockNumber      uint64 `json:"blockNumber"`
-	ShardID          uint32 `json:"shardID"`
-	Leader           string `json:"leader"`
-	ViewID           uint64 `json:"viewID"`
-	Epoch            uint64 `json:"epoch"`
-	Timestamp        string `json:"timestamp"`
-	UnixTime         int64  `json:"unixtime"`
-	LastCommitSig    string `json:"lastCommitSig"`
-	LastCommitBitmap string `json:"lastCommitBitmap"`
-}
 
 type any map[string]interface{}
 
@@ -79,6 +43,7 @@ const (
 	metaSumry               = "node-metadata"
 	headerSumry             = "block-header"
 	chainSumry              = "chain-config"
+	committeeSumry          = "staking-committee"
 	blockMax                = "block-max"
 	timestamp               = "timestamp"
 	consensusWarningMessage = `
@@ -114,32 +79,32 @@ Count: %d
 )
 
 func init() {
-	h := reflect.TypeOf((*headerInformation)(nil)).Elem()
-	n := reflect.TypeOf((*nodeMetadata)(nil)).Elem()
+	h := reflect.TypeOf((*BlockHeader)(nil)).Elem()
 	for i := 0; i < h.NumField(); i++ {
 		headerInformationCSVHeader = append(headerInformationCSVHeader, h.Field(i).Name)
 	}
+	n := reflect.TypeOf((*NodeMetadata)(nil)).Elem()
 	for i := 0; i < n.NumField(); i++ {
 		nodeMetadataCSVHeader = append(nodeMetadataCSVHeader, n.Field(i).Name)
 	}
 }
 
 func blockHeaderSummary(
-	headers []headerInfoRPCResult,
+	headers []BlockHeader,
 	includeRecords bool,
 	sum map[string]interface{},
 ) {
 	linq.From(headers).GroupBy(
 		// Group by ShardID
-		func(node interface{}) interface{} { return node.(headerInfoRPCResult).Payload.ShardID },
+		func(node interface{}) interface{} { return node.(BlockHeader).Payload.ShardID },
 		identity,
 	).ForEach(func(value interface{}) {
 		shardID := strconv.FormatUint(uint64(value.(linq.Group).Key.(uint32)), 10)
 		block := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
-			return c.(headerInfoRPCResult).Payload.BlockNumber
+			return c.(BlockHeader).Payload.BlockNumber
 		})
 		epoch := linq.From(value.(linq.Group).Group).Select(func(c interface{}) interface{} {
-			return c.(headerInfoRPCResult).Payload.Epoch
+			return c.(BlockHeader).Payload.Epoch
 		})
 		uniqEpochs := []uint64{}
 		uniqBlockNums := []uint64{}
@@ -165,7 +130,7 @@ func blockHeaderSummary(
 		if includeRecords {
 			sum[shardID].(any)["records"] = value.(linq.Group).Group
 			sum[shardID].(any)["latest-block"] = linq.From(value.(linq.Group).Group).FirstWith(func(c interface{}) bool {
-				return c.(headerInfoRPCResult).Payload.BlockNumber == block.Max()
+				return c.(BlockHeader).Payload.BlockNumber == block.Max()
 			})
 		}
 	})
@@ -174,8 +139,12 @@ func blockHeaderSummary(
 type summary map[string]map[string]interface{}
 
 // WARN Be careful, usage of interface{} can make things explode in the goroutine with bad cast
-func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summary {
-	sum := summary{metaSumry: map[string]interface{}{}, headerSumry: map[string]interface{}{}, chainSumry: map[string]interface{}{}}
+func summaryMaps(metas []NodeMetadata, headers []BlockHeader) summary {
+	sum := summary{metaSumry: map[string]interface{}{},
+		headerSumry: map[string]interface{}{},
+		chainSumry: map[string]interface{}{},
+		committeeSumry: map [string]interface{}{},
+	}
 	for i, n := range headers {
 		if s := n.Payload.LastCommitSig; len(s) > 0 {
 			shorted := s[:5] + "..." + s[len(s)-5:]
@@ -184,28 +153,28 @@ func summaryMaps(metas []metadataRPCResult, headers []headerInfoRPCResult) summa
 	}
 
 	linq.From(metas).GroupBy(
-		func(node interface{}) interface{} { return parseVersionS(node.(metadataRPCResult).Payload.Version) }, identity,
+		func(node interface{}) interface{} { return parseVersionS(node.(NodeMetadata).Payload.Version) }, identity,
 	).ForEach(func(value interface{}) {
 		vrs := value.(linq.Group).Key.(string)
 		sum[metaSumry][vrs] = map[string]interface{}{"records": value.(linq.Group).Group}
 	})
 
 	linq.From(metas).GroupBy(
-		func(node interface{}) interface{} { return node.(metadataRPCResult).Payload.ShardID }, identity,
+		func(node interface{}) interface{} { return node.(NodeMetadata).Payload.ShardID }, identity,
 	).ForEach(func(value interface{}) {
 		shardID := value.(linq.Group).Key.(uint32)
 		sample := linq.From(value.(linq.Group).Group).FirstWith(func(c interface{}) bool {
-			return c.(metadataRPCResult).Payload.ShardID == shardID
+			return c.(NodeMetadata).Payload.ShardID == shardID
 		})
 		sum[chainSumry][strconv.Itoa(int(shardID))] = any{
-			"chain-id":          sample.(metadataRPCResult).Payload.ChainConfig.ChainID,
-			"cross-link-epoch":  sample.(metadataRPCResult).Payload.ChainConfig.CrossLinkEpoch,
-			"cross-tx-epoch":    sample.(metadataRPCResult).Payload.ChainConfig.CrossTxEpoch,
-			"eip155-epoch":      sample.(metadataRPCResult).Payload.ChainConfig.Eip155Epoch,
-			"s3-epoch":          sample.(metadataRPCResult).Payload.ChainConfig.S3Epoch,
-			"pre-staking-epoch": sample.(metadataRPCResult).Payload.ChainConfig.PreStakingEpoch,
-			"staking-epoch":     sample.(metadataRPCResult).Payload.ChainConfig.StakingEpoch,
-			"blocks-per-epoch":  sample.(metadataRPCResult).Payload.BlocksPerEpoch,
+			"chain-id":          sample.(NodeMetadata).Payload.ChainConfig.ChainID,
+			"cross-link-epoch":  sample.(NodeMetadata).Payload.ChainConfig.CrossLinkEpoch,
+			"cross-tx-epoch":    sample.(NodeMetadata).Payload.ChainConfig.CrossTxEpoch,
+			"eip155-epoch":      sample.(NodeMetadata).Payload.ChainConfig.Eip155Epoch,
+			"s3-epoch":          sample.(NodeMetadata).Payload.ChainConfig.S3Epoch,
+			"pre-staking-epoch": sample.(NodeMetadata).Payload.ChainConfig.PreStakingEpoch,
+			"staking-epoch":     sample.(NodeMetadata).Payload.ChainConfig.StakingEpoch,
+			"blocks-per-epoch":  sample.(NodeMetadata).Payload.BlocksPerEpoch,
 		}
 	})
 
@@ -249,6 +218,7 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	type v struct {
 		LeftTitle, RightTitle []interface{}
 		Summary               interface{}
+		SuperCommittee        SuperCommitteeReply
 		NoReply               []noReply
 		DownMachineCount      int
 	}
@@ -261,10 +231,11 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:  []interface{}{report.Chain},
-		RightTitle: []interface{}{report.Build, time.Now().Format(time.RFC3339)},
-		Summary:    report.Summary,
-		NoReply:    report.NoReplies,
+		LeftTitle:        []interface{}{report.Chain},
+		RightTitle:       []interface{}{report.Build, time.Now().Format(time.RFC3339)},
+		Summary:          report.Summary,
+		SuperCommittee:   m.SuperCommittee,
+		NoReply:          report.NoReplies,
 		DownMachineCount: linq.From(report.NoReplies).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
@@ -294,17 +265,17 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 			sum := m.SummarySnapshot[headerSumry][shard[0]].(any)["records"].([]interface{})
 			for _, v := range sum {
 				row := []string{
-					v.(headerInfoRPCResult).IP,
-					v.(headerInfoRPCResult).Payload.BlockHash,
-					strconv.FormatUint(v.(headerInfoRPCResult).Payload.BlockNumber, 10),
+					v.(BlockHeader).IP,
+					v.(BlockHeader).Payload.BlockHash,
+					strconv.FormatUint(v.(BlockHeader).Payload.BlockNumber, 10),
 					shard[0],
-					v.(headerInfoRPCResult).Payload.Leader,
-					strconv.FormatUint(v.(headerInfoRPCResult).Payload.ViewID, 10),
-					strconv.FormatUint(v.(headerInfoRPCResult).Payload.Epoch, 10),
-					v.(headerInfoRPCResult).Payload.Timestamp,
-					strconv.FormatInt(v.(headerInfoRPCResult).Payload.UnixTime, 10),
-					v.(headerInfoRPCResult).Payload.LastCommitSig,
-					v.(headerInfoRPCResult).Payload.LastCommitBitmap,
+					v.(BlockHeader).Payload.Leader,
+					strconv.FormatUint(v.(BlockHeader).Payload.ViewID, 10),
+					strconv.FormatUint(v.(BlockHeader).Payload.Epoch, 10),
+					v.(BlockHeader).Payload.Timestamp,
+					strconv.FormatInt(v.(BlockHeader).Payload.UnixTime, 10),
+					v.(BlockHeader).Payload.LastCommitSig,
+					v.(BlockHeader).Payload.LastCommitBitmap,
 				}
 				records = append(records, row)
 			}
@@ -324,14 +295,14 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 				recs := m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{})
 				for _, v := range recs {
 					row := []string{
-						v.(metadataRPCResult).IP,
-						v.(metadataRPCResult).Payload.BLSPublicKey,
-						v.(metadataRPCResult).Payload.Version,
-						v.(metadataRPCResult).Payload.NetworkType,
-						strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ChainConfig.ChainID), 10),
-						strconv.FormatBool(v.(metadataRPCResult).Payload.IsLeader),
-						strconv.FormatUint(uint64(v.(metadataRPCResult).Payload.ShardID), 10),
-						v.(metadataRPCResult).Payload.NodeRole,
+						v.(NodeMetadata).IP,
+						v.(NodeMetadata).Payload.BLSPublicKey,
+						v.(NodeMetadata).Payload.Version,
+						v.(NodeMetadata).Payload.NetworkType,
+						strconv.FormatUint(uint64(v.(NodeMetadata).Payload.ChainConfig.ChainID), 10),
+						strconv.FormatBool(v.(NodeMetadata).Payload.IsLeader),
+						strconv.FormatUint(uint64(v.(NodeMetadata).Payload.ShardID), 10),
+						v.(NodeMetadata).Payload.NodeRole,
 					}
 					records = append(records, row)
 				}
@@ -363,24 +334,14 @@ func (m *monitor) summaryCopy(newData map[string]map[string]interface{}) {
 
 func (m *monitor) metadataCopy(newData MetadataContainer) {
 	m.MetadataSnapshot.TS = newData.TS
-	m.MetadataSnapshot.Nodes = append([]metadataRPCResult{}, newData.Nodes...)
+	m.MetadataSnapshot.Nodes = append([]NodeMetadata{}, newData.Nodes...)
 	m.MetadataSnapshot.Down = append([]noReply{}, newData.Down...)
 }
 
 func (m *monitor) blockHeaderCopy(newData BlockHeaderContainer) {
 	m.BlockHeaderSnapshot.TS = newData.TS
-	m.BlockHeaderSnapshot.Nodes = append([]headerInfoRPCResult{}, newData.Nodes...)
+	m.BlockHeaderSnapshot.Nodes = append([]BlockHeader{}, newData.Nodes...)
 	m.BlockHeaderSnapshot.Down = append([]noReply{}, newData.Down...)
-}
-
-type metadataRPCResult struct {
-	Payload nodeMetadata
-	IP      string
-}
-
-type headerInfoRPCResult struct {
-	Payload headerInformation
-	IP      string
 }
 
 type noReply struct {
@@ -391,13 +352,13 @@ type noReply struct {
 
 type MetadataContainer struct {
 	TS    time.Time
-	Nodes []metadataRPCResult
+	Nodes []NodeMetadata
 	Down  []noReply
 }
 
 type BlockHeaderContainer struct {
 	TS    time.Time
-	Nodes []headerInfoRPCResult
+	Nodes []BlockHeader
 	Down  []noReply
 }
 
@@ -408,6 +369,7 @@ type monitor struct {
 	WorkingBlockHeader  BlockHeaderContainer
 	MetadataSnapshot    MetadataContainer
 	BlockHeaderSnapshot BlockHeaderContainer
+	SuperCommittee      SuperCommitteeReply
 	SummarySnapshot     map[string]map[string]interface{}
 	NoReplySnapshot     []noReply
 	consensusProgress   map[string]bool
@@ -444,22 +406,22 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 	replyChannels := make(map[string](chan reply))
 	syncGroups := make(map[string]*sync.WaitGroup)
 
-	replyChannels[blockHeaderRPC] = make(chan reply, len(nodeList))
+	replyChannels[BlockHeaderRPC] = make(chan reply, len(nodeList))
 	var bhGroup sync.WaitGroup
-	syncGroups[blockHeaderRPC] = &bhGroup
+	syncGroups[BlockHeaderRPC] = &bhGroup
 
 	for i := 0; i < poolSize; i++ {
 		go m.worker(jobs, replyChannels, syncGroups)
 	}
 
 	requestFields := map[string]interface{}{
-		"jsonrpc": versionJSONRPC,
-		"method":  blockHeaderRPC,
+		"jsonrpc": JSONVersion,
+		"method":  BlockHeaderRPC,
 		"params":  []interface{}{},
 	}
 
 	type s struct {
-		Result headerInformation `json:"result"`
+		Result BlockHeaderReply `json:"result"`
 	}
 
 	type lastSuccessfulBlock struct {
@@ -475,22 +437,22 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 		for n := range nodeList {
 			requestFields["id"] = strconv.Itoa(queryID)
 			requestBody, _ := json.Marshal(requestFields)
-			jobs <- work{nodeList[n], blockHeaderRPC, requestBody}
+			jobs <- work{nodeList[n], BlockHeaderRPC, requestBody}
 			queryID++
-			syncGroups[blockHeaderRPC].Add(1)
+			syncGroups[BlockHeaderRPC].Add(1)
 		}
-		syncGroups[blockHeaderRPC].Wait()
-		close(replyChannels[blockHeaderRPC])
+		syncGroups[BlockHeaderRPC].Wait()
+		close(replyChannels[BlockHeaderRPC])
 
 		monitorData := BlockHeaderContainer{}
-		for d := range replyChannels[blockHeaderRPC] {
+		for d := range replyChannels[BlockHeaderRPC] {
 			if d.oops != nil {
 				monitorData.Down = append(m.WorkingBlockHeader.Down,
 					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
 			} else {
 				oneReport := s{}
 				json.Unmarshal(d.rpcResult, &oneReport)
-				monitorData.Nodes = append(monitorData.Nodes, headerInfoRPCResult{
+				monitorData.Nodes = append(monitorData.Nodes, BlockHeader{
 					oneReport.Result,
 					d.address,
 				})
@@ -504,7 +466,7 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 
 		for shard, summary := range blockHeaderData {
 			currentBlockHeight := summary.(any)[blockMax].(uint64)
-			currentBlockHeader := summary.(any)["latest-block"].(headerInfoRPCResult)
+			currentBlockHeader := summary.(any)["latest-block"].(BlockHeader)
 			if lastBlock, exists := lastShardData[shard]; exists {
 				if currentBlockHeight <= lastBlock.Height {
 					timeSinceLastSuccess := currentUTCTime.Sub(lastBlock.TS)
@@ -539,32 +501,32 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 		m.inUse.Lock()
 		m.consensusProgress = consensusStatus
 		m.inUse.Unlock()
-		replyChannels[blockHeaderRPC] = make(chan reply, len(nodeList))
+		replyChannels[BlockHeaderRPC] = make(chan reply, len(nodeList))
 	}
 }
 
 func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
 	cxRequestFields := map[string]interface{}{
-		"jsonrpc": versionJSONRPC,
-		"method":  cxPendingRPC,
+		"jsonrpc": JSONVersion,
+		"method":  PendingCxRPC,
 		"params":  []interface{}{},
 	}
 	nodeRequestFields := map[string]interface{}{
-		"jsonrpc": versionJSONRPC,
-		"method":  metadataRPC,
+		"jsonrpc": JSONVersion,
+		"method":  NodeMetadataRPC,
 		"params":  []interface{}{},
 	}
 
 	jobs := make(chan work, len(nodeList))
 	replyChannels := make(map[string](chan reply))
 	syncGroups := make(map[string]*sync.WaitGroup)
-	for _, rpc := range []string{metadataRPC, cxPendingRPC} {
+	for _, rpc := range []string{NodeMetadataRPC, PendingCxRPC} {
 		replyChannels[rpc] = make(chan reply, len(nodeList))
 		switch rpc {
-		case metadataRPC:
+		case NodeMetadataRPC:
 			var mGroup sync.WaitGroup
 			syncGroups[rpc] = &mGroup
-		case cxPendingRPC:
+		case PendingCxRPC:
 			var cxGroup sync.WaitGroup
 			syncGroups[rpc] = &cxGroup
 		}
@@ -575,7 +537,7 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 	}
 
 	type r struct {
-		Result nodeMetadata `json:"result"`
+		Result NodeMetadataReply`json:"result"`
 	}
 
 	type a struct {
@@ -588,15 +550,15 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 		for n := range nodeList {
 			nodeRequestFields["id"] = strconv.Itoa(queryID)
 			requestBody, _ := json.Marshal(nodeRequestFields)
-			jobs <- work{nodeList[n], metadataRPC, requestBody}
+			jobs <- work{nodeList[n], NodeMetadataRPC, requestBody}
 			queryID++
-			syncGroups[metadataRPC].Add(1)
+			syncGroups[NodeMetadataRPC].Add(1)
 		}
-		syncGroups[metadataRPC].Wait()
-		close(replyChannels[metadataRPC])
+		syncGroups[NodeMetadataRPC].Wait()
+		close(replyChannels[NodeMetadataRPC])
 
 		leaders := make(map[int][]string)
-		for d := range replyChannels[metadataRPC] {
+		for d := range replyChannels[NodeMetadataRPC] {
 			if d.oops == nil {
 				oneReport := r{}
 				json.Unmarshal(d.rpcResult, &oneReport)
@@ -618,16 +580,16 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 			for _, n := range node {
 				cxRequestFields["id"] = strconv.Itoa(queryID)
 				requestBody, _ := json.Marshal(cxRequestFields)
-				jobs <- work{n, cxPendingRPC, requestBody}
+				jobs <- work{n, PendingCxRPC, requestBody}
 				queryID++
-				syncGroups[cxPendingRPC].Add(1)
+				syncGroups[PendingCxRPC].Add(1)
 			}
 		}
-		syncGroups[cxPendingRPC].Wait()
-		close(replyChannels[cxPendingRPC])
+		syncGroups[PendingCxRPC].Wait()
+		close(replyChannels[PendingCxRPC])
 
 		cxPoolSize := make(map[int][]uint64)
-		for i := range replyChannels[cxPendingRPC] {
+		for i := range replyChannels[PendingCxRPC] {
 			if i.oops == nil {
 				report := a{}
 				json.Unmarshal(i.rpcResult, &report)
@@ -661,8 +623,35 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 		stdlog.Print(leaders)
 		stdlog.Print(cxPoolSize)
 
-		replyChannels[metadataRPC] = make(chan reply, len(nodeList))
-		replyChannels[cxPendingRPC] = make(chan reply, len(nodeList))
+		replyChannels[NodeMetadataRPC] = make(chan reply, len(nodeList))
+		replyChannels[PendingCxRPC] = make(chan reply, len(nodeList))
+	}
+}
+
+func (m *monitor) stakingCommitteeUpdate(beaconChainNode string) {
+	committeeRequestFields := map[string]interface{}{
+		"jsonrpc": JSONVersion,
+		"method":  SuperCommitteeRPC,
+		"params":  []interface{}{},
+	}
+
+	committeeRequestFields["id"] = "0"
+	requestBody, _ := json.Marshal(committeeRequestFields)
+	result, _, oops := request("http://" + beaconChainNode, requestBody)
+
+	type s struct {
+		Result SuperCommitteeReply `json:"result"`
+	}
+
+	if oops != nil {
+		stdlog.Println("Unable to update Staking Committee")
+		stdlog.Print(oops)
+		return
+	} else {
+		committeeReply := s{}
+		json.Unmarshal(result, &committeeReply)
+		m.SuperCommittee = committeeReply.Result
+		stdlog.Println("Updated Staking Committee information")
 	}
 }
 
@@ -672,10 +661,12 @@ func (m *monitor) manager(
 	channels map[string](chan reply),
 ) {
 	requestFields := map[string]interface{}{
-		"jsonrpc": versionJSONRPC,
+		"jsonrpc": JSONVersion,
 		"method":  rpc,
 		"params":  []interface{}{},
 	}
+
+	prevEpoch := uint64(0)
 	for now := range time.Tick(time.Duration(interval) * time.Second) {
 		queryID := 0
 		for n := range nodeList {
@@ -686,9 +677,9 @@ func (m *monitor) manager(
 			group.Add(1)
 		}
 		switch rpc {
-		case metadataRPC:
+		case NodeMetadataRPC:
 			m.WorkingMetadata.TS = now
-		case blockHeaderRPC:
+		case BlockHeaderRPC:
 			m.WorkingBlockHeader.TS = now
 		}
 		group.Wait()
@@ -696,11 +687,11 @@ func (m *monitor) manager(
 
 		first := true
 		switch rpc {
-		case metadataRPC:
+		case NodeMetadataRPC:
 			for d := range channels[rpc] {
 				if first {
 					m.WorkingMetadata.Down = []noReply{}
-					m.WorkingMetadata.Nodes = []metadataRPCResult{}
+					m.WorkingMetadata.Nodes = []NodeMetadata{}
 					first = false
 				}
 				if d.oops != nil {
@@ -713,11 +704,11 @@ func (m *monitor) manager(
 			m.inUse.Lock()
 			m.metadataCopy(m.WorkingMetadata)
 			m.inUse.Unlock()
-		case blockHeaderRPC:
+		case BlockHeaderRPC:
 			for d := range channels[rpc] {
 				if first {
 					m.WorkingBlockHeader.Down = []noReply{}
-					m.WorkingBlockHeader.Nodes = []headerInfoRPCResult{}
+					m.WorkingBlockHeader.Nodes = []BlockHeader{}
 					first = false
 				}
 				if d.oops != nil {
@@ -728,6 +719,17 @@ func (m *monitor) manager(
 				}
 			}
 			m.inUse.Lock()
+			if len(m.WorkingBlockHeader.Nodes) > 0 {
+				for _, n := range m.WorkingBlockHeader.Nodes {
+					if n.Payload.ShardID == 0 {
+						if n.Payload.Epoch > prevEpoch {
+							prevEpoch = n.Payload.Epoch
+							go m.stakingCommitteeUpdate(nodeList[0])
+						}
+						break
+					}
+				}
+			}
 			m.blockHeaderCopy(m.WorkingBlockHeader)
 			m.inUse.Unlock()
 		}
@@ -749,10 +751,10 @@ func (m *monitor) update(
 	for _, rpc := range rpcs {
 		replyChannels[rpc] = make(chan reply, len(nodeList))
 		switch rpc {
-		case metadataRPC:
+		case NodeMetadataRPC:
 			var mGroup sync.WaitGroup
 			syncGroups[rpc] = &mGroup
-		case blockHeaderRPC:
+		case BlockHeaderRPC:
 			var bhGroup sync.WaitGroup
 			syncGroups[rpc] = &bhGroup
 		}
@@ -764,16 +766,17 @@ func (m *monitor) update(
 
 	for _, rpc := range rpcs {
 		switch rpc {
-		case metadataRPC:
+		case NodeMetadataRPC:
 			go m.manager(
 				jobs, params.InspectSchedule.NodeMetadata, nodeList,
 				rpc, syncGroups[rpc], replyChannels,
 			)
-		case blockHeaderRPC:
+		case BlockHeaderRPC:
 			go m.manager(
 				jobs, params.InspectSchedule.BlockHeader, nodeList, rpc,
 				syncGroups[rpc], replyChannels,
 			)
+			go m.stakingCommitteeUpdate(nodeList[0])
 			go m.consensusMonitor(
 				uint64(params.ShardHealthReporting.Consensus.Warning),
 				params.Performance.WorkerPoolSize,
@@ -794,23 +797,23 @@ func (m *monitor) update(
 
 func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	type r struct {
-		Result nodeMetadata `json:"result"`
+		Result NodeMetadataReply`json:"result"`
 	}
 	type s struct {
-		Result headerInformation `json:"result"`
+		Result BlockHeaderReply `json:"result"`
 	}
 	switch rpc {
-	case metadataRPC:
+	case NodeMetadataRPC:
 		oneReport := r{}
 		json.Unmarshal(payload, &oneReport)
-		m.WorkingMetadata.Nodes = append(m.WorkingMetadata.Nodes, metadataRPCResult{
+		m.WorkingMetadata.Nodes = append(m.WorkingMetadata.Nodes, NodeMetadata{
 			oneReport.Result,
 			addr,
 		})
-	case blockHeaderRPC:
+	case BlockHeaderRPC:
 		oneReport := s{}
 		json.Unmarshal(payload, &oneReport)
-		m.WorkingBlockHeader.Nodes = append(m.WorkingBlockHeader.Nodes, headerInfoRPCResult{
+		m.WorkingBlockHeader.Nodes = append(m.WorkingBlockHeader.Nodes, BlockHeader{
 			oneReport.Result,
 			addr,
 		})
@@ -832,10 +835,10 @@ func (m *monitor) networkSnapshot() networkReport {
 	leaders := make(map[string][]string)
 	linq.From(sum[metaSumry]).ForEach(func(v interface{}) {
 		linq.From(sum[metaSumry][v.(linq.KeyValue).Key.(string)].(map[string]interface{})["records"]).
-			Where(func(n interface{}) bool { return n.(metadataRPCResult).Payload.IsLeader }).
+			Where(func(n interface{}) bool { return n.(NodeMetadata).Payload.IsLeader }).
 			ForEach(func(n interface{}) {
-				shardID := strconv.FormatUint(uint64(n.(metadataRPCResult).Payload.ShardID), 10)
-				leaders[shardID] = append(leaders[shardID], n.(metadataRPCResult).IP)
+				shardID := strconv.FormatUint(uint64(n.(NodeMetadata).Payload.ShardID), 10)
+				leaders[shardID] = append(leaders[shardID], n.(NodeMetadata).IP)
 			})
 	})
 	for i := range leaders {
@@ -868,7 +871,7 @@ func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 		},
 		MaxConnsPerHost: 2048,
 	}
-	go m.update(instrs.watchParams, instrs.superCommittee, []string{blockHeaderRPC, metadataRPC})
+	go m.update(instrs.watchParams, instrs.superCommittee, []string{BlockHeaderRPC, NodeMetadataRPC})
 	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download-"+instrs.Network.TargetChain, m.produceCSV)
 	http.HandleFunc("/network-"+instrs.Network.TargetChain, m.networkSnapshotJSON)
