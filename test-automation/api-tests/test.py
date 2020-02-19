@@ -96,7 +96,7 @@ def setup():
         "AMT_PER_TXN": [1e-9, 1e-6],
         "NUM_SRC_ACC": 16,
         "NUM_SNK_ACC": 1,
-        "MAX_TXN_GEN_COUNT": 100,
+        "MAX_TXN_GEN_COUNT": 80,
         "ONLY_CROSS_SHARD": False,
         "ENFORCE_NONCE": False,
         "ESTIMATED_GAS_PER_TXN": 1e-3,
@@ -739,7 +739,7 @@ def transactions_test():
     tx_gen.fund_accounts(source_accounts)
     tx_gen_pool = ThreadPool(processes=1)
     start_time = datetime.datetime.utcnow()
-    tx_gen.set_batch_amount(5)
+    tx_gen.set_batch_amount(10)
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
     time.sleep(60)
     tx_gen.stop()
