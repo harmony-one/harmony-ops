@@ -94,9 +94,9 @@ def setup():
 
     tx_gen.set_config({
         "AMT_PER_TXN": [1e-9, 1e-6],
-        "NUM_SRC_ACC": 16,
+        "NUM_SRC_ACC": 32,
         "NUM_SNK_ACC": 1,
-        "MAX_TXN_GEN_COUNT": 80,
+        "MAX_TXN_GEN_COUNT": 100,
         "ONLY_CROSS_SHARD": False,
         "ENFORCE_NONCE": False,
         "ESTIMATED_GAS_PER_TXN": 1e-3,
