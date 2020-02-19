@@ -62,6 +62,8 @@ def parse_args():
     parser.add_argument("--keystore", dest="keys_dir", default=None,
                         help=f"Directory of keystore to import. Must be a directory of keystore files. "
                              f"Default will look in the main repo's `.hmy` keystore.", type=str)
+    parser.add_argument("--import_keys", dest="import_keys", default=None,
+                        help=f"A comma separated string of private keys to be imported.", type=str)
     parser.add_argument("--staking_epoch", dest="staking_epoch", default=4,
                         help=f"The epoch to start the staking integration tests. Default is 4.", type=int)
     parser.add_argument("--ignore_regression_test", dest="ignore_regression_test", action='store_true', default=False,
@@ -87,13 +89,14 @@ def setup():
         args.keys_dir = f"{pyhmy.get_gopath()}/src/github.com/harmony-one/harmony/.hmy/keystore"
     args.endpoints = endpoints if args.endpoints is None else [el.strip() for el in args.endpoints.split(",")]
     for endpoint in args.endpoints:
-        assert is_active_shard(endpoint), f"`f{endpoint}` is not active"
+        assert is_active_shard(endpoint), f"`{endpoint}` is not active"
+    args.import_keys = [] if args.import_keys is None else [el.strip() for el in args.import_keys.split(",")]
 
     tx_gen.set_config({
         "AMT_PER_TXN": [1e-9, 1e-6],
         "NUM_SRC_ACC": 16,
         "NUM_SNK_ACC": 1,
-        "MAX_TXN_GEN_COUNT": 150,
+        "MAX_TXN_GEN_COUNT": 100,
         "ONLY_CROSS_SHARD": False,
         "ENFORCE_NONCE": False,
         "ESTIMATED_GAS_PER_TXN": 1e-3,
@@ -166,6 +169,12 @@ def load_keys():
     """
     assert os.path.isdir(args.keys_dir), "Could not find keystore directory"
     ACC_NAMES_ADDED.extend(account_manager.load_accounts(args.keys_dir, args.passphrase, fast_load=True))
+    for i, private_key in enumerate(args.import_keys):
+        acc_name = f"{ACC_NAME_PREFIX}IMPORTED_PRIVATE_{i}"
+        cli.remove_account(acc_name)
+        cli.single_call(f"hmy keys import-private-key {private_key} {acc_name}")
+        tx_gen.account_balances[acc_name] = tx_gen.get_balances(acc_name)  # Manually update the tx_gen acc bal
+        ACC_NAMES_ADDED.append(acc_name)
     assert len(ACC_NAMES_ADDED) > 1, "Must load at least 2 keys and must match CLI's keystore format"
     tx_gen.write_all_logs()
 
@@ -215,15 +224,6 @@ def create_simple_validators(validator_count):
         rate, max_rate = min(rates), max(rates)
         max_change_rate = round(random.uniform(0, max_rate - 1e-9), 18)
         max_total_delegation = random.randint(amount + 1, 10)  # +1 for delegation.
-        print(bls_key)
-        print(f"hmy --node={node} staking create-validator "
-                               f"--validator-addr {val_address} --name {val_name} "
-                               f"--identity test_account --website harmony.one "
-                               f"--security-contact Daniel-VDM --details none --rate {rate} --max-rate {max_rate} "
-                               f"--max-change-rate {max_change_rate} --min-self-delegation 1 "
-                               f"--max-total-delegation {max_total_delegation} "
-                               f"--amount {amount} --bls-pubkeys {bls_key['public-key']} "
-                               f"--chain-id {args.chain_id} --passphrase --timeout 0 ")
         proc = cli.expect_call(f"hmy --node={node} staking create-validator "
                                f"--validator-addr {val_address} --name {val_name} "
                                f"--identity test_account --website harmony.one "
@@ -746,7 +746,7 @@ def transactions_test():
     end_time = datetime.datetime.utcnow()
     tx_gen.remove_accounts(source_accounts)
     tx_gen.remove_accounts(sink_accounts)
-    time.sleep(60)
+    time.sleep(90)
     report = analysis.verify_transactions(tx_gen.Loggers.transaction.filename, start_time, end_time)
     if report["received-transaction-report"]["failed-transactions-total"] == 0:
         print(f"\n{Typgpy.OKGREEN}Passed{Typgpy.ENDC} {Typgpy.UNDERLINE}Transactions Test{Typgpy.ENDC}\n")
