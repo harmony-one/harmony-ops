@@ -91,7 +91,39 @@ let json = {
     ]
 }
 
+const resultSample = 
+{
+    "receipts": [
+        {
+            "txHash": "0x8da0bb84419030a118c510f0f8b2729842f4d00e01dd9e8a532e1513514151ee",
+            "from": "one1d0kw95t6kkljmkk9vu0zv25jraut8ngv5vrs5g",
+            "to": "one1d0kw95t6kkljmkk9vu0zv25jraut8ngv5vrs5g",
+            "shardID": 1,
+            "toShardID": 0,
+            "amount": 1
+        }
+    ],
+    "merkleProof": {
+        "blockNum": 151632,
+        "blockHash": "0xcdc4c2e55e0b945150c0325afbf436b9013b370b9fe829bd468a48fb08ddbdf8",
+        "shardID": 1,
+        "receiptHash": "0x8c6e20f05d6245e82d933b1870b110a8e5e793b39b5e7f30691b858295415f92",
+        "shardIDs": [
+            0
+        ],
+        "shardHashes": [
+            "0x965373de9dc075d85472c83b8e986c8ff8783f856795d9a24ca41c45bb7e98d7"
+        ]
+    }
+}
+
 exports.hmy_getPendingCxReceipts = (id) => {
+    // will send a response with a large number of responses to simulate
+    // too many pending cross shard transactions
     json.id = id;
+    size = 1;
+    while(size++ <= 1001){
+        json.result[size] = resultSample
+    }
     return JSON.stringify(json);
 }
