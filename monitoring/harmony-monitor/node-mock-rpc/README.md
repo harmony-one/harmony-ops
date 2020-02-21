@@ -1,5 +1,5 @@
 # Mock RPC server
-This is a small polka server running in node, for the purpose of unit testing Pagerduty
+This is a small polka server running in node, for the purpose of unit testing our watchdog. 
 
 ## Running the server
 ```bash
