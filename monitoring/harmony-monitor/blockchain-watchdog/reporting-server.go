@@ -8,9 +8,9 @@ import (
 	"net"
 	"net/http"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -245,8 +245,9 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		//Adds to template a function to retrieve github commit id from version
 		Funcs(template.FuncMap{
 			"getCommitId": func(version string) string {
-				r := regexp.MustCompile(`v.*g([\d\w]*)`)
-				return r.FindStringSubmatch(version)[1]
+				r := strings.Split(version, `-g`)
+				r = strings.Split(r[len(r)-1], "-")
+				return r[0]
 			},
 		}).
 		Parse(reportPage(m.chain))
