@@ -63,9 +63,9 @@ type Service struct {
 
 func (service *Service) compareIPInShardFileWithNodes() error {
 	requestBody, _ := json.Marshal(map[string]interface{}{
-		"jsonrpc": versionJSONRPC,
+		"jsonrpc": JSONVersion,
 		"id":      strconv.Itoa(queryID),
-		"method":  blockHeaderRPC,
+		"method":  BlockHeaderRPC,
 		"params":  []interface{}{},
 	})
 	type t struct {
@@ -75,7 +75,7 @@ func (service *Service) compareIPInShardFileWithNodes() error {
 		oops       error
 	}
 	type s struct {
-		Result headerInformation `json:"result"`
+		Result BlockHeaderReply `json:"result"`
 	}
 	type hooligans [][2]string
 	const unreachableShard = -1

@@ -303,8 +303,111 @@ hr:after {
         </tbody>
       </table>
     </section>
+		{{ end }}
+		{{ end }}
+
+		{{ with .SuperCommittee }}
+    {{ range .CurrentCommittee.Deciders}}
+		{{ with . }}
+    <section class="report-wrapper" id="current-committee">
+      <div class="summary-details">
+        <div class="flex-col">
+          <div class="flex-row">
+            <h3>
+              Shard {{ .ShardID }} Current Commitee <span><a href="#top-of-page">(Top)</a></span>
+           </h3>
+          </div>
+          <div class="flex-row">
+						<div class="flex-col">
+					  	<p> policy: {{ .PolicyType }} </p>
+            	<p> member count: {{ .MemberCount }} </p>
+						</div>
+						<div class="flex-col">
+            	<p> harmony voting power: {{ .HarmonyPower }} </p>
+            	<p> staked voting power: {{ .StakedPower }} </p>
+            	<p> total raw stake: {{ .TotalRawStake }} </p>
+          	</div>
+					</div>
+        </div>
+      </div>
+      <table class="sortable-theme-bootstrap report-table" data-sortable>
+        <thead>
+	  <tr>
+	    <th>BLSKey</th>
+	    <th>Is Harmony Node</th>
+	    <th>Voting Power</th>
+	    <th>Effective Stake</th>
+	  </tr>
+        </thead>
+        <tbody>
+          {{ range .Committee }}
+          {{ with . }}
+          <tr>
+            <td>{{.BLSKey}} </td>
+            <td>{{.IsHarmonyNode}} </td>
+            <td>{{.VotingPower}} </td>
+            <td>{{.EffectiveStake}} </td>
+          </tr>
+          {{end}}
+          {{end}}
+        </tbody>
+      </table>
+    </section>
+		{{end}}
     {{end}}
-    {{end}}
+		{{end}}
+
+		{{ with .SuperCommittee }}
+		{{ range .PreviousCommittee.Deciders}}
+		{{ with . }}
+		<section class="report-wrapper" id="previous-committee">
+			<div class="summary-details">
+				<div class="flex-col">
+					<div class="flex-row">
+						<h3>
+							Shard {{ .ShardID }} Previous Commitee <span><a href="#top-of-page">(Top)</a></span>
+					 </h3>
+					</div>
+					<div class="flex-row">
+						<div class="flex-col">
+							<p> policy: {{ .PolicyType }} </p>
+							<p> member count: {{ .MemberCount }} </p>
+						</div>
+						<div class="flex-col">
+							<p> harmony voting power: {{ .HarmonyPower }} </p>
+							<p> staked voting power: {{ .StakedPower }} </p>
+							<p> total raw stake: {{ .TotalRawStake }} </p>
+						</div>
+					</div>
+				</div>
+			</div>
+			<table class="sortable-theme-bootstrap report-table" data-sortable>
+				<thead>
+		<tr>
+			<th>BLSKey</th>
+			<th>Is Harmony Node</th>
+			<th>Voting Power</th>
+			<th>Effective Stake</th>
+		</tr>
+				</thead>
+				<tbody>
+					{{ range .Committee }}
+					{{ with . }}
+					<tr>
+						<td>{{.BLSKey}} </td>
+						<td>{{.IsHarmonyNode}} </td>
+						<td>{{.VotingPower}} </td>
+						<td>{{.EffectiveStake}} </td>
+					</tr>
+					{{end}}
+					{{end}}
+				</tbody>
+			</table>
+		</section>
+		{{end}}
+		{{end}}
+		{{end}}
+
     </main>
 <script>
 setInterval(() => window.location.reload(true),  1000 * 120);
