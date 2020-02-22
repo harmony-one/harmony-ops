@@ -68,7 +68,7 @@ type CommitteeInfo struct {
   Committee     []CommitteeMember `json:"committee-members"`
   HarmonyPower  string            `json:"hmy-voting-power"`
   StakedPower   string            `json:"staked-voting-power"`
-  TotalRawStake string            `json:"total-raw-stake"`
+  TotalRawStake string            `json:"total-raw-staked"`
 }
 
 type CommitteeMember struct {
