@@ -142,9 +142,9 @@ type summary map[string]map[string]interface{}
 // WARN Be careful, usage of interface{} can make things explode in the goroutine with bad cast
 func summaryMaps(metas []NodeMetadata, headers []BlockHeader) summary {
 	sum := summary{metaSumry: map[string]interface{}{},
-		headerSumry: map[string]interface{}{},
-		chainSumry: map[string]interface{}{},
-		committeeSumry: map [string]interface{}{},
+		headerSumry:    map[string]interface{}{},
+		chainSumry:     map[string]interface{}{},
+		committeeSumry: map[string]interface{}{},
 	}
 	for i, n := range headers {
 		if s := n.Payload.LastCommitSig; len(s) > 0 {
@@ -241,11 +241,11 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:        []interface{}{report.Chain},
-		RightTitle:       []interface{}{report.Build, time.Now().Format(time.RFC3339)},
-		Summary:          report.Summary,
-		SuperCommittee:   m.SuperCommittee,
-		NoReply:          report.NoReplies,
+		LeftTitle:      []interface{}{report.Chain},
+		RightTitle:     []interface{}{report.Build, time.Now().Format(time.RFC3339)},
+		Summary:        report.Summary,
+		SuperCommittee: m.SuperCommittee,
+		NoReply:        report.NoReplies,
 		DownMachineCount: linq.From(report.NoReplies).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
@@ -358,6 +358,7 @@ type noReply struct {
 	IP            string
 	FailureReason string
 	RPCPayload    string
+	ShardID       int
 }
 
 type MetadataContainer struct {
@@ -411,7 +412,9 @@ func (m *monitor) worker(
 	}
 }
 
-func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
+func (m *monitor) consensusMonitor(
+	interval uint64, poolSize int, pdServiceKey, chain string, shardMap map[string]int, nodeList []string,
+) {
 	jobs := make(chan work, len(nodeList))
 	replyChannels := make(map[string](chan reply))
 	syncGroups := make(map[string]*sync.WaitGroup)
@@ -458,7 +461,7 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 		for d := range replyChannels[BlockHeaderRPC] {
 			if d.oops != nil {
 				monitorData.Down = append(m.WorkingBlockHeader.Down,
-					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+					noReply{d.address, d.oops.Error(), string(d.rpcPayload), shardMap[d.address]})
 			} else {
 				oneReport := s{}
 				json.Unmarshal(d.rpcResult, &oneReport)
@@ -547,7 +550,7 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 	}
 
 	type r struct {
-		Result NodeMetadataReply`json:"result"`
+		Result NodeMetadataReply `json:"result"`
 	}
 
 	type a struct {
@@ -647,7 +650,7 @@ func (m *monitor) stakingCommitteeUpdate(beaconChainNode string) {
 
 	committeeRequestFields["id"] = "0"
 	requestBody, _ := json.Marshal(committeeRequestFields)
-	result, _, oops := request("http://" + beaconChainNode, requestBody)
+	result, _, oops := request("http://"+beaconChainNode, requestBody)
 
 	type s struct {
 		Result SuperCommitteeReply `json:"result"`
@@ -667,7 +670,7 @@ func (m *monitor) stakingCommitteeUpdate(beaconChainNode string) {
 
 func (m *monitor) manager(
 	jobs chan work, interval int, nodeList []string,
-	rpc string, group *sync.WaitGroup,
+	shardMap map[string]int, rpc string, group *sync.WaitGroup,
 	channels map[string](chan reply),
 ) {
 	requestFields := map[string]interface{}{
@@ -706,7 +709,7 @@ func (m *monitor) manager(
 				}
 				if d.oops != nil {
 					m.WorkingMetadata.Down = append(m.WorkingMetadata.Down,
-						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload), shardMap[d.address]})
 				} else {
 					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
 				}
@@ -723,7 +726,7 @@ func (m *monitor) manager(
 				}
 				if d.oops != nil {
 					m.WorkingBlockHeader.Down = append(m.WorkingBlockHeader.Down,
-						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload), shardMap[d.address]})
 				} else {
 					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
 				}
@@ -751,8 +754,12 @@ func (m *monitor) update(
 	params watchParams, superCommittee map[int]committee, rpcs []string,
 ) {
 	nodeList := []string{}
-	for _, v := range superCommittee {
+	shardMap := map[string]int{}
+	for k, v := range superCommittee {
 		nodeList = append(nodeList, v.members...)
+		for _, member := range v.members {
+			shardMap[member] = k
+		}
 	}
 
 	jobs := make(chan work, len(nodeList))
@@ -779,12 +786,12 @@ func (m *monitor) update(
 		case NodeMetadataRPC:
 			go m.manager(
 				jobs, params.InspectSchedule.NodeMetadata, nodeList,
-				rpc, syncGroups[rpc], replyChannels,
+				shardMap, rpc, syncGroups[rpc], replyChannels,
 			)
 		case BlockHeaderRPC:
 			go m.manager(
-				jobs, params.InspectSchedule.BlockHeader, nodeList, rpc,
-				syncGroups[rpc], replyChannels,
+				jobs, params.InspectSchedule.BlockHeader, nodeList,
+				shardMap, rpc, syncGroups[rpc], replyChannels,
 			)
 			go m.stakingCommitteeUpdate(nodeList[0])
 			go m.consensusMonitor(
@@ -792,7 +799,7 @@ func (m *monitor) update(
 				params.Performance.WorkerPoolSize,
 				params.Auth.PagerDuty.EventServiceKey,
 				params.Network.TargetChain,
-				nodeList,
+				shardMap, nodeList,
 			)
 			go m.cxMonitor(
 				uint64(params.InspectSchedule.CxPending),
@@ -807,7 +814,7 @@ func (m *monitor) update(
 
 func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	type r struct {
-		Result NodeMetadataReply`json:"result"`
+		Result NodeMetadataReply `json:"result"`
 	}
 	type s struct {
 		Result BlockHeaderReply `json:"result"`
@@ -923,6 +930,6 @@ func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download-"+instrs.Network.TargetChain, m.produceCSV)
 	http.HandleFunc("/network-"+instrs.Network.TargetChain, m.networkSnapshotJSON)
-	http.HandleFunc("/status-" + instrs.Network.TargetChain, m.statusJSON)
+	http.HandleFunc("/status-"+instrs.Network.TargetChain, m.statusJSON)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
 }
