@@ -146,7 +146,12 @@ hr:after {
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
             <a href="#version-{{$key}}">Version-{{$key}}</a>
-            <p>Node Count:{{ len (index $value "records") }}</p>
+            <p>
+              Node Count:{{ len (index $value "records") }}
+              {{ with getCommitId $key }}
+                <a href="https://github.com/harmony-one/harmony/commit/{{.}}">commit</a>
+              {{end}}
+            <p>
           </div>
         {{end}}
         {{end}}
