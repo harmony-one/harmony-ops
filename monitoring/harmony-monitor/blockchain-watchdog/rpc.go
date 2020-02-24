@@ -2,7 +2,7 @@ package main
 
 // RPC definitions
 const (
-  NodeMetadataRPC = "hmy_getNodeMetadata"
+  NodeMetadataRPC    = "hmy_getNodeMetadata"
   BlockHeaderRPC     = "hmy_latestHeader"
   PendingCxRPC       = "hmy_getPendingCxReceipts"
   SuperCommitteeRPC  = "hmy_getSuperCommittees"

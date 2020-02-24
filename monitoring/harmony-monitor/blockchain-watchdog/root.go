@@ -45,7 +45,7 @@ var (
 	// Add services here that we might want to depend on, see all services on
 	// the machine with systemctl list-unit-files
 	dependencies    = []string{}
-	errSysIntrpt    = errors.New("daemon was interruped by system signal")
+	errSysIntrpt    = errors.New("daemon was interrupted by system signal")
 	errDaemonKilled = errors.New("daemon was killed")
 )
 
