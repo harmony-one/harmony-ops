@@ -870,8 +870,46 @@ func (m *monitor) networkSnapshot() networkReport {
 	return networkReport{buildVersion, m.chain, cnsProgressCpy, sum, totalNoReplyMachines}
 }
 
+type shardStatus struct {
+	ShardID        string `json:"shard-id"`
+	Consensus      bool   `json:"consensus-status"`
+	Block          uint64 `json:"current-block-number"`
+	BlockTimestamp string `json:"block-timestamp"`
+	Epoch          uint64 `json:"current-epoch"`
+	LeaderAddress  string `json:"leader-address"`
+}
+
+func (m *monitor) statusSnapshot() []shardStatus {
+	cnsProgressCpy := map[string]bool{}
+	m.inUse.Lock()
+	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
+	for key, value := range m.consensusProgress {
+		cnsProgressCpy[key] = value
+	}
+	m.inUse.Unlock()
+
+	status := []shardStatus{}
+
+	for i, shard := range sum[headerSumry] {
+		sample := shard.(any)["latest-block"].(BlockHeader)
+		status = append(status, shardStatus{
+			i,
+			cnsProgressCpy[i],
+			shard.(any)[blockMax].(uint64),
+			sample.Payload.Timestamp,
+			shard.(any)["epoch-max"].(uint64),
+			sample.Payload.Leader,
+		})
+	}
+	return status
+}
+
 func (m *monitor) networkSnapshotJSON(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(m.networkSnapshot())
+}
+
+func (m *monitor) statusJSON(w http.ResponseWriter, req *http.Request) {
+	json.NewEncoder(w).Encode(m.statusSnapshot())
 }
 
 func (m *monitor) startReportingHTTPServer(instrs *instruction) {
@@ -885,5 +923,6 @@ func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download-"+instrs.Network.TargetChain, m.produceCSV)
 	http.HandleFunc("/network-"+instrs.Network.TargetChain, m.networkSnapshotJSON)
+	http.HandleFunc("/status-" + instrs.Network.TargetChain, m.statusJSON)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
 }
