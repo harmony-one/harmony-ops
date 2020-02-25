@@ -5,7 +5,7 @@ from flask import render_template
 from status import app
 
 watchdog = 'http://watchdog.hmny.io/status-%s'
-network_list = [('Mainnet', 'mainnet'),('LRTN', 'testnet'), ('OSTN', 'staking')]
+network_list = [('Mainnet', 'mainnet'),('Long Running Testnet', 'testnet'), ('Open Staking Testnet', 'staking')]
 
 @app.route('/status')
 def status():
