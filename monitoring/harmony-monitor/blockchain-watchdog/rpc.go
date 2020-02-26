@@ -72,6 +72,7 @@ type CommitteeInfo struct {
 }
 
 type CommitteeMember struct {
+  Address        string `json:"earning-account"`
   IsHarmonyNode  bool   `json:"is-harmony-slot"`
   BLSKey         string `json:"bls-public-key"`
   VotingPower    string `json:"voting-power-%"`
