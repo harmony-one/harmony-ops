@@ -4,12 +4,10 @@
 # python3 -u mini_explorer.py [params] 2&>1 | tee out.log
 
 import argparse
-import json, os
-import datetime, time
+import json, os, sys
 import requests
+import time
 from collections import defaultdict
-
-endpoint = "https://api.s%d.%s.hmny.io/"
 
 def latestBlock() -> dict:
     return {"id": "1", "jsonrpc": "2.0",
@@ -41,18 +39,24 @@ def request(endpoint, request, output = False) -> str:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--shards', default = 2, type = int, help = 'Number of shards')
-    parser.add_argument('--network', default = 't', help = 'Short network name, for endpoints')
+    parser.add_argument('--endpoints', required = True, help = 'Endpoints to query from, sorted by shard & seperated by commas')
     parser.add_argument('--sleep', default = 8, type = int, help = 'Sleep timer')
 
     args = parser.parse_args()
 
+    endpoint = [x.strip() for x in args.endpoints.strip().split(',')]
+
+    if args.shards != len(endpoint):
+        print("Number of shards must be equal the number of provided endpoints.")
+        sys.exit(-1)
+
     try:
         while True:
             for x in range(args.shards):
-                result = request(endpoint % (x, args.network), json.dumps(latestBlock()))
+                result = request(endpoint[x], json.dumps(latestBlock()))
                 if result != None:
                     hash = result["result"]["blockHash"]
-                    next = request(endpoint % (x, args.network), json.dumps(blockByHash(hash)))
+                    next = request(endpoint[x], json.dumps(blockByHash(hash)))
                     if next != None:
                         sx = defaultdict(int)
                         sx["total"] = len(next["result"]["stakingTransactions"])
@@ -64,6 +68,7 @@ if __name__ == '__main__':
                                         "block": result["result"]["blockNumber"],
                                         "epoch": result["result"]["epoch"],
                                         "gas": int(next["result"]["gasUsed"], 0),
+                                        "maxGas": int(next["result"]["gasLimit"], 0),
                                         "size": int(next["result"]["size"], 0),
                                         "transactions": len(next["result"]["transactions"]),
                                         "staking": sx})
