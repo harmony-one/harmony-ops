@@ -188,7 +188,7 @@ def fund_account(from_account_name, to_account_name, amount):
     to_address = cli.get_address(to_account_name)
     proc = cli.expect_call(f"hmy --node={args.endpoints[0]} transfer --from {from_address} --to {to_address} "
                            f"--from-shard 0 --to-shard 0 --amount {amount} --chain-id {args.chain_id} "
-                           f"--timeout 60 --passphrase ", timeout=60)
+                           f"--timeout 60 --passphrase", timeout=60)
     process_passphrase(proc, args.passphrase)
     response = json_load(proc.read().decode())
     if args.debug:
@@ -231,7 +231,7 @@ def create_simple_validators(validator_count):
                                f"--max-change-rate {max_change_rate} --min-self-delegation 1 "
                                f"--max-total-delegation {max_total_delegation} "
                                f"--amount {amount} --bls-pubkeys {bls_key['public-key']} "
-                               f"--chain-id {args.chain_id} --passphrase --timeout 0 ")
+                               f"--chain-id {args.chain_id} --passphrase --timeout 0")
         pub_key_str = bls_key["public-key"].replace("0x", "")
         proc.expect(f"For bls public key: {pub_key_str}\r\n")
         proc.expect("Enter the absolute path to the encrypted bls private key file:\r\n")
@@ -273,7 +273,7 @@ def check_validators(validator_data):
     all_val = json_load(cli.single_call(f"hmy --node={node} blockchain validator all"))
     assert all_val["result"] is not None
     print(f"{Typgpy.OKGREEN}Current validators:{Typgpy.ENDC}\n{json.dumps(all_val, indent=4)}\n")
-    all_active_val = json_load(cli.single_call(f"hmy --node={node} blockchain validator all-active"))
+    all_active_val = json_load(cli.single_call(f"hmy --node={node} blockchain validator elected"))
     assert all_active_val["result"] is not None
     print(f"{Typgpy.OKGREEN}Current ACTIVE validators:{Typgpy.ENDC}\n{json.dumps(all_active_val, indent=4)}")
 
@@ -341,17 +341,17 @@ def edit_validators(validator_data):
                                f"--identity test_account --website harmony.one --details none "
                                f"--name {ref_data['keystore_name']} "
                                f"--max-total-delegation {max_total_delegation} "
-                               f"--min-self-delegation 1 --rate {ref_data['rate']} --security-contact Leo  "
+                               f"--min-self-delegation 1 --rate {ref_data['rate']} --security-contact Leo "
                                f"--website harmony.one --node={node} "
-                               f"--remove-bls-key {old_bls_key}  --add-bls-key {bls_key['public-key']} "
-                               f"--chain-id={args.chain_id} --passphrase --timeout 0 ")
+                               f"--remove-bls-key {old_bls_key} --add-bls-key {bls_key['public-key']} "
+                               f"--chain-id={args.chain_id} --passphrase --timeout 0")
         proc.expect("Enter the absolute path to the encrypted bls private key file:\r\n")
         proc.sendline(bls_key["encrypted-private-key-path"])
         proc.expect("Enter the bls passphrase:\r\n")
         proc.sendline("")  # Use default CLI passphrase
         process_passphrase(proc, args.passphrase)
-        curr_epoch = get_current_epoch(node)
         proc.expect(pexpect.EOF)
+        curr_epoch = get_current_epoch(node)
         txn = json_load(proc.before.decode())
         assert "transaction-receipt" in txn.keys()
         assert txn["transaction-receipt"] is not None
@@ -451,7 +451,7 @@ def undelegate(validator_data, delegator_data):
             undelegation_epochs[(d_address, v_address)] = get_current_epoch(node)
             proc = cli.expect_call(f"hmy staking undelegate --validator-addr {v_address} "
                                    f"--delegator-addr {d_address} --amount {amount} "
-                                   f"--node={node} --chain-id={args.chain_id} --passphrase --timeout 0 ")
+                                   f"--node={node} --chain-id={args.chain_id} --passphrase --timeout 0")
             process_passphrase(proc, args.passphrase)
             txn = json_load(proc.read().decode())
             assert "transaction-receipt" in txn.keys()
@@ -511,7 +511,7 @@ def collect_rewards(data):
     node = args.endpoints[0]
     for address, _ in data.items():
         staking_command = f"hmy staking collect-rewards --delegator-addr {address} " \
-                          f"--node={node} --chain-id={args.chain_id} --passphrase --timeout 0 "
+                          f"--node={node} --chain-id={args.chain_id} --passphrase --timeout 0"
         print(staking_command)
         proc = cli.expect_call(staking_command)
         process_passphrase(proc, args.passphrase)
@@ -553,7 +553,7 @@ def create_single_validator_many_keys(bls_keys_count):
                            f"--max-change-rate {max_change_rate} --min-self-delegation 1 "
                            f"--max-total-delegation {max_total_delegation} "
                            f"--amount {amount} --bls-pubkeys {bls_key_string} "
-                           f"--chain-id {args.chain_id} --passphrase --timeout 0 ")
+                           f"--chain-id {args.chain_id} --passphrase --timeout 0")
     for key in bls_keys:
         pub_key_str = key["public-key"].replace("0x", "")
         proc.expect(f"For bls public key: {pub_key_str}\r\n")
@@ -562,8 +562,8 @@ def create_single_validator_many_keys(bls_keys_count):
         proc.expect("Enter the bls passphrase:\r\n")
         proc.sendline("")  # Use default CLI passphrase
     process_passphrase(proc, args.passphrase)
-    curr_epoch = get_current_epoch(node)
     proc.expect(pexpect.EOF)
+    curr_epoch = get_current_epoch(node)
     txn = json_load(proc.before.decode())
     assert "transaction-receipt" in txn.keys()
     assert txn["transaction-receipt"] is not None
@@ -654,8 +654,6 @@ def staking_integration_test():
     time.sleep(args.txn_delay)
 
     local_return_values.append(check_delegators(test_delegators_data))
-
-    # TODO: fix everything below this, break here....
     local_return_values.append(edit_validators(test_validators_data))
 
     print(f"{Typgpy.OKBLUE}Sleeping {args.txn_delay} seconds for finality...{Typgpy.ENDC}")
