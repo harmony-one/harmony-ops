@@ -112,6 +112,7 @@ hr:after {
       </div>
       <hr/>
       <div class="build-stat flex-both">
+        {{$root := .}}
         {{ with (index .Summary "chain-config") }}
         {{range $key, $value := .}}
           <div class="flex-col center stat-box">
@@ -124,6 +125,12 @@ hr:after {
             <p><span>S3 Epoch:</span><span>{{index $value "s3-epoch"}}</span></p>
             <p><span>Pre-Staking Epoch:</span><span>{{index $value "pre-staking-epoch"}}</span></p>
             <p><span>Staking Epoch:</span><span>{{index $value "staking-epoch"}}</span></p>
+            {{ if $root.SuperCommittee.CurrentCommittee.Deciders }}
+              <a href="#current-committee-{{$key}}">Current Committee</a>
+            {{end}}
+            {{ if $root.SuperCommittee.PreviousCommittee.Deciders }}
+              <a href="#previous-committee-{{$key}}">Previous Committee</a>
+            {{end}}
           </div>
         {{end}}
         {{end}}
@@ -314,7 +321,7 @@ hr:after {
 		{{ with .SuperCommittee }}
     {{ range .CurrentCommittee.Deciders}}
 		{{ with . }}
-    <section class="report-wrapper" id="current-committee">
+    <section class="report-wrapper" id="current-committee-{{ .ShardID }}">
       <div class="summary-details">
         <div class="flex-col">
           <div class="flex-row">
@@ -367,7 +374,7 @@ hr:after {
 		{{ with .SuperCommittee }}
 		{{ range .PreviousCommittee.Deciders}}
 		{{ with . }}
-		<section class="report-wrapper" id="previous-committee">
+		<section class="report-wrapper" id="previous-committee-{{ .ShardID }}">
 			<div class="summary-details">
 				<div class="flex-col">
 					<div class="flex-row">
