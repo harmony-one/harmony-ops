@@ -188,6 +188,7 @@ hr:after {
         <thead>
           <tr>
             <th>IP</th>
+            <th>Intended ShardID</th>
             <th>RPC Payload</th>
             <th>Failure Reason</th>
           </tr>
@@ -196,6 +197,7 @@ hr:after {
         {{range .NoReply}}
           <tr>
             <td>{{.IP}}</td>
+            <td>{{.ShardID}}</td>
             <td>{{.RPCPayload}}</td>
             <td>{{.FailureReason}}</td>
           </tr>

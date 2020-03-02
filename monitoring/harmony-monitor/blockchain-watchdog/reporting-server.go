@@ -142,9 +142,9 @@ type summary map[string]map[string]interface{}
 // WARN Be careful, usage of interface{} can make things explode in the goroutine with bad cast
 func summaryMaps(metas []NodeMetadata, headers []BlockHeader) summary {
 	sum := summary{metaSumry: map[string]interface{}{},
-		headerSumry: map[string]interface{}{},
-		chainSumry: map[string]interface{}{},
-		committeeSumry: map [string]interface{}{},
+		headerSumry:    map[string]interface{}{},
+		chainSumry:     map[string]interface{}{},
+		committeeSumry: map[string]interface{}{},
 	}
 	for i, n := range headers {
 		if s := n.Payload.LastCommitSig; len(s) > 0 {
@@ -241,11 +241,11 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:        []interface{}{report.Chain},
-		RightTitle:       []interface{}{report.Build, time.Now().Format(time.RFC3339)},
-		Summary:          report.Summary,
-		SuperCommittee:   m.SuperCommittee,
-		NoReply:          report.NoReplies,
+		LeftTitle:      []interface{}{report.Chain},
+		RightTitle:     []interface{}{report.Build, time.Now().Format(time.RFC3339)},
+		Summary:        report.Summary,
+		SuperCommittee: m.SuperCommittee,
+		NoReply:        report.NoReplies,
 		DownMachineCount: linq.From(report.NoReplies).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
@@ -358,6 +358,7 @@ type noReply struct {
 	IP            string
 	FailureReason string
 	RPCPayload    string
+	ShardID       int
 }
 
 type MetadataContainer struct {
@@ -399,6 +400,17 @@ type reply struct {
 	oops       error
 }
 
+func getBeaconChainNode(shardMap map[string]int) string {
+	var beaconChainNode string
+	for k, v := range shardMap {
+		if v == 0 {
+			beaconChainNode = k
+			break
+		}
+	}
+	return beaconChainNode
+}
+
 func (m *monitor) worker(
 	jobs chan work, channels map[string](chan reply), groups map[string]*sync.WaitGroup,
 ) {
@@ -411,12 +423,14 @@ func (m *monitor) worker(
 	}
 }
 
-func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
-	jobs := make(chan work, len(nodeList))
+func (m *monitor) consensusMonitor(
+	interval uint64, poolSize int, pdServiceKey, chain string, shardMap map[string]int,
+) {
+	jobs := make(chan work, len(shardMap))
 	replyChannels := make(map[string](chan reply))
 	syncGroups := make(map[string]*sync.WaitGroup)
 
-	replyChannels[BlockHeaderRPC] = make(chan reply, len(nodeList))
+	replyChannels[BlockHeaderRPC] = make(chan reply, len(shardMap))
 	var bhGroup sync.WaitGroup
 	syncGroups[BlockHeaderRPC] = &bhGroup
 
@@ -444,10 +458,10 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 
 	for now := range time.Tick(time.Duration(interval) * time.Second) {
 		queryID := 0
-		for n := range nodeList {
+		for n := range shardMap {
 			requestFields["id"] = strconv.Itoa(queryID)
 			requestBody, _ := json.Marshal(requestFields)
-			jobs <- work{nodeList[n], BlockHeaderRPC, requestBody}
+			jobs <- work{n, BlockHeaderRPC, requestBody}
 			queryID++
 			syncGroups[BlockHeaderRPC].Add(1)
 		}
@@ -458,7 +472,7 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 		for d := range replyChannels[BlockHeaderRPC] {
 			if d.oops != nil {
 				monitorData.Down = append(m.WorkingBlockHeader.Down,
-					noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+					noReply{d.address, d.oops.Error(), string(d.rpcPayload), shardMap[d.address]})
 			} else {
 				oneReport := s{}
 				json.Unmarshal(d.rpcResult, &oneReport)
@@ -511,11 +525,11 @@ func (m *monitor) consensusMonitor(interval uint64, poolSize int, pdServiceKey, 
 		m.inUse.Lock()
 		m.consensusProgress = consensusStatus
 		m.inUse.Unlock()
-		replyChannels[BlockHeaderRPC] = make(chan reply, len(nodeList))
+		replyChannels[BlockHeaderRPC] = make(chan reply, len(shardMap))
 	}
 }
 
-func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain string, nodeList []string) {
+func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain string, shardMap map[string]int) {
 	cxRequestFields := map[string]interface{}{
 		"jsonrpc": JSONVersion,
 		"method":  PendingCxRPC,
@@ -527,11 +541,11 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 		"params":  []interface{}{},
 	}
 
-	jobs := make(chan work, len(nodeList))
+	jobs := make(chan work, len(shardMap))
 	replyChannels := make(map[string](chan reply))
 	syncGroups := make(map[string]*sync.WaitGroup)
 	for _, rpc := range []string{NodeMetadataRPC, PendingCxRPC} {
-		replyChannels[rpc] = make(chan reply, len(nodeList))
+		replyChannels[rpc] = make(chan reply, len(shardMap))
 		switch rpc {
 		case NodeMetadataRPC:
 			var mGroup sync.WaitGroup
@@ -547,7 +561,7 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 	}
 
 	type r struct {
-		Result NodeMetadataReply`json:"result"`
+		Result NodeMetadataReply `json:"result"`
 	}
 
 	type a struct {
@@ -557,10 +571,10 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 	for range time.Tick(time.Duration(interval) * time.Second) {
 		queryID := 0
 		// Send requests to find potential shard leaders
-		for n := range nodeList {
+		for n := range shardMap {
 			nodeRequestFields["id"] = strconv.Itoa(queryID)
 			requestBody, _ := json.Marshal(nodeRequestFields)
-			jobs <- work{nodeList[n], NodeMetadataRPC, requestBody}
+			jobs <- work{n, NodeMetadataRPC, requestBody}
 			queryID++
 			syncGroups[NodeMetadataRPC].Add(1)
 		}
@@ -633,8 +647,8 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 		stdlog.Print(leaders)
 		stdlog.Print(cxPoolSize)
 
-		replyChannels[NodeMetadataRPC] = make(chan reply, len(nodeList))
-		replyChannels[PendingCxRPC] = make(chan reply, len(nodeList))
+		replyChannels[NodeMetadataRPC] = make(chan reply, len(shardMap))
+		replyChannels[PendingCxRPC] = make(chan reply, len(shardMap))
 	}
 }
 
@@ -647,7 +661,7 @@ func (m *monitor) stakingCommitteeUpdate(beaconChainNode string) {
 
 	committeeRequestFields["id"] = "0"
 	requestBody, _ := json.Marshal(committeeRequestFields)
-	result, _, oops := request("http://" + beaconChainNode, requestBody)
+	result, _, oops := request("http://"+beaconChainNode, requestBody)
 
 	type s struct {
 		Result SuperCommitteeReply `json:"result"`
@@ -666,7 +680,7 @@ func (m *monitor) stakingCommitteeUpdate(beaconChainNode string) {
 }
 
 func (m *monitor) manager(
-	jobs chan work, interval int, nodeList []string,
+	jobs chan work, interval int, shardMap map[string]int,
 	rpc string, group *sync.WaitGroup,
 	channels map[string](chan reply),
 ) {
@@ -679,10 +693,10 @@ func (m *monitor) manager(
 	prevEpoch := uint64(0)
 	for now := range time.Tick(time.Duration(interval) * time.Second) {
 		queryID := 0
-		for n := range nodeList {
+		for n := range shardMap {
 			requestFields["id"] = strconv.Itoa(queryID)
 			requestBody, _ := json.Marshal(requestFields)
-			jobs <- work{nodeList[n], rpc, requestBody}
+			jobs <- work{n, rpc, requestBody}
 			queryID++
 			group.Add(1)
 		}
@@ -706,7 +720,7 @@ func (m *monitor) manager(
 				}
 				if d.oops != nil {
 					m.WorkingMetadata.Down = append(m.WorkingMetadata.Down,
-						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload), shardMap[d.address]})
 				} else {
 					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
 				}
@@ -723,7 +737,7 @@ func (m *monitor) manager(
 				}
 				if d.oops != nil {
 					m.WorkingBlockHeader.Down = append(m.WorkingBlockHeader.Down,
-						noReply{d.address, d.oops.Error(), string(d.rpcPayload)})
+						noReply{d.address, d.oops.Error(), string(d.rpcPayload), shardMap[d.address]})
 				} else {
 					m.bytesToNodeMetadata(d.rpc, d.address, d.rpcResult)
 				}
@@ -734,7 +748,7 @@ func (m *monitor) manager(
 					if n.Payload.ShardID == 0 {
 						if n.Payload.Epoch > prevEpoch {
 							prevEpoch = n.Payload.Epoch
-							go m.stakingCommitteeUpdate(nodeList[0])
+							go m.stakingCommitteeUpdate(getBeaconChainNode(shardMap))
 						}
 						break
 					}
@@ -743,23 +757,25 @@ func (m *monitor) manager(
 			m.blockHeaderCopy(m.WorkingBlockHeader)
 			m.inUse.Unlock()
 		}
-		channels[rpc] = make(chan reply, len(nodeList))
+		channels[rpc] = make(chan reply, len(shardMap))
 	}
 }
 
 func (m *monitor) update(
 	params watchParams, superCommittee map[int]committee, rpcs []string,
 ) {
-	nodeList := []string{}
-	for _, v := range superCommittee {
-		nodeList = append(nodeList, v.members...)
+	shardMap := map[string]int{}
+	for k, v := range superCommittee {
+		for _, member := range v.members {
+			shardMap[member] = k
+		}
 	}
 
-	jobs := make(chan work, len(nodeList))
+	jobs := make(chan work, len(shardMap))
 	replyChannels := make(map[string](chan reply))
 	syncGroups := make(map[string]*sync.WaitGroup)
 	for _, rpc := range rpcs {
-		replyChannels[rpc] = make(chan reply, len(nodeList))
+		replyChannels[rpc] = make(chan reply, len(shardMap))
 		switch rpc {
 		case NodeMetadataRPC:
 			var mGroup sync.WaitGroup
@@ -778,28 +794,28 @@ func (m *monitor) update(
 		switch rpc {
 		case NodeMetadataRPC:
 			go m.manager(
-				jobs, params.InspectSchedule.NodeMetadata, nodeList,
-				rpc, syncGroups[rpc], replyChannels,
+				jobs, params.InspectSchedule.NodeMetadata,
+				shardMap, rpc, syncGroups[rpc], replyChannels,
 			)
 		case BlockHeaderRPC:
 			go m.manager(
-				jobs, params.InspectSchedule.BlockHeader, nodeList, rpc,
-				syncGroups[rpc], replyChannels,
+				jobs, params.InspectSchedule.BlockHeader,
+				shardMap, rpc, syncGroups[rpc], replyChannels,
 			)
-			go m.stakingCommitteeUpdate(nodeList[0])
+			go m.stakingCommitteeUpdate(getBeaconChainNode(shardMap))
 			go m.consensusMonitor(
 				uint64(params.ShardHealthReporting.Consensus.Warning),
 				params.Performance.WorkerPoolSize,
 				params.Auth.PagerDuty.EventServiceKey,
 				params.Network.TargetChain,
-				nodeList,
+				shardMap,
 			)
 			go m.cxMonitor(
 				uint64(params.InspectSchedule.CxPending),
 				params.Performance.WorkerPoolSize,
 				params.Auth.PagerDuty.EventServiceKey,
 				params.Network.TargetChain,
-				nodeList,
+				shardMap,
 			)
 		}
 	}
@@ -807,7 +823,7 @@ func (m *monitor) update(
 
 func (m *monitor) bytesToNodeMetadata(rpc, addr string, payload []byte) {
 	type r struct {
-		Result NodeMetadataReply`json:"result"`
+		Result NodeMetadataReply `json:"result"`
 	}
 	type s struct {
 		Result BlockHeaderReply `json:"result"`
@@ -923,6 +939,6 @@ func (m *monitor) startReportingHTTPServer(instrs *instruction) {
 	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download-"+instrs.Network.TargetChain, m.produceCSV)
 	http.HandleFunc("/network-"+instrs.Network.TargetChain, m.networkSnapshotJSON)
-	http.HandleFunc("/status-" + instrs.Network.TargetChain, m.statusJSON)
+	http.HandleFunc("/status-"+instrs.Network.TargetChain, m.statusJSON)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
 }
