@@ -7,6 +7,7 @@ import argparse
 import json, os, sys
 import requests
 import time
+from threading import Thread
 from collections import defaultdict
 
 def latestBlock() -> dict:
@@ -38,41 +39,57 @@ def request(endpoint, request, output = False) -> str:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--shards', default = 2, type = int, help = 'Number of shards')
-    parser.add_argument('--endpoints', required = True, help = 'Endpoints to query from, sorted by shard & seperated by commas')
+    parser.add_argument('--endpoints', help = 'Endpoints to query from, sorted by shard & seperated by commas')
+    parser.add_argument('--endpoint-file', dest = 'endpoint_file', help = 'List of endpoints, seperated by new lines')
+    parser.add_argument('--no-staking', action = 'store_true', dest = 'no_staking', help = 'Disable check for staking transactions')
     parser.add_argument('--sleep', default = 8, type = int, help = 'Sleep timer')
 
     args = parser.parse_args()
 
-    endpoint = [x.strip() for x in args.endpoints.strip().split(',')]
-
-    if args.shards != len(endpoint):
-        print("Number of shards must be equal the number of provided endpoints.")
+    if not args.endpoints and not args.endpoint_file:
+        print('Either endpoint file or list of endpoints is required.')
         sys.exit(-1)
+
+    endpoint = []
+    if args.endpoints:
+        endpoint = [x.strip() for x in args.endpoints.strip().split(',')]
+    else:
+        try:
+            with open(args.endpoint_file, 'r') as f:
+                endpoint = [x.strip() for x in f]
+        except FileNotFoundError:
+            print('Given file not found: %s' % args.endpoint_file)
+            sys.exit(-1)
 
     try:
         while True:
-            for x in range(args.shards):
-                result = request(endpoint[x], json.dumps(latestBlock()))
+            def collect_data(shard):
+                result = request(endpoint[shard], json.dumps(latestBlock()))
                 if result != None:
                     hash = result["result"]["blockHash"]
-                    next = request(endpoint[x], json.dumps(blockByHash(hash)))
+                    next = request(endpoint[shard], json.dumps(blockByHash(hash)))
                     if next != None:
                         sx = defaultdict(int)
-                        sx["total"] = len(next["result"]["stakingTransactions"])
-                        for t in next["result"]["stakingTransactions"]:
-                            sx[t["type"]] += 1
-                        t = json.dumps({"shard": x,
-                                        "leader": result["result"]["leader"],
-                                        "timestamp": result["result"]["timestamp"],
-                                        "block": result["result"]["blockNumber"],
-                                        "epoch": result["result"]["epoch"],
-                                        "gas": int(next["result"]["gasUsed"], 0),
-                                        "maxGas": int(next["result"]["gasLimit"], 0),
-                                        "size": int(next["result"]["size"], 0),
-                                        "transactions": len(next["result"]["transactions"]),
-                                        "staking": sx})
-                        print(t)
+                        if not args.no_staking:
+                            sx["total"] = len(next["result"]["stakingTransactions"])
+                            for t in next["result"]["stakingTransactions"]:
+                                sx[t["type"]] += 1
+                        t = {"shard": shard,
+                             "leader": result["result"]["leader"],
+                             "timestamp": result["result"]["timestamp"],
+                             "block": result["result"]["blockNumber"],
+                             "epoch": result["result"]["epoch"],
+                             "gas": int(next["result"]["gasUsed"], 0),
+                             "maxGas": int(next["result"]["gasLimit"], 0),
+                             "size": int(next["result"]["size"], 0),
+                             "transactions": len(next["result"]["transactions"]),
+                             "staking": sx}
+                        print(json.dumps(t))
+            threads = []
+            for x in range(len(endpoint)):
+                threads.append(Thread(target = collect_data, args = [x]))
+            for t in threads:
+                t.start()
             time.sleep(args.sleep)
     except KeyboardInterrupt:
         pass
