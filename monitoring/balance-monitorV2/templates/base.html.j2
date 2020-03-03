@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <meta
+    charset="utf-8"
+    content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0"
+    name="viewport"
+  />
+  <head>
+    <meta charset="utf-8">
+    <title>1H | Harmony</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0">
+    <link href="/static/apple-touch-icon-76x76.png" rel="apple-touch-icon" sizes="76x76">
+    <link href="/static/apple-touch-icon-120x120.png" rel="apple-touch-icon" sizes="120x120">
+    <link href="/static/apple-touch-icon-152x152.png" rel="apple-touch-icon" sizes="152x152">
+    <link href="/static/apple-touch-icon-180x180.png" rel="apple-touch-icon" sizes="180x180">
+    <link href="/static/apple-touch-icon-120x120.png" rel="icon" sizes="120x120">
+    <link href="/static/apple-touch-icon-180x180.png" rel="icon" sizes="180x180">
+    <meta property="og:title" content="Harmony - Open consensus for 10B">
+    <meta property="og:site_name" content="Harmony - Open consensus for 10B">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://harmony.one/">
+    <meta name="description" content="Open Consensus for 10 Billion People. Harmony for One and All. Our open infrastructure is a high-throughput, low-latency, and low-fee consensus platform designed to power decentralized economies of the future.">
+    <meta property="og:description" content="Open Consensus for 10 Billion People. Harmony for One and All. Our open infrastructure is a high-throughput, low-latency, and low-fee consensus platform designed to power decentralized economies of the future.">
+    <link rel="shortcut icon" href="/static/favicon.ico">
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="og:image" content="https://explorer.harmony.one/static/twitter-harmony.png" />
+
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css"
+      rel="stylesheet"
+      crossorigin="anonymous"
+    />
+
+    <link rel="stylesheet" type="text/css" href="styles.css">
+
+  </head>
+  <body>
+    <div class="explorer-page page">
+      <header class="navbar-fixed-top hmy-bg">
+        <div class="container">
+          <div class="navbar-header">
+            <div class="site-brand flex-horizontal">
+              <a class="navbar-brand" to="/"></a>
+              <span class="tagline">Open Consensus for 10B</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="explorer-body">
+        <div class="container">
+          <div class="explorer-card">
+            <header>
+              <h1>Status and statistics</h1>
+              <p>Last update: {{ time }}</p>
+            </header>
+
+
+            <div class="card">
+            {% for i in shards %}
+            <section>
+              <details>
+                <summary>Shard {{ i }}</summary>
+                <div>
+                  <table style = "width: 70%">
+                    <tr>
+                      <th>Address</th>
+                      <th>Earnings</th>
+                    </tr>
+                    {% for j in shards[i] %}
+                    <tr>
+                      <td>{{ j }}</td>
+                      <td>{{ shards[i][j] }}</td>
+                      {% endfor %}
+                    </tr>
+                  </table>
+                </div>
+              </details>
+            </section>
+            {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
