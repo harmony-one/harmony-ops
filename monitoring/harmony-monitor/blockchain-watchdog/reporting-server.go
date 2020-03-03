@@ -503,7 +503,7 @@ func (m *monitor) consensusMonitor(
 							currentBlockHeader.Payload.LastCommitBitmap,
 							int64(timeSinceLastSuccess.Seconds()), timeSinceLastSuccess.Minutes(),
 							chain, fmt.Sprintf(nameFMT, chain))
-						incidentKey := fmt.Sprintf("Shard %s consensus stuck!", shard)
+						incidentKey := fmt.Sprintf("Shard %s consensus stuck! - %s", shard, chain)
 						err := notify(pdServiceKey, incidentKey, chain, message)
 						if err != nil {
 							errlog.Print(err)
@@ -633,7 +633,7 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 				}
 				if report.Result > uint64(1000) {
 					message := fmt.Sprintf(cxPendingPoolWarning, shard, report.Result)
-					incidentKey := fmt.Sprintf("Shard %s cx transaction pool size > 1000!", shard)
+					incidentKey := fmt.Sprintf("Shard %s cx transaction pool size > 1000! - %s", shard, chain)
 					err := notify(pdServiceKey, incidentKey, chain, message)
 					if err != nil {
 						errlog.Print(err)
