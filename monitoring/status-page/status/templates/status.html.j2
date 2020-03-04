@@ -55,19 +55,19 @@
             </header>
 
 
-            <div class="card">
+            <div class="card flex-col">
             {% for net in data.keys() %}
-            <section>
+            <span style="width: 95%;margin-right: 0;">
               <details open>
                 <summary>{{ net }}</summary>
-                <div>
-                  <table style = "width: 95%">
+                <div class="flex-col">
+                  <table style = "width: 95%;">
                     <tr>
                       <th>Shard</th>
                       <th>Status</th>
-                      <th>Current Block</th>
-                      <th>Current Epoch</th>
-                      <th>Block Timestamp</th>
+                      <th>Block</th>
+                      <th>Epoch</th>
+                      <th>Timestamp</th>
                       <th>Leader</th>
                     </tr>
                     {% for value in data[net] %}
@@ -81,13 +81,15 @@
                       <td>{{ data[net][value]["current-block-number"] }}</td>
                       <td>{{ data[net][value]["current-epoch"] }}</td>
                       <td>{{ data[net][value]["block-timestamp"] }}</td>
-                      <td>{{ data[net][value]["leader-address"] }}</td>
+                      <td style="font-family:'Courier New', monospaced; font-weight: 550;">
+                        {{ data[net][value]["leader-address"] }}
+                      </td>
                       {% endfor %}
                     </tr>
                   </table>
                 </div>
               </details>
-            </section>
+            </span>
             {% endfor %}
             </div>
           </div>

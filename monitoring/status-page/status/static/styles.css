@@ -105,6 +105,11 @@ a {
 a:hover {
     text-decoration: underline;
 }
+.flex-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 .hmy-bg {
     background: linear-gradient(to right top, #00aee9, #4fe7c8);
 }
