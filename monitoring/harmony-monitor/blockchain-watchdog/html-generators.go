@@ -211,7 +211,7 @@ hr:after {
         </thead>
         <tbody>
         {{range .NoReply}}
-          <tr>
+          <tr style="background-color:#F0B4B4;">
             <td>{{.IP}}</td>
             <td>{{.ShardID}}</td>
             <td>{{.RPCPayload}}</td>
