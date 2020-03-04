@@ -25,6 +25,7 @@ func reportPage(chain string) string {
 * {margin:0;padding:0;}
 body {font-family: "Open Sans", sans-serif;}
 .report-wrapper {padding:17px;padding-bottom:30px;background-color:#344E4F;}
+.report-wrapper > label {color: #AFCAC5;}
 .report-table {width:100%%; table-layout:fixed;word-break:break-all;}
 .report-descr {display:flex; justify-content:space-between; padding-bottom: 15px;}
 .flex-col {display:flex;flex-direction:column;}
@@ -91,7 +92,22 @@ hr:after {
   justify-content: space-between;
   width: 100%%;
 }
-
+{{ with (index .Summary "block-header") }}
+{{range $key, $value := .}}
+#curr-hn-toggle-{{$key}}:checked ~ * .curr-harmony-node-{{$key}}-true {
+  display: table-row;
+}
+#curr-hn-toggle-{{$key}}:not(checked) ~ * .curr-harmony-node-{{$key}}-true {
+  display: none;
+}
+#prev-hn-toggle-{{$key}}:checked ~ * .prev-harmony-node-{{$key}}-true {
+  display: table-row;
+}
+#prev-hn-toggle-{{$key}}:not(checked) ~ * .prev-harmony-node-{{$key}}-true {
+  display: none;
+}
+{{end}}
+{{end}}
 </style>
   </head>
   <body>
@@ -322,8 +338,11 @@ hr:after {
 
 		{{ with .SuperCommittee }}
     {{ range .CurrentCommittee.Deciders}}
-		{{ with . }}
+    {{ with . }}
+    {{ $Decider := . }}
     <section class="report-wrapper" id="current-committee-{{ .ShardID }}">
+      <input type="checkbox" id="curr-hn-toggle-{{.ShardID}}">
+      <label for="curr-hn-toggle-{{.ShardID}}">show harmony nodes</label>
       <div class="summary-details">
         <div class="flex-col">
           <div class="flex-row">
@@ -334,7 +353,7 @@ hr:after {
           <div class="flex-row">
 						<div class="flex-col">
 					  	<p> policy: {{ .PolicyType }} </p>
-            	<p> member count: {{ .MemberCount }} </p>
+              <p> member count: {{ .MemberCount }} </p>
 						</div>
 						<div class="flex-col">
             	<p> harmony voting power: {{ .HarmonyPower }} </p>
@@ -357,7 +376,7 @@ hr:after {
         <tbody>
           {{ range .Committee }}
           {{ with . }}
-          <tr>
+					<tr class="curr-harmony-node-{{$Decider.ShardID}}-{{.IsHarmonyNode}}">
             <td>{{.Address}}</td>
             <td>{{.BLSKey}}</td>
             <td>{{.IsHarmonyNode}}</td>
@@ -376,7 +395,10 @@ hr:after {
 		{{ with .SuperCommittee }}
 		{{ range .PreviousCommittee.Deciders}}
 		{{ with . }}
+    {{ $Decider := . }}
 		<section class="report-wrapper" id="previous-committee-{{ .ShardID }}">
+      <input type="checkbox" id="prev-hn-toggle-{{.ShardID}}">
+      <label for="prev-hn-toggle-{{.ShardID}}">show harmony nodes</label>
 			<div class="summary-details">
 				<div class="flex-col">
 					<div class="flex-row">
@@ -387,7 +409,7 @@ hr:after {
 					<div class="flex-row">
 						<div class="flex-col">
 							<p> policy: {{ .PolicyType }} </p>
-							<p> member count: {{ .MemberCount }} </p>
+              <p> member count: {{ .MemberCount }} </p>
 						</div>
 						<div class="flex-col">
 							<p> harmony voting power: {{ .HarmonyPower }} </p>
@@ -409,7 +431,7 @@ hr:after {
 				<tbody>
 					{{ range .Committee }}
 					{{ with . }}
-					<tr>
+					<tr class="prev-harmony-node-{{$Decider.ShardID}}-{{.IsHarmonyNode}}">
 						<td>{{.BLSKey}} </td>
 						<td>{{.IsHarmonyNode}} </td>
 						<td>{{.VotingPower}} </td>
