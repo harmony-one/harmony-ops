@@ -1,0 +1,3 @@
+Mainnet,mainnet
+Long Running Testnet,testnet
+Open Staking Testnet,staking

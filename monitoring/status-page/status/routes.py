@@ -5,10 +5,13 @@ from flask import render_template
 from status import app
 
 watchdog = 'http://watchdog.hmny.io/status-%s'
-network_list = [('Mainnet', 'mainnet'),('Long Running Testnet', 'testnet'), ('Open Staking Testnet', 'staking')]
 
 @app.route('/status')
 def status():
+
+    with open('networks.txt', 'r') as f:
+        network_list = [x.strip().split(',') for x in f]
+
     statuses = {}
     for n in network_list:
         r = requests.get(watchdog % n[1], auth=('harmony', 'harmony.one'))
