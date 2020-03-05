@@ -302,10 +302,9 @@ def check_validators(validator_data):
             assert int(key, 16) in reference_keys
         assert ref_data["max_total_delegation"] * 1e18 - float(val_info["result"]["max-total-delegation"]) == 0
         assert ref_data["min_self_delegation"] * 1e18 - float(val_info["result"]["min-self-delegation"]) == 0
-        commission_rates = val_info["result"]["commission"]
-        assert ref_data["rate"] == float(commission_rates["rate"])
-        assert ref_data["max_rate"] == float(commission_rates["max-rate"])
-        assert ref_data["max_change_rate"] == float(commission_rates["max-change-rate"])
+        assert ref_data["rate"] == float(val_info["result"]["rate"])
+        assert ref_data["max_rate"] == float(val_info["result"]["max-rate"])
+        assert ref_data["max_change_rate"] == float(val_info["result"]["max-change-rate"])
         val_delegation = json_load(cli.single_call(f"hmy blockchain delegation by-validator {address} "
                                                    f"--node={node}"))
         print(f"{Typgpy.OKGREEN}Validator delegation:{Typgpy.ENDC}\n{json.dumps(val_delegation, indent=4)}")
