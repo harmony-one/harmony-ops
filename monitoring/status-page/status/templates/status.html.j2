@@ -53,13 +53,27 @@
             <header>
               <h1>Network Status</h1>
             </header>
-
+            <div style="padding-top: 4px; padding-left: 20px">
+              <p><font size="2">NOTE: If everything is offline, services are likely being restarted. Check back in 2 minutes.</font></p>
+            </div>
 
             <div class="card flex-col">
             {% for net in data.keys() %}
             <span style="width: 95%;margin-right: 0;">
               <details open>
                 <summary>{{ net }}</summary>
+                <div class="flex-col" style="padding-bottom: 4px">
+                  <div class="flex-row">
+                    <p>
+                    {% if data[net]['explorer-link'] %}
+                      <a href="{{ data[net]['explorer-link'] }}">Block Explorer</a>
+                    {% endif %}
+                    {% if data[net]['staking-link'] %}
+                      // <a href="{{ data[net]['staking-link'] }}">Staking Dashboard</a>
+                    {% endif %}
+                    </p>
+                  </div>
+                </div>
                 <div class="flex-col">
                   <table style = "width: 95%;">
                     <tr>
@@ -67,25 +81,27 @@
                       <th>Status</th>
                       <th>Block</th>
                       <th>Epoch</th>
-                      <th>Timestamp</th>
+                      <th>Timestamp (UTC)</th>
                       <th>Leader</th>
+                      <th>Endpoint</th>
                     </tr>
-                    {% for value in data[net] %}
+                    {% for value in data[net]['block'] %}
                     <tr>
-                      <td>{{ data[net][value]["shard-id"] }}</td>
-                      {% if data[net][value]["consensus-status"] %}
+                      <td>{{ data[net]['block'][value]['shard-id'] }}</td>
+                      {% if data[net]['block'][value]['consensus-status'] %}
                         <td><font color="green">Online</font></td>
                       {% else %}
                         <td><font color="red">Offline</font></td>
                       {% endif %}
-                      <td>{{ data[net][value]["current-block-number"] }}</td>
-                      <td>{{ data[net][value]["current-epoch"] }}</td>
-                      <td>{{ data[net][value]["block-timestamp"] }}</td>
+                      <td>{{ data[net]['block'][value]['current-block-number'] }}</td>
+                      <td>{{ data[net]['block'][value]['current-epoch'] }}</td>
+                      <td>{{ data[net]['block'][value]['block-timestamp'][:-10] }}</td>
                       <td style="font-family:'Courier New', monospaced; font-weight: 550;">
-                        {{ data[net][value]["leader-address"] }}
+                        {{ data[net]['block'][value]['leader-address'] }}
                       </td>
-                      {% endfor %}
+                      <td> {{ data[net]['block'][value]['endpoint'] }} </td>
                     </tr>
+                    {% endfor %}
                   </table>
                 </div>
               </details>

@@ -108,7 +108,10 @@ a:hover {
 .flex-col {
   display: flex;
   flex-direction: column;
-  align-items: center;
+}
+.flex-row {
+  display: flex;
+  justify-content: space-between;
 }
 .hmy-bg {
     background: linear-gradient(to right top, #00aee9, #4fe7c8);
