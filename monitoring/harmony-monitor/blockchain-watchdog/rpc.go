@@ -2,16 +2,16 @@ package main
 
 // RPC definitions
 const (
-  NodeMetadataRPC    = "hmy_getNodeMetadata"
-  BlockHeaderRPC     = "hmy_latestHeader"
-  PendingCxRPC       = "hmy_getPendingCxReceipts"
-  SuperCommitteeRPC  = "hmy_getSuperCommittees"
-  JSONVersion        = "2.0"
+	NodeMetadataRPC   = "hmy_getNodeMetadata"
+	BlockHeaderRPC    = "hmy_latestHeader"
+	PendingCxRPC      = "hmy_getPendingCxReceipts"
+	SuperCommitteeRPC = "hmy_getSuperCommittees"
+	JSONVersion       = "2.0"
 )
 
 // NodeMetadataReply
 type NodeMetadataReply struct {
-  BLSPublicKey   string `json:"blskey"`
+	BLSPublicKey   string `json:"blskey"`
 	Version        string `json:"version"`
 	NetworkType    string `json:"network"`
 	IsLeader       bool   `json:"is-leader"`
@@ -30,12 +30,12 @@ type NodeMetadataReply struct {
 }
 
 type NodeMetadata struct {
-  Payload NodeMetadataReply
-  IP      string
+	Payload NodeMetadataReply
+	IP      string
 }
 
 type BlockHeaderReply struct {
-  BlockHash        string `json:"blockHash"`
+	BlockHash        string `json:"blockHash"`
 	BlockNumber      uint64 `json:"blockNumber"`
 	ShardID          uint32 `json:"shardID"`
 	Leader           string `json:"leader"`
@@ -48,33 +48,34 @@ type BlockHeaderReply struct {
 }
 
 type BlockHeader struct {
-  Payload BlockHeaderReply
-  IP      string
+	Payload BlockHeaderReply
+	IP      string
 }
 
 type SuperCommitteeReply struct {
-  PreviousCommittee struct {
-    Deciders map[string]CommitteeInfo `json:"deciders"`
-  } `json:"previous"`
-  CurrentCommittee  struct {
-    Deciders map[string]CommitteeInfo `json:"deciders"`
-  } `json:"current"`
+	PreviousCommittee struct {
+		Deciders map[string]CommitteeInfo `json:"deciders"`
+	} `json:"previous"`
+	CurrentCommittee struct {
+		Deciders map[string]CommitteeInfo `json:"deciders"`
+	} `json:"current"`
 }
 
 type CommitteeInfo struct {
-  PolicyType    string            `json:"policy"`
-  ShardID       int               `json:"shard-id"`
-  MemberCount   int               `json:"count"`
-  Committee     []CommitteeMember `json:"committee-members"`
-  HarmonyPower  string            `json:"hmy-voting-power"`
-  StakedPower   string            `json:"staked-voting-power"`
-  TotalRawStake string            `json:"total-raw-staked"`
+	PolicyType    string            `json:"policy"`
+	ShardID       int               `json:"shard-id"`
+	MemberCount   int               `json:"count"`
+	Committee     []CommitteeMember `json:"committee-members"`
+	HarmonyPower  string            `json:"hmy-voting-power"`
+	StakedPower   string            `json:"staked-voting-power"`
+	TotalRawStake string            `json:"total-raw-staked"`
 }
 
 type CommitteeMember struct {
-  Address        string `json:"earning-account"`
-  IsHarmonyNode  bool   `json:"is-harmony-slot"`
-  BLSKey         string `json:"bls-public-key"`
-  VotingPower    string `json:"voting-power-%"`
-  EffectiveStake string `json:"effective-stake,omitempty"`
+	Address        string `json:"earning-account"`
+	IsHarmonyNode  bool   `json:"is-harmony-slot"`
+	BLSKey         string `json:"bls-public-key"`
+	RawPercent     string `json:"voting-power-unnormalized,omitempty"`
+	VotingPower    string `json:"voting-power-%"`
+	EffectiveStake string `json:"effective-stake,omitempty"`
 }
