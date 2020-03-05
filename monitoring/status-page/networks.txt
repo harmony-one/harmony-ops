@@ -1,0 +1,4 @@
+# Network Name, Watchdog Chain Name, Explorer Link, Staking Dashboard Link, Endpoint tag
+Mainnet, mainnet, https://explorer.harmony.one, , t
+Long Running Testnet, testnet, https://explorer.testnet.harmony.one, , lrtn
+Open Staking Testnet, staking, https://explorer.os.hmny.io, https://staking.harmony.one, os
