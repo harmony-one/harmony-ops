@@ -422,6 +422,7 @@ hr:after {
 			<table class="sortable-theme-bootstrap report-table" data-sortable>
 				<thead>
 		<tr>
+			<th>Address</th>
 			<th>BLSKey</th>
 			<th>Is Harmony Node</th>
 			<th>Voting Power</th>
@@ -432,6 +433,7 @@ hr:after {
 					{{ range .Committee }}
 					{{ with . }}
 					<tr class="prev-harmony-node-{{$Decider.ShardID}}-{{.IsHarmonyNode}}">
+						<td>{{.Address}} </td>
 						<td>{{.BLSKey}} </td>
 						<td>{{.IsHarmonyNode}} </td>
 						<td>{{.VotingPower}} </td>
