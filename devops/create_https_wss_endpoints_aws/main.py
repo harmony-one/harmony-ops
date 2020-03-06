@@ -440,11 +440,8 @@ def retrieve_instance_id(array_instance_ip):
 
 #### UPDATE TARGET GROUP ONLY ####
 def update_target_groups():
-    """  """
 
     # TO-DO: add support to mulitple regions
-    region='us-west-2'
-    elbv2_client = boto3.client('elbv2', region_name=region)
 
     """ 
     DEREGISTER any previous instances from the target group given the existing target groups
@@ -453,8 +450,11 @@ def update_target_groups():
     * 3/3 - deregister all instances `deregister_targets`
     """
 
-#    for j in range(NUM_OF_SHARDS):
-    for j in range(1): # for testing only
+    region='us-east-1'
+    elbv2_client = boto3.client('elbv2', region_name=region)
+
+    for j in range(NUM_OF_SHARDS):
+
         key_tg = "tg_s" + str(j)
         array_target_group = parse_network_config(key_tg)
         # ['tg-s0-api-pga-https-test', 'tg-s0-api-pga-wss-test']
@@ -483,8 +483,7 @@ def update_target_groups():
     """ 
     REGISTER instances (array_instance_id) into the target group (array_target_group)
     """
-    # for i in range(NUM_OF_SHARDS):
-    for k in range(1):
+    for k in range(NUM_OF_SHARDS):
         key_explorer = "explorers_" + str(k)
         array_instance_ip = parse_network_config(key_explorer)
         array_instance_id = retrieve_instance_id(array_instance_ip)
@@ -509,11 +508,11 @@ def main():
     # create the complete pipeline of https/wss endpoints
     # need to comment out the following func `update_target_groups()`
     # refer to testnet.json to create a new configuration
-    create_endpoints_new_network()
+    # create_endpoints_new_network()
 
     # updated target groups only, assuming other services have been created and configured
     # need to comment out the above func `create_endpoints_new_network()`
-    # update_target_groups()
+    update_target_groups()
 
 
 if __name__ == "__main__":
