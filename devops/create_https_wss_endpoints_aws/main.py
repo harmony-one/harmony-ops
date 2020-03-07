@@ -4,15 +4,25 @@
 
 PURPOSE:
 
-create https/wss endpoints for a network
+create https/wss endpoints for a network on AWS
 
 USUAGE:
 
 $ python3 main.py <network_name>
 
-for example, the following cmd is used to create endpoints for testnet
+for example, the following cmd is used to create https/wss endpoints for testnet
+
+# build complete pipeline
 $ python3 main.py -n testnet
 
+# update endpoints only - after a network has been hard reset
+$ python3 main.py -n testnet --update
+or
+$ python3 main.py -n testnet -u
+
+
+VERSION
+Mar 6, 2020     add a param on CLI to update endpoints only
 
 '''
 
@@ -36,20 +46,21 @@ from datetime import timedelta
 pp = pprint.PrettyPrinter(indent=4)
 
 ap = argparse.ArgumentParser(description='parse the network type')
-ap.add_argument("-n", required=True, help="define network type")
-args = vars(ap.parse_args())
+# param to define network, required
+ap.add_argument("-n", action="store", dest='network_value', required=True, help="define network type")
+# param to check if update endpoints needed, optional
+ap.add_argument('-u', '--update', action="store_true", help="update targets for the endpoints only", default=False)
+args = ap.parse_args()
 
 current_work_path = os.path.dirname(os.path.realpath(__file__))
-network_config = current_work_path + '/' + args['n'] + '.json'
-
-
+if not args.network_value:
+    network_config = current_work_path + '/' + args.network_value + '.json'
 
 # TO-DO: create the following dicts for each region
 # store target group arn, key: tg, value: arn of tg
 dict_tg_arn = dict()
 # store PREVIOUS instance id, key: tg, value: array of instance id
 dict_tg_instanceid = defaultdict(list)
-
 
 # store name of target group, key: tg_https, tg_wss, value: array of target group
 dict_tg_https_wss = defaultdict(list)
@@ -503,16 +514,16 @@ def update_target_groups():
 
 
 def main():
-    """  """
+
+    # update targets registered to the endpoints
+    if args.update:
+        update_target_groups()
+        sys.exit(0)
 
     # create the complete pipeline of https/wss endpoints
-    # need to comment out the following func `update_target_groups()`
-    # refer to testnet.json to create a new configuration
-    # create_endpoints_new_network()
+    create_endpoints_new_network()
 
-    # updated target groups only, assuming other services have been created and configured
-    # need to comment out the above func `create_endpoints_new_network()`
-    update_target_groups()
+
 
 
 if __name__ == "__main__":
