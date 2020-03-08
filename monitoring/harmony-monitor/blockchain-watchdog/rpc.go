@@ -54,10 +54,12 @@ type BlockHeader struct {
 
 type SuperCommitteeReply struct {
 	PreviousCommittee struct {
-		Deciders map[string]CommitteeInfo `json:"deciders"`
+		Deciders      map[string]CommitteeInfo `json:"quorum-deciders"`
+		ExternalCount int                      `json:"external-slot-count"`
 	} `json:"previous"`
 	CurrentCommittee struct {
-		Deciders map[string]CommitteeInfo `json:"deciders"`
+		Deciders      map[string]CommitteeInfo `json:"quorum-deciders"`
+		ExternalCount int                      `json:"external-slot-count"`
 	} `json:"current"`
 }
 
