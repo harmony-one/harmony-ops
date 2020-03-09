@@ -671,12 +671,11 @@ func (m *monitor) stakingCommitteeUpdate(beaconChainNode string) {
 		stdlog.Println("Unable to update Staking Committee")
 		stdlog.Print(oops)
 		return
-	} else {
-		committeeReply := s{}
-		json.Unmarshal(result, &committeeReply)
-		m.SuperCommittee = committeeReply.Result
-		stdlog.Println("Updated Staking Committee information")
 	}
+	committeeReply := s{}
+	json.Unmarshal(result, &committeeReply)
+	m.SuperCommittee = committeeReply.Result
+	stdlog.Println("Updated Staking Committee information")
 }
 
 func (m *monitor) manager(
