@@ -1,6 +1,7 @@
 
 import subprocess
 import sys
+import boto3
 
 
 def shcmd2(cmd, ignore_error=False):
@@ -30,3 +31,24 @@ def verify_nodes_same_region(array_ip):
     for ip in array_ip:
         if retrieve_instance_region(ip) != reg:
             sys.exit()
+
+
+def create_name_target_group(shard, id_domain):
+    ret = []
+    tg_prefix = 'tg-s' + str(shard) + '-api-' + id_domain + '-'
+    ret.append(tg_prefix+'https')
+    ret.append(tg_prefix+'wss')
+    return ret
+
+
+def retrieve_instance_id(array_instance_ip):
+    """ mapping from instance-ip -> instance-id """
+    array_instance_id = []
+    for ip in array_instance_ip:
+        region = retrieve_instance_region(ip)
+        ec2_client = boto3.client('ec2', region_name=region)
+        response = ec2_client.describe_instances(Filters=[{'Name': 'ip-address', 'Values': [ip]}])
+        instance_id = response["Reservations"][0]["Instances"][0]["InstanceId"]
+        array_instance_id.append(instance_id)
+
+    return array_instance_id
