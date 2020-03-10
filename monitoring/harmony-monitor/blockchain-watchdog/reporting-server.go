@@ -969,6 +969,12 @@ func (m *monitor) statusJSON(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(m.statusSnapshot())
 }
 
+func (m *monitor) badBlocksJSON(w http.ResponseWriter, req *http.Request) {
+	m.currentBadBlocks.Lock()
+	defer m.currentBadBlocks.Unlock()
+	json.NewEncoder(w).Encode(m.currentBadBlocks.blocks)
+}
+
 func (m *badBlockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var issue badBlock
 
@@ -996,6 +1002,7 @@ func (m *monitor) startReportingHTTPServers(instrs *instruction) {
 	http.HandleFunc("/report-download-"+instrs.Network.TargetChain, m.produceCSV)
 	http.HandleFunc("/network-"+instrs.Network.TargetChain, m.networkSnapshotJSON)
 	http.HandleFunc("/status-"+instrs.Network.TargetChain, m.statusJSON)
+	http.HandleFunc("/bad-blocks-"+instrs.Network.TargetChain, m.badBlocksJSON)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.BadBlockHandler.Port), &m.badBlockHandler)
 	go func() {
