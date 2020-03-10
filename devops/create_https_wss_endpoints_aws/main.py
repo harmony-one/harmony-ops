@@ -42,6 +42,7 @@ from helpers import *
 from creation_certificates import *
 from creation_tg import *
 from creation_elb2 import *
+from creation_listener import *
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -67,10 +68,6 @@ BASE_DOMAIN_NAME = parse_network_config("domain_name")
 ID_DOMAIN_NAME = BASE_DOMAIN_NAME.split('.')[0]
 # array_domain_name       = []
 
-#### CREATE A COMPLETE PIPELINE ####
-
-dict_region_ListenerArn = defaultdict(list)
-
 
 
 
@@ -95,10 +92,11 @@ def create_endpoints_new_network():
         # all nodes registered for the same endpoints should be located in the same region, if not, gracefully exit
         # verify_nodes_same_region(reg, array_instance_ip)
 
-        print("\n###################### Creating complete pipeline for shard", str(i), " in AWS region: ", reg, "######################\n")
+        print("\n################################## Creating complete pipeline for shard", str(i), " in AWS region: ", reg, "##################################\n")
         # 1/5 - request certificates
         domain_name = 'api.s' + str(i) + "." + BASE_DOMAIN_NAME
-        # request_ssl_certificates(reg, domain_name)
+        request_ssl_certificates(reg, domain_name)
+        pp.pprint(dict_region_sslcerts)
 
         print("\nRESULTS OF STEP 1 \n")
         pp.pprint(dict_region_sslcerts)
@@ -107,14 +105,15 @@ def create_endpoints_new_network():
         array_tgs = create_name_target_group(i, ID_DOMAIN_NAME)
         pp.pprint(array_tgs)
         create_target_group(reg, array_tgs)
+        pp.pprint(dict_region_tgarn)
 
         # 3/5 - create elb
         elb2_name = 's' + str(i) + '-' + ID_DOMAIN_NAME + '-' + reg
         create_elb2(reg, elb2_name)
+        pp.pprint(dict_region_elb2arn)
 
         # 4/5 - create listener
-        # test result: passed
-        # create_listener(reg)
+        create_listener(reg, dict_region_elb2arn, dict_region_sslcerts, dict_region_tgarn)
 
         # 5/5 - create rule the current listener
         # test result: passed
@@ -123,57 +122,6 @@ def create_endpoints_new_network():
         # 6/ - register explorer instances into the target group
         # register_explorers()
 
-# step 4 - create listener
-# not refactored yet
-def create_listener():
-    """
-    depends on:
-        * dict_region_elb2arn
-        * dict_region_sslcerts
-        * dict_region_tgarn
-    """
-
-    print("\n==== step 4: creating https listener on the created elb2, ListenerArn will be stored into dict_region_ListenerArn \n")
-    for region in ARRAY_OF_REGIONS:
-        elbv2_client = boto3.client('elbv2', region_name=region)
-
-        try:
-            for i in range(NUM_OF_SHARDS):
-                resp = elbv2_client.create_listener(
-                    LoadBalancerArn=dict_region_elb2arn[region][i],
-                    Protocol='HTTPS',
-                    Port=443,
-                    SslPolicy='ELBSecurityPolicy-2016-08',
-                    Certificates=[{'CertificateArn': dict_region_sslcerts[region][i]}],
-                    DefaultActions=[
-                        {
-                            'Type': 'forward',
-                            # tg-s[i]-api-pga-https
-                            'TargetGroupArn': dict_region_tgarn[region][i],
-                            'ForwardConfig': {
-                                'TargetGroups': [
-                                    {
-                                        # tg-s[i]-api-pga-https
-                                        'TargetGroupArn': dict_region_tgarn[region][i],
-                                        'Weight': 1
-                                    },
-                                ],
-                                'TargetGroupStickinessConfig': {
-                                    'Enabled': False,
-                                }
-                            }
-                        },
-                    ]
-                )
-                dict_region_ListenerArn[region].append(resp['Listeners'][0]['ListenerArn'])
-                print(
-                    "--creating https listener with attaching ssl certificat in region " + region + ", LoadBalancerArn: " +
-                    dict_region_elb2arn[region][i])
-                sleep(4)
-        except Exception as e:
-            print("Unexpected error to create the listener: %s" % e)
-
-    pp.pprint(dict_region_ListenerArn)
 
 def register_explorers():
     """
