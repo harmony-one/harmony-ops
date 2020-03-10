@@ -39,19 +39,12 @@ from timeit import default_timer as timer
 from datetime import timedelta
 
 from helpers import *
+from creation_certificates import *
+from creation_tg import *
 
 pp = pprint.PrettyPrinter(indent=4)
 
-ap = argparse.ArgumentParser(description='parse the network type')
-# param to define network, required
-ap.add_argument("-n", action="store", dest='network_value', required=True, help="define network type")
-# param to check if update endpoints needed, optional
-ap.add_argument('-u', '--update', action="store_true", help="update targets for the endpoints only", default=False)
-args = ap.parse_args()
 
-current_work_path = os.path.dirname(os.path.realpath(__file__))
-if args.network_value:
-    network_config = current_work_path + '/' + args.network_value + '.json'
 
 # TO-DO: create the following dicts for each region
 # store target group arn, key: tg, value: arn of tg
@@ -63,20 +56,11 @@ dict_tg_instanceid = defaultdict(list)
 dict_tg_https_wss = defaultdict(list)
 
 
-# TO-DO: move to a helper class later
-def parse_network_config(param):
-    """ load the network configuration file, retrieve the value by its key """
-    with open(network_config, 'r') as f:
-        network_config_dict = json.load(f)
-
-    return network_config_dict[param]
-
-
 NUM_OF_SHARDS = parse_network_config("num_of_shards")
 # ARRAY_OF_REGIONS = parse_network_config("regions")
 # TO-DO: convert them to a dict
 # ARRAY_OF_VPC = parse_network_config("region_vpc")
-ARRAY_OF_WS_ENDPOINTS = parse_network_config("ws_endpoints")
+# ARRAY_OF_WS_ENDPOINTS = parse_network_config("ws_endpoints")
 
 BASE_DOMAIN_NAME = parse_network_config("domain_name")
 ID_DOMAIN_NAME = BASE_DOMAIN_NAME.split('.')[0]
@@ -84,17 +68,9 @@ ID_DOMAIN_NAME = BASE_DOMAIN_NAME.split('.')[0]
 
 #### CREATE A COMPLETE PIPELINE ####
 dict_region_elb2arn = defaultdict(list)
-dict_region_sslcerts = defaultdict(list)
-dict_region_tgarn = defaultdict(list)
 dict_region_ListenerArn = defaultdict(list)
 
-# dict for vpc id, 4 most common regions for now, need to add more if necessary
-dict_vpc_id = {
-    "us-east-1": "vpc-88c9c2f3",
-    "us-east-2": "vpc-2c420a44",
-    "us-west-1": "vpc-bb770fdc",
-    "us-west-2": "vpc-cd3e33b4"
-}
+
 
 
 def create_endpoints_new_network():
@@ -123,9 +99,13 @@ def create_endpoints_new_network():
         domain_name = 'api.s' + str(i) + "." + BASE_DOMAIN_NAME
         request_ssl_certificates(reg, domain_name)
 
+        print("\nRESULTS OF STEP 1 \n")
+        pp.pprint(dict_region_sslcerts)
+
         # 2/5 - create target group
-        # array_tgs = create_name_target_group(i, ID_DOMAIN_NAME)
-        # create_target_group(reg, array_tgs)
+        array_tgs = create_name_target_group(i, ID_DOMAIN_NAME)
+        pp.pprint(array_tgs)
+        create_target_group(reg, array_tgs)
 
         # 3/5 - create elb
         # elb2_name = 's' + str(i) + '-' + ID_DOMAIN_NAME + '-' + reg
@@ -143,94 +123,10 @@ def create_endpoints_new_network():
         # register_explorers()
 
 
-# step 1: request SSL certificates
-def request_ssl_certificates(region, dn):
-    """
-    Notes:
-        * idempotent ops
-        * store CertificateArn to dict_region_sslcerts
-    """
-
-    print(
-        "\n==== step 1: request SSL certificates in each region, CertificateArn will be stored into dict_region_sslcerts \n")
-    acm_client = boto3.client(service_name='acm', region_name=region)
-    try:
-        resp = acm_client.request_certificate(
-            DomainName=dn,
-            ValidationMethod='DNS',
-        )
-        dict_region_sslcerts[region].append(resp['CertificateArn'])
-        print("--creating ssl certificate in region " + region + " for domain name " + dn)
-        print(dn + ': ' + resp['CertificateArn'])
-    except Exception as e:
-        print("Unexpected error to request certificates: %s" % e)
-
-    pp.pprint(dict_region_sslcerts)
 
 
-# step 2: create target group
-def create_target_group(region, target_group_array):
-    # to be cleaned up later
-    create_dict_tg()
 
-    print(
-        "\n==== step 2: creating target group in each region, TargetGroupArn will be stored into dict_region_tgarn \n")
-    elbv2_client = boto3.client('elbv2', region_name=region)
 
-    print("Creating target group: ", target_group_array[0])
-    try:
-        resp = elbv2_client.create_target_group(
-            Name=target_group_array[0],
-            Protocol='HTTP',
-            Port=9500,
-            VpcId=dict_vpc_id.get(region),
-            HealthCheckProtocol='HTTP',
-            HealthCheckPort='traffic-port',
-            HealthCheckEnabled=True,
-            HealthCheckPath='/',
-            HealthCheckIntervalSeconds=30,
-            HealthCheckTimeoutSeconds=5,
-            HealthyThresholdCount=5,
-            UnhealthyThresholdCount=2,
-            Matcher={
-                'HttpCode': '200'
-            },
-            TargetType='instance'
-        )
-        # TO-DO:
-        dict_region_tgarn[region].append(resp['TargetGroups'][0]['TargetGroupArn'])
-        print("--creating target group in region " + region + ", target group name: " + target_group_array[0])
-    except Exception as e:
-        print("Unexpected error to create the target group: %s" % e)
-
-    print("Creating target group: ", target_group_array[1])
-    try:
-        resp = elbv2_client.create_target_group(
-            Name=name,
-            Protocol='HTTP',
-            Port=9800,
-            VpcId=dict_vpc_id.get(region),
-            HealthCheckProtocol='HTTP',
-            HealthCheckPort='traffic-port',
-            HealthCheckEnabled=True,
-            HealthCheckPath='/',
-            HealthCheckIntervalSeconds=30,
-            HealthCheckTimeoutSeconds=5,
-            HealthyThresholdCount=5,
-            UnhealthyThresholdCount=2,
-            Matcher={
-                'HttpCode': '400'
-            },
-            TargetType='instance'
-        )
-        # TO-DO:
-        dict_region_tgarn[region].append(resp['TargetGroups'][0]['TargetGroupArn'])
-        print("--creating target group in region " + region + ", target group name: " + target_group_array[1])
-    except Exception as e:
-        print("Unexpected error to create the target group: %s" % e)
-
-    # TO-DO
-    pp.pprint(dict_region_tgarn)
 
 
 # step 3 - create alb

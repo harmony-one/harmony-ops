@@ -1,8 +1,29 @@
-
+import argparse
+import os
 import subprocess
 import sys
 import boto3
+import json
 
+
+ap = argparse.ArgumentParser(description='parse the network type')
+# param to define network, required
+ap.add_argument("-n", action="store", dest='network_value', required=True, help="define network type")
+# param to check if update endpoints needed, optional
+ap.add_argument('-u', '--update', action="store_true", help="update targets for the endpoints only", default=False)
+args = ap.parse_args()
+
+current_work_path = os.path.dirname(os.path.realpath(__file__))
+if args.network_value:
+    network_config = current_work_path + '/' + args.network_value + '.json'
+
+
+def parse_network_config(param):
+    """ load the network configuration file, retrieve the value by its key """
+    with open(network_config, 'r') as f:
+        network_config_dict = json.load(f)
+
+    return network_config_dict[param]
 
 def shcmd2(cmd, ignore_error=False):
     """ customized version of shcmd created by aw """
