@@ -94,31 +94,45 @@ dict_region_ListenerArn = defaultdict(list)
 def create_endpoints_new_network():
     """
     COMPLETE PIPELINE
+    * 0/ - define regions for each endpoint
     * 1/ - create SSL certificates (https, and wss) on each region
     * 2/ - create Target Groups on each region
     * 3/ - create ELB
     * 4/ - create listener
-
-    * / - create entries on Route53
+    # TO-DO
+    * 5/ - create entries on Route53
     """
 
-    # 1/4 - request certificates
-    # test result: passed
-    request_ssl_certificates()
+    for i in range(NUM_OF_SHARDS):
+        key_explorer = "explorers_" + str(i)
+        array_instance_ip = parse_network_config(key_explorer)
 
-    # 2/4 - create tg on each region
+        # 0/5 - detect region of explorers
+        reg = retrieve_instance_region(array_instance_ip[0])
+        # all nodes registered for the same endpoints should be located in the same region, if not, gracefully exit
+        # verify_nodes_same_region(reg, array_instance_ip)
+
+        print("\n########### Creating complete pipeline for shard", str(i), " in AWS region: ", reg, "###########\n")
+        # 1/5 - request certificates
+        request_ssl_certificates(reg)
+
+
+
+
+
+    # 2/5 - create tg on each region
     # test result: passed
     create_target_group()
 
-    # 3/4 - create elb
+    # 3/5 - create elb
     # test result: passed
     create_elb2()
 
-    # 4/ - create listener
+    # 4/5 - create listener
     # test result: passed
     create_listener()
 
-    # 5/ - create rule the current listener
+    # 5/5 - create rule the current listener
     # test result: passed
     create_rule()
 
@@ -377,11 +391,11 @@ def create_target_group():
 
     pp.pprint(dict_region_tgarn)
 
-def request_ssl_certificates():
+def request_ssl_certificates(region):
     """
-    number of ssl certificates per region = NUM_OF_SHARDS * 2 (HTTPS and WSS)
-    * idempotent ops
-    * store CertificateArn to dict_region_sslcerts
+    Notes:
+        * idempotent ops
+        * store CertificateArn to dict_region_sslcerts
     """
     create_domain_name()
 
