@@ -241,11 +241,11 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:      []interface{}{report.Chain},
-		RightTitle:     []interface{}{report.Build, time.Now().Format(time.RFC3339)},
-		Summary:        report.Summary,
-		SuperCommittee: m.SuperCommittee,
-		NoReply:        report.NoReplies,
+		LeftTitle:        []interface{}{report.Chain},
+		RightTitle:       []interface{}{report.Build, time.Now().Format(time.RFC3339)},
+		Summary:          report.Summary,
+		SuperCommittee:   m.SuperCommittee,
+		NoReply:          report.NoReplies,
 		DownMachineCount: linq.From(report.NoReplies).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
@@ -885,6 +885,13 @@ func (m *monitor) networkSnapshot() networkReport {
 	return networkReport{buildVersion, m.chain, cnsProgressCpy, sum, totalNoReplyMachines}
 }
 
+type statusReport struct{
+	Shards         []shardStatus `json:"shard-status"`
+	Versions       []string      `json:"commit-version"`
+	AvailSeats     int           `json:"avail-seats"`
+	ElectedSeats   int           `json:"used-seats"`
+}
+
 type shardStatus struct {
 	ShardID        string `json:"shard-id"`
 	Consensus      bool   `json:"consensus-status"`
@@ -894,7 +901,7 @@ type shardStatus struct {
 	LeaderAddress  string `json:"leader-address"`
 }
 
-func (m *monitor) statusSnapshot() []shardStatus {
+func (m *monitor) statusSnapshot() statusReport {
 	cnsProgressCpy := map[string]bool{}
 	m.inUse.Lock()
 	sum := summaryMaps(m.MetadataSnapshot.Nodes, m.BlockHeaderSnapshot.Nodes)
@@ -907,7 +914,7 @@ func (m *monitor) statusSnapshot() []shardStatus {
 
 	for i, shard := range sum[headerSumry] {
 		sample := shard.(any)["latest-block"].(BlockHeader)
-		status = append(status, shardStatus{
+		status = append(status, shardStatus {
 			i,
 			cnsProgressCpy[i],
 			shard.(any)[blockMax].(uint64),
@@ -916,7 +923,25 @@ func (m *monitor) statusSnapshot() []shardStatus {
 			sample.Payload.Leader,
 		})
 	}
-	return status
+
+	versions := []string{}
+	for k := range sum[metaSumry] {
+		versions = append(versions, k)
+	}
+
+	usedSeats := 0
+	for _, info := range m.SuperCommittee.CurrentCommittee.Deciders {
+		usedSeats =+ linq.From(info.Committee).CountWith(func (v interface{}) bool {
+			return !v.(CommitteeMember).IsHarmonyNode
+		})
+	}
+
+	return statusReport{
+		status,
+		versions,
+		m.SuperCommittee.CurrentCommittee.ExternalCount,
+		usedSeats,
+	}
 }
 
 func (m *monitor) networkSnapshotJSON(w http.ResponseWriter, req *http.Request) {
