@@ -44,6 +44,7 @@ from creation_tg import *
 from creation_elb2 import *
 from creation_listener import *
 from creation_rule import *
+from registration_exps import *
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -87,6 +88,7 @@ def create_endpoints_new_network():
     for i in range(NUM_OF_SHARDS):
         key_explorer = "explorers_" + str(i)
         array_instance_ip = parse_network_config(key_explorer)
+        array_instance_id = retrieve_instance_id(array_instance_ip)
 
         # 0/ - detect region of explorers
         reg = retrieve_instance_region(array_instance_ip[0])
@@ -97,7 +99,6 @@ def create_endpoints_new_network():
         # 1/ - request certificates
         domain_name = 'api.s' + str(i) + "." + BASE_DOMAIN_NAME
         request_ssl_certificates(reg, domain_name)
-        pp.pprint(dict_region_sslcerts)
 
         print("\nRESULTS OF STEP 1 \n")
         pp.pprint(dict_region_sslcerts)
@@ -122,51 +123,7 @@ def create_endpoints_new_network():
         create_rule(reg, dict_region_ListenerArn, dict_region_tgarn, dict_region_elb2arn, host_header_value)
 
         # 6/ - register explorer instances into the target group
-        # register_explorers()
-
-
-def register_explorers():
-    """
-    register explorer nodes into the corresponding target group
-        * register the same target into tg-https and tg-wss
-    depends on:
-        * dict_region_tgarn
-        *
-    """
-    for i in range(len(ARRAY_OF_REGIONS)):
-        region = ARRAY_OF_REGIONS[i]
-        for j in range(NUM_OF_SHARDS):
-            elbv2_client = boto3.client('elbv2', region_name=region)
-            array_of_exp_shard = parse_network_config(region + '-exp-' + str(j))
-            array_instance_id_exp = retrieve_instance_id(array_of_exp_shard)
-            # REGISTER each instance_id into the TWO target groups
-            for instance in array_instance_id_exp:
-                try:
-                    # register targets into tg-s[i]-api-pga-https
-                    resp = elbv2_client.register_targets(
-                        TargetGroupArn=dict_region_tgarn[region][j],
-                        Targets=[
-                            {
-                                'Id': instance,
-                                'Port': 9500,
-                            },
-                        ]
-                    )
-                    # register targets into tg-s[i]-api-pga-wss
-                    resp2 = elbv2_client.register_targets(
-                        TargetGroupArn=dict_region_tgarn[region][j + NUM_OF_SHARDS],
-                        Targets=[
-                            {
-                                'Id': instance,
-                                'Port': 9800,
-                            },
-                        ]
-                    )
-                    print(
-                        "--registering an explorer node into TWO target groups (tg-https and tg-wss) in region " + region)
-                    sleep(4)
-                except Exception as e:
-                    print("Unexpected error to create the listener: %s" % e)
+        register_explorers(reg, array_instance_id, dict_region_tgarn)
 
 
 

@@ -1,7 +1,7 @@
 {
   "domain_name": "master.hmny.io",
   "num_of_shards": 2,
-  "explorers_0" : ["52.90.19.15", "54.87.27.75"],
+  "explorers_0" : ["52.54.221.24", "35.174.104.172"],
   "explorers_1" : ["54.215.237.199", "13.56.250.243"],
   "explorers_2" : [],
   "explorers_3" : [],

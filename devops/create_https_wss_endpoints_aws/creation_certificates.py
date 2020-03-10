@@ -22,6 +22,7 @@ def request_ssl_certificates(region, dn):
         resp = acm_client.request_certificate(
             DomainName=dn,
             ValidationMethod='DNS',
+            IdempotencyToken='112358',
         )
         dict_region_sslcerts[region].append(resp['CertificateArn'])
         print("--creating ssl certificate in region " + region + " for domain name " + dn)
