@@ -43,6 +43,7 @@ from creation_certificates import *
 from creation_tg import *
 from creation_elb2 import *
 from creation_listener import *
+from creation_rule import *
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -87,13 +88,13 @@ def create_endpoints_new_network():
         key_explorer = "explorers_" + str(i)
         array_instance_ip = parse_network_config(key_explorer)
 
-        # 0/5 - detect region of explorers
+        # 0/ - detect region of explorers
         reg = retrieve_instance_region(array_instance_ip[0])
         # all nodes registered for the same endpoints should be located in the same region, if not, gracefully exit
         # verify_nodes_same_region(reg, array_instance_ip)
 
-        print("\n################################## Creating complete pipeline for shard", str(i), " in AWS region: ", reg, "##################################\n")
-        # 1/5 - request certificates
+        print("\n######################################### Creating complete pipeline for shard", str(i), " in AWS region: ", reg, "#########################################\n")
+        # 1/ - request certificates
         domain_name = 'api.s' + str(i) + "." + BASE_DOMAIN_NAME
         request_ssl_certificates(reg, domain_name)
         pp.pprint(dict_region_sslcerts)
@@ -101,23 +102,24 @@ def create_endpoints_new_network():
         print("\nRESULTS OF STEP 1 \n")
         pp.pprint(dict_region_sslcerts)
 
-        # 2/5 - create target group
+        # 2/ - create target group
         array_tgs = create_name_target_group(i, ID_DOMAIN_NAME)
         pp.pprint(array_tgs)
         create_target_group(reg, array_tgs)
         pp.pprint(dict_region_tgarn)
 
-        # 3/5 - create elb
+        # 3/ - create elb
         elb2_name = 's' + str(i) + '-' + ID_DOMAIN_NAME + '-' + reg
         create_elb2(reg, elb2_name)
         pp.pprint(dict_region_elb2arn)
 
-        # 4/5 - create listener
+        # 4/ - create listener
         create_listener(reg, dict_region_elb2arn, dict_region_sslcerts, dict_region_tgarn)
+        pp.pprint(dict_region_ListenerArn)
 
-        # 5/5 - create rule the current listener
-        # test result: passed
-        # create_rule()
+        # 5/ - create one more rule for the current listener
+        host_header_value = 'ws.s' + str(i) + '.' + BASE_DOMAIN_NAME
+        create_rule(reg, dict_region_ListenerArn, dict_region_tgarn, dict_region_elb2arn, host_header_value)
 
         # 6/ - register explorer instances into the target group
         # register_explorers()
@@ -165,57 +167,6 @@ def register_explorers():
                     sleep(4)
                 except Exception as e:
                     print("Unexpected error to create the listener: %s" % e)
-
-
-def create_rule():
-    """
-
-
-    """
-    print("\n==== step 5: creating a customized rule such that traffic will be forwarded to tg-s[i]-api-pga-wss "
-          "when host is ws.s[i].pga.hmny.io \n")
-    # deliberately use index instead of obj to retrieve array item, this index needs to be reused to retrieve
-    for i in range(len(ARRAY_OF_REGIONS)):
-        region = ARRAY_OF_REGIONS[i]
-        for j in range(NUM_OF_SHARDS):
-            elbv2_client = boto3.client('elbv2', region_name=region)
-            try:
-                resp = elbv2_client.create_rule(
-                    ListenerArn=dict_region_ListenerArn[region][j],
-                    Conditions=[
-                        {
-                            'Field': 'host-header',
-                            'Values': [
-                                ARRAY_OF_WS_ENDPOINTS[j],
-                            ],
-                        },
-                    ],
-                    Priority=1,
-                    Actions=[
-                        {
-                            'Type': 'forward',
-                            'TargetGroupArn': dict_region_tgarn[region][j + NUM_OF_SHARDS],
-                            'ForwardConfig': {
-                                'TargetGroups': [
-                                    {
-                                        'TargetGroupArn': dict_region_tgarn[region][j + NUM_OF_SHARDS],
-                                        'Weight': 1
-                                    },
-                                ],
-                                'TargetGroupStickinessConfig': {
-                                    'Enabled': False,
-                                    'DurationSeconds': 1
-                                }
-                            }
-                        },
-                    ]
-                )
-                print("--creating a customized elb2 rule in region " + region + " for LoadBalancerArn: " +
-                      dict_region_elb2arn[region][i])
-                sleep(4)
-            except Exception as e:
-                print("Unexpected error to create the listener: %s" % e)
-
 
 
 
