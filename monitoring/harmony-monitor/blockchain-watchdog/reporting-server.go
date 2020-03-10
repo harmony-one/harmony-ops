@@ -19,10 +19,11 @@ import (
 )
 
 const (
-	badVersionString   = "BAD_VERSION_STRING"
-	blockHeaderReport  = "block-header"
-	nodeMetadataReport = "node-metadata"
-	timeFormat         = "15:04:05 Jan _2 MST" // https://golang.org/pkg/time/#Time.Format
+	maxBadBlocksInMemory = 64
+	badVersionString     = "BAD_VERSION_STRING"
+	blockHeaderReport    = "block-header"
+	nodeMetadataReport   = "node-metadata"
+	timeFormat           = "15:04:05 Jan _2 MST" // https://golang.org/pkg/time/#Time.Format
 )
 
 type any map[string]interface{}
@@ -361,16 +362,27 @@ type noReply struct {
 	ShardID       int
 }
 
+// MetadataContainer ..
 type MetadataContainer struct {
 	TS    time.Time
 	Nodes []NodeMetadata
 	Down  []noReply
 }
 
+// BlockHeaderContainer ..
 type BlockHeaderContainer struct {
 	TS    time.Time
 	Nodes []BlockHeader
 	Down  []noReply
+}
+
+type badBlock struct {
+	BadHeader string `json:"bad-header"`
+	Reason    string `json"reason"`
+}
+
+type badBlockHandler struct {
+	badBlockEvent chan badBlock
 }
 
 type monitor struct {
@@ -384,6 +396,11 @@ type monitor struct {
 	SummarySnapshot     map[string]map[string]interface{}
 	NoReplySnapshot     []noReply
 	consensusProgress   map[string]bool
+	badBlockHandler     badBlockHandler
+	currentBadBlocks    struct {
+		sync.Mutex
+		blocks []badBlock
+	}
 }
 
 type work struct {
@@ -952,17 +969,46 @@ func (m *monitor) statusJSON(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(m.statusSnapshot())
 }
 
-func (m *monitor) startReportingHTTPServer(instrs *instruction) {
+func (m *badBlockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var issue badBlock
+
+	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	m.badBlockEvent <- issue
+}
+
+func (m *monitor) startReportingHTTPServers(instrs *instruction) {
 	client = fasthttp.Client{
 		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(addr, time.Second*time.Duration(instrs.Performance.HTTPTimeout))
+			return fasthttp.DialTimeout(
+				addr, time.Second*time.Duration(instrs.Performance.HTTPTimeout),
+			)
 		},
 		MaxConnsPerHost: 2048,
 	}
-	go m.update(instrs.watchParams, instrs.superCommittee, []string{BlockHeaderRPC, NodeMetadataRPC})
+	go m.update(
+		instrs.watchParams, instrs.superCommittee, []string{BlockHeaderRPC, NodeMetadataRPC},
+	)
 	http.HandleFunc("/report-"+instrs.Network.TargetChain, m.renderReport)
 	http.HandleFunc("/report-download-"+instrs.Network.TargetChain, m.produceCSV)
 	http.HandleFunc("/network-"+instrs.Network.TargetChain, m.networkSnapshotJSON)
 	http.HandleFunc("/status-"+instrs.Network.TargetChain, m.statusJSON)
 	http.ListenAndServe(":"+strconv.Itoa(instrs.HTTPReporter.Port), nil)
+	http.ListenAndServe(":"+strconv.Itoa(instrs.BadBlockHandler.Port), &m.badBlockHandler)
+	go func() {
+		for incoming := range m.badBlockHandler.badBlockEvent {
+			m.currentBadBlocks.Lock()
+			defer m.currentBadBlocks.Unlock()
+			if len(m.currentBadBlocks.blocks) == maxBadBlocksInMemory {
+				m.currentBadBlocks.blocks = []badBlock{incoming}
+			} else {
+				m.currentBadBlocks.blocks = append(
+					m.currentBadBlocks.blocks, incoming,
+				)
+			}
+		}
+	}()
 }

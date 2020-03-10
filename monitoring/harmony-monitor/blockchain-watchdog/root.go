@@ -155,7 +155,7 @@ func (service *Service) monitorNetwork() error {
 	}
 	// set up channel on which to send accepted connections
 	listen := make(chan net.Conn, 100)
-	go service.startReportingHTTPServer(service.instruction)
+	go service.startReportingHTTPServers(service.instruction)
 	go acceptConnection(listener, listen)
 	// loop work cycle with accept connections or interrupt
 	// by system signal
@@ -208,6 +208,9 @@ type watchParams struct {
 	HTTPReporter struct {
 		Port int `yaml:"port"`
 	} `yaml:"http-reporter"`
+	BadBlockHandler struct {
+		Port int `yaml:"port"`
+	} `yaml:"bad-block-handler"`
 	ShardHealthReporting struct {
 		Consensus struct {
 			Warning int `yaml:"warning"`
@@ -257,7 +260,7 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
-		 	ipList = append(ipList, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort))
+			ipList = append(ipList, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort))
 		}
 		err = scanner.Err()
 		if err != nil {
@@ -270,8 +273,8 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	for i, s := range byShard {
 		for _, m := range s.members {
 			if _, check := nodeList[m]; check {
-				dups = append(dups, strconv.FormatInt(int64(i), 10) + ": " + m)
-				dups = append(dups, nodeList[m] + ": " + m)
+				dups = append(dups, strconv.FormatInt(int64(i), 10)+": "+m)
+				dups = append(dups, nodeList[m]+": "+m)
 			} else {
 				nodeList[m] = strconv.FormatInt(int64(i), 10)
 			}
@@ -280,7 +283,7 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	if len(nodeList) == 0 {
 		return nil, errors.New("Empty node list.")
 	}
-	if len(dups) > 0  {
+	if len(dups) > 0 {
 		return nil, errors.New("Duplicate IPs detected.\n" + strings.Join(dups, "\n"))
 	}
 	return &instruction{t, byShard}, nil
@@ -320,7 +323,7 @@ func (w *watchParams) sanityCheck() error {
 
 func versionS() string {
 	return fmt.Sprintf(
-		"Harmony (C) 2019. %v, version %v-%v (%v %v)",
+		"Harmony (C) 2020. %v, version %v-%v (%v %v)",
 		path.Base(os.Args[0]), version, commit, builtBy, builtAt,
 	)
 }
