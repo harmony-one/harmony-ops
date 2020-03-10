@@ -1,8 +1,8 @@
 {
-  "domain_name": "ps.hmny.io",
+  "domain_name": "master.hmny.io",
   "num_of_shards": 2,
   "explorers_0" : ["52.90.19.15", "54.87.27.75"],
-  "explorers_1" : ["54.87.27.75", "54.87.27.75"],
+  "explorers_1" : ["54.215.237.199", "13.56.250.243"],
   "explorers_2" : [],
   "explorers_3" : [],
   "subnet_us-east-1": ["subnet-14da445e", "subnet-2c957212", "subnet-2f00cb73", "subnet-7b65f774", "subnet-7da3751a", "subnet-7e5c8950"],

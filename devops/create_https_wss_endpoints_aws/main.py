@@ -50,7 +50,7 @@ ap.add_argument('-u', '--update', action="store_true", help="update targets for 
 args = ap.parse_args()
 
 current_work_path = os.path.dirname(os.path.realpath(__file__))
-if not args.network_value:
+if args.network_value:
     network_config = current_work_path + '/' + args.network_value + '.json'
 
 # TO-DO: create the following dicts for each region
@@ -73,9 +73,9 @@ def parse_network_config(param):
 
 
 NUM_OF_SHARDS = parse_network_config("num_of_shards")
-ARRAY_OF_REGIONS = parse_network_config("regions")
+# ARRAY_OF_REGIONS = parse_network_config("regions")
 # TO-DO: convert them to a dict
-ARRAY_OF_VPC = parse_network_config("region_vpc")
+# ARRAY_OF_VPC = parse_network_config("region_vpc")
 ARRAY_OF_WS_ENDPOINTS = parse_network_config("ws_endpoints")
 
 BASE_DOMAIN_NAME = parse_network_config("domain_name")
@@ -124,23 +124,23 @@ def create_endpoints_new_network():
         request_ssl_certificates(reg, domain_name)
 
         # 2/5 - create target group
-        array_tgs = create_name_target_group(i, ID_DOMAIN_NAME)
-        create_target_group(reg, array_tgs)
+        # array_tgs = create_name_target_group(i, ID_DOMAIN_NAME)
+        # create_target_group(reg, array_tgs)
 
         # 3/5 - create elb
-        elb2_name = 's' + str(i) + '-' + ID_DOMAIN_NAME + '-' + reg
-        create_elb2(reg, elb2_name)
+        # elb2_name = 's' + str(i) + '-' + ID_DOMAIN_NAME + '-' + reg
+        # create_elb2(reg, elb2_name)
 
         # 4/5 - create listener
         # test result: passed
-        create_listener(reg)
+        # create_listener(reg)
 
         # 5/5 - create rule the current listener
         # test result: passed
-        create_rule()
+        # create_rule()
 
         # 6/ - register explorer instances into the target group
-        register_explorers()
+        # register_explorers()
 
 
 # step 1: request SSL certificates
@@ -435,6 +435,18 @@ def update_target_groups():
         reg = retrieve_instance_region(array_instance_ip[0])
         # all nodes registered for the same endpoints should be located in the same region, if not, exit
         verify_nodes_same_region(reg, array_instance_ip)
+
+        elbv2_client = boto3.client('elbv2', region_name=reg)
+
+        array_target_group = create_name_target_group(j, ID_DOMAIN_NAME)
+        pp.pprint(array_target_group)
+
+        # # 1/3 - retrieve target group arn
+        # for tg in array_target_group:
+        #     resp = elbv2_client.describe_target_groups(Names=[tg])
+        #     tg_arn = resp["TargetGroups"][0]["TargetGroupArn"]
+        #     dict_tg_arn[tg] = tg_arn
+
 
 
     # region='us-east-1'
