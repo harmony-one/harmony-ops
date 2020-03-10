@@ -370,6 +370,7 @@ hr:after {
 	    <th>BLSKey</th>
 	    <th>Is Harmony Node</th>
 	    <th>Voting Power</th>
+	    <th>External Vote Power</th>
 	    <th>Effective Stake</th>
 	  </tr>
         </thead>
@@ -381,6 +382,7 @@ hr:after {
             <td>{{.BLSKey}}</td>
             <td>{{.IsHarmonyNode}}</td>
             <td>{{.VotingPower}}</td>
+            <td>{{.RawPercent}}</td>
             <td>{{.EffectiveStake}}</td>
           </tr>
           {{end}}
@@ -397,7 +399,7 @@ hr:after {
 		{{ with . }}
     {{ $Decider := . }}
 		<section class="report-wrapper" id="previous-committee-{{ .ShardID }}">
-      <input type="checkbox" id="prev-hn-toggle-{{.ShardID}}">
+      <input type="checkbox" id="prev-hn-toggle-{{ .ShardID }}">
       <label for="prev-hn-toggle-{{.ShardID}}">show harmony nodes</label>
 			<div class="summary-details">
 				<div class="flex-col">
@@ -426,6 +428,7 @@ hr:after {
 			<th>BLSKey</th>
 			<th>Is Harmony Node</th>
 			<th>Voting Power</th>
+			<th>External Vote Power</th>
 			<th>Effective Stake</th>
 		</tr>
 				</thead>
@@ -433,11 +436,12 @@ hr:after {
 					{{ range .Committee }}
 					{{ with . }}
 					<tr class="prev-harmony-node-{{$Decider.ShardID}}-{{.IsHarmonyNode}}">
-						<td>{{.Address}} </td>
-						<td>{{.BLSKey}} </td>
-						<td>{{.IsHarmonyNode}} </td>
-						<td>{{.VotingPower}} </td>
-						<td>{{.EffectiveStake}} </td>
+						<td>{{.Address}}</td>
+						<td>{{.BLSKey}}</td>
+						<td>{{.IsHarmonyNode}}</td>
+						<td>{{.VotingPower}}</td>
+						<td>{{.RawPercent}}</td>
+						<td>{{.EffectiveStake}}</td>
 					</tr>
 					{{end}}
 					{{end}}
