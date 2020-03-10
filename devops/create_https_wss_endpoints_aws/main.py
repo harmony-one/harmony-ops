@@ -31,16 +31,14 @@ import json
 import os
 import argparse
 from collections import defaultdict
-
 import boto3
 import pprint
 from time import sleep
-import subprocess
 from dotenv import load_dotenv
 from timeit import default_timer as timer
 from datetime import timedelta
 
-
+from helpers import *
 
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -414,25 +412,9 @@ def create_domain_name():
             array_domain_name.append(prefix + str(i) + "." + BASE_DOMAIN_NAME)
 
 
-def shcmd2(cmd, ignore_error=False):
-    """ customized version of shcmd created by aw """
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
-    output = proc.stdout.read()
-    output_string = output.decode("utf-8")
-    return output_string
 
-def retrieve_instance_region(ip):
-    """ deduce instance region from its ipv4 """
-    cmd = "host {ip}".format(ip=ip)
-    resp = shcmd2(cmd)
-    info = resp.split('.')
-    if info[-4] ==  'compute':
-        region = info[-5]
-    elif info[-4] == 'compute-1':
-        region = 'us-east-1'
-    else:
-        raise ValueError("cannot deduce region from name {}".format(info))
-    return region
+
+
 
 
 def retrieve_instance_id(array_instance_ip):
@@ -449,10 +431,9 @@ def retrieve_instance_id(array_instance_ip):
 
 
 
-#### UPDATE TARGET GROUP ONLY ####
-def update_target_groups():
 
-    # TO-DO: add support to mulitple regions
+
+def update_target_groups():
 
     """ 
     DEREGISTER any previous instances from the target group given the existing target groups
@@ -461,55 +442,69 @@ def update_target_groups():
     * 3/3 - deregister all instances `deregister_targets`
     """
 
-    region='us-east-1'
-    elbv2_client = boto3.client('elbv2', region_name=region)
-
+    # detect which region the explorer(s) are located
     for j in range(NUM_OF_SHARDS):
-
-        key_tg = "tg_s" + str(j)
-        array_target_group = parse_network_config(key_tg)
-        # ['tg-s0-api-pga-https-test', 'tg-s0-api-pga-wss-test']
-
-        # 1/3 - retrieve target group arn
-        for tg in array_target_group:
-            resp = elbv2_client.describe_target_groups(Names=[tg])
-            tg_arn = resp["TargetGroups"][0]["TargetGroupArn"]
-            dict_tg_arn[tg] = tg_arn
-
-        # 2/3 - find all the instances
-        for tg in array_target_group:
-            resp = elbv2_client.describe_target_health(TargetGroupArn=dict_tg_arn[tg])
-            num_of_targets = len(resp["TargetHealthDescriptions"])
-            for k in range(num_of_targets):
-                instance_id = resp["TargetHealthDescriptions"][k]["Target"]["Id"]
-                dict_tg_instanceid[tg].append(instance_id)
-
-        pp.pprint(dict_tg_instanceid)
-
-        # 3/3 - deregister all instances, then we can have a clean and nice target group
-        for tg in array_target_group:
-            for instance_id in dict_tg_instanceid[tg]:
-                resp = elbv2_client.deregister_targets(TargetGroupArn=dict_tg_arn[tg], Targets=[{'Id': instance_id}])
-
-    """ 
-    REGISTER instances (array_instance_id) into the target group (array_target_group)
-    """
-    for k in range(NUM_OF_SHARDS):
-        key_explorer = "explorers_" + str(k)
+        key_explorer = "explorers_" + str(j)
         array_instance_ip = parse_network_config(key_explorer)
-        array_instance_id = retrieve_instance_id(array_instance_ip)
 
-        key_tg = "tg_s" + str(k)
-        array_target_group = parse_network_config(key_tg)
+        # all nodes registered for the same endpoints should be located in the same region, if not, exit
+        verify_nodes_same_region(array_instance_ip)
 
-        # outer for loop: loop through 2 tg, https and wss
-        # inner loop: add every single instance id into each tg
-        for m in range(len(array_target_group)):
-            for instance in array_instance_id:
-                response = elbv2_client.register_targets(
-                        TargetGroupArn=dict_tg_arn[array_target_group[m]],
-                        Targets=[{'Id': instance,},]
-                )
+
+
+
+
+
+
+    # region='us-east-1'
+    # elbv2_client = boto3.client('elbv2', region_name=region)
+    #
+    # for j in range(NUM_OF_SHARDS):
+    #
+    #     key_tg = "tg_s" + str(j)
+    #     array_target_group = parse_network_config(key_tg)
+    #     # ['tg-s0-api-pga-https-test', 'tg-s0-api-pga-wss-test']
+    #
+    #     # 1/3 - retrieve target group arn
+    #     for tg in array_target_group:
+    #         resp = elbv2_client.describe_target_groups(Names=[tg])
+    #         tg_arn = resp["TargetGroups"][0]["TargetGroupArn"]
+    #         dict_tg_arn[tg] = tg_arn
+    #
+    #     # 2/3 - find all the instances
+    #     for tg in array_target_group:
+    #         resp = elbv2_client.describe_target_health(TargetGroupArn=dict_tg_arn[tg])
+    #         num_of_targets = len(resp["TargetHealthDescriptions"])
+    #         for k in range(num_of_targets):
+    #             instance_id = resp["TargetHealthDescriptions"][k]["Target"]["Id"]
+    #             dict_tg_instanceid[tg].append(instance_id)
+    #
+    #     pp.pprint(dict_tg_instanceid)
+    #
+    #     # 3/3 - deregister all instances, then we can have a clean and nice target group
+    #     for tg in array_target_group:
+    #         for instance_id in dict_tg_instanceid[tg]:
+    #             resp = elbv2_client.deregister_targets(TargetGroupArn=dict_tg_arn[tg], Targets=[{'Id': instance_id}])
+    #
+    # """
+    # REGISTER instances (array_instance_id) into the target group (array_target_group)
+    # """
+    # for k in range(NUM_OF_SHARDS):
+    #     key_explorer = "explorers_" + str(k)
+    #     array_instance_ip = parse_network_config(key_explorer)
+    #     array_instance_id = retrieve_instance_id(array_instance_ip)
+    #
+    #     key_tg = "tg_s" + str(k)
+    #     array_target_group = parse_network_config(key_tg)
+    #
+    #     # outer for loop: loop through 2 tg, https and wss
+    #     # inner loop: add every single instance id into each tg
+    #     for m in range(len(array_target_group)):
+    #         for instance in array_instance_id:
+    #             response = elbv2_client.register_targets(
+    #                     TargetGroupArn=dict_tg_arn[array_target_group[m]],
+    #                     Targets=[{'Id': instance,},]
+    #             )
 
 
 
