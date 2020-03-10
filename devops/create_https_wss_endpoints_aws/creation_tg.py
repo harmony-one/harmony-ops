@@ -19,7 +19,7 @@ def create_target_group(region, target_group_array):
     print("\n==== step 2: creating target group in each region, TargetGroupArn will be stored into dict_region_tgarn \n")
     elbv2_client = boto3.client('elbv2', region_name=region)
 
-    print("Creating target group: ", target_group_array[0])
+    print("Need to target group: ", target_group_array[0])
     try:
         resp = elbv2_client.create_target_group(
             Name=target_group_array[0],
@@ -45,7 +45,7 @@ def create_target_group(region, target_group_array):
     except Exception as e:
         print("Unexpected error to create the target group: %s" % e)
 
-    print("Creating target group: ", target_group_array[1])
+    print("Need to target group: ", target_group_array[1])
     try:
         resp = elbv2_client.create_target_group(
             Name=target_group_array[1],

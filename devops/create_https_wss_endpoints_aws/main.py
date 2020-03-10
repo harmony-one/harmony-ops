@@ -41,6 +41,7 @@ from datetime import timedelta
 from helpers import *
 from creation_certificates import *
 from creation_tg import *
+from creation_elb2 import *
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -67,7 +68,7 @@ ID_DOMAIN_NAME = BASE_DOMAIN_NAME.split('.')[0]
 # array_domain_name       = []
 
 #### CREATE A COMPLETE PIPELINE ####
-dict_region_elb2arn = defaultdict(list)
+
 dict_region_ListenerArn = defaultdict(list)
 
 
@@ -94,10 +95,10 @@ def create_endpoints_new_network():
         # all nodes registered for the same endpoints should be located in the same region, if not, gracefully exit
         # verify_nodes_same_region(reg, array_instance_ip)
 
-        print("\n########### Creating complete pipeline for shard", str(i), " in AWS region: ", reg, "###########\n")
+        print("\n###################### Creating complete pipeline for shard", str(i), " in AWS region: ", reg, "######################\n")
         # 1/5 - request certificates
         domain_name = 'api.s' + str(i) + "." + BASE_DOMAIN_NAME
-        request_ssl_certificates(reg, domain_name)
+        # request_ssl_certificates(reg, domain_name)
 
         print("\nRESULTS OF STEP 1 \n")
         pp.pprint(dict_region_sslcerts)
@@ -108,8 +109,8 @@ def create_endpoints_new_network():
         create_target_group(reg, array_tgs)
 
         # 3/5 - create elb
-        # elb2_name = 's' + str(i) + '-' + ID_DOMAIN_NAME + '-' + reg
-        # create_elb2(reg, elb2_name)
+        elb2_name = 's' + str(i) + '-' + ID_DOMAIN_NAME + '-' + reg
+        create_elb2(reg, elb2_name)
 
         # 4/5 - create listener
         # test result: passed
@@ -121,34 +122,6 @@ def create_endpoints_new_network():
 
         # 6/ - register explorer instances into the target group
         # register_explorers()
-
-
-
-
-
-
-
-
-# step 3 - create alb
-def create_elb2(region, elb2_name):
-    print("\n==== step 3: creating elb2, LoadBalancerArn will be stored into dict_region_elb2arn \n")
-    elbv2_client = boto3.client('elbv2', region_name=region)
-    try:
-        resp = elbv2_client.create_load_balancer(
-            Name=elb2_name,
-            Subnets=parse_network_config('subnet_' + region),
-            SecurityGroups=parse_network_config('sg_' + region),
-            Scheme='internet-facing',
-            Type='application',
-            IpAddressType='ipv4'
-        )
-        # TO-DO:
-        dict_region_elb2arn[region].append(resp['LoadBalancers'][0]['LoadBalancerArn'])
-        print("--creating Elastic/Application Load Balancer in region " + region + ", elb name: " + elb2_name)
-    except Exception as e:
-        print("Unexpected error to create the elb2: %s" % e)
-
-    pp.pprint(dict_region_elb2arn)
 
 # step 4 - create listener
 # not refactored yet
