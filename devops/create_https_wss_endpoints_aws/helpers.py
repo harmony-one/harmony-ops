@@ -26,11 +26,10 @@ def retrieve_instance_region(ip):
     return region
 
 
-def verify_nodes_same_region(array_ip):
-    reg = retrieve_instance_region(array_ip[0])
+def verify_nodes_same_region(region, array_ip):
     for ip in array_ip:
-        if retrieve_instance_region(ip) != reg:
-            sys.exit()
+        if retrieve_instance_region(ip) != region:
+            sys.exit("All nodes registered for the same endpoints should be located in the region, if not, gracefully exit!! ")
 
 
 def create_name_target_group(shard, id_domain):

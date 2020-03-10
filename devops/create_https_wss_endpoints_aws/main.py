@@ -432,8 +432,10 @@ def update_target_groups():
         key_explorer = "explorers_" + str(j)
         array_instance_ip = parse_network_config(key_explorer)
 
+        reg = retrieve_instance_region(array_instance_ip[0])
         # all nodes registered for the same endpoints should be located in the same region, if not, exit
-        verify_nodes_same_region(array_instance_ip)
+        verify_nodes_same_region(reg, array_instance_ip)
+
 
     # region='us-east-1'
     # elbv2_client = boto3.client('elbv2', region_name=region)
