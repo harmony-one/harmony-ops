@@ -18,14 +18,31 @@ def status():
 
     statuses = {}
     for n in network_list:
-        r = requests.get(watchdog % n.watchdog, auth=('harmony', 'harmony.one'))
         statuses[n.name] = {}
         statuses[n.name]['block'] = {}
-        for result in r.json():
-            statuses[n.name]['block'][result['shard-id']] = result
-            statuses[n.name]['block'][result['shard-id']]['endpoint'] = endpoint % (result['shard-id'], n.endpoint)
-        statuses[n.name]['explorer-link'] = n.explorer
-        statuses[n.name]['staking-link'] = n.staking
+        try:
+            r = requests.get(watchdog % n.watchdog, auth=('harmony', 'harmony.one'))
+        except requests.exceptions.ConnectionError:
+            r = None
+        if r is not None:
+            result = r.json()
+            try:
+                for item in result['shard-status']:
+                    statuses[n.name]['block'][item['shard-id']] = item
+                    e = endpoint % (item['shard-id'], n.endpoint)
+                    statuses[n.name]['block'][item['shard-id']]['endpoint'] = e
+                    try:
+                        s = requests.get(e)
+                        statuses[n.name]['block'][item['shard-id']]['endpoint-status'] = True
+                    except requests.exceptions.ConnectionError:
+                        statuses[n.name]['block'][item['shard-id']]['endpoint-status'] = False
+            except json.decoder.JSONDecodeError:
+                pass
+            #statuses[n.name]['used-seats'] = result['used-seats']
+            #statuses[n.name]['avail-seats'] = result['avail-seats']
+            statuses[n.name]['commit-version'] = result['commit-version']
+            statuses[n.name]['explorer-link'] = n.explorer
+            statuses[n.name]['staking-link'] = n.staking
 
     # Sort output by ShardID
     for net in statuses.keys():
