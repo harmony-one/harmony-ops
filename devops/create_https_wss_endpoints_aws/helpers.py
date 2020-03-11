@@ -72,3 +72,11 @@ def retrieve_instance_id(array_instance_ip):
         array_instance_id.append(instance_id)
 
     return array_instance_id
+
+
+
+def create_name_record_set(shard, id_domain):
+    ret = []
+    ret.append('api.s' + str(shard) + '.' + id_domain)
+    ret.append('ws.s' + str(shard) + '.' + id_domain)
+    return ret

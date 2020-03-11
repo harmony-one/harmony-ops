@@ -21,9 +21,6 @@ or
 $ python3 main.py -n testnet -u
 
 
-VERSION
-Mar 6, 2020     add a param on CLI to update endpoints only
-
 '''
 
 import sys
@@ -45,6 +42,7 @@ from creation_elb2 import *
 from creation_listener import *
 from creation_rule import *
 from registration_exps import *
+from creation_entries import *
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -60,15 +58,10 @@ dict_tg_instanceid = defaultdict(list)
 dict_tg_https_wss = defaultdict(list)
 
 
-NUM_OF_SHARDS = parse_network_config("num_of_shards")
-# ARRAY_OF_REGIONS = parse_network_config("regions")
-# TO-DO: convert them to a dict
-# ARRAY_OF_VPC = parse_network_config("region_vpc")
-# ARRAY_OF_WS_ENDPOINTS = parse_network_config("ws_endpoints")
-
-BASE_DOMAIN_NAME = parse_network_config("domain_name")
-ID_DOMAIN_NAME = BASE_DOMAIN_NAME.split('.')[0]
-# array_domain_name       = []
+NUM_OF_SHARDS       = parse_network_config("num_of_shards")
+BASE_DOMAIN_NAME    = parse_network_config("domain_name")
+ID_DOMAIN_NAME      = BASE_DOMAIN_NAME.split('.')[0]
+HOSTED_ZONE_ID      = parse_network_config("hosted_zone_id")
 
 
 
@@ -125,6 +118,9 @@ def create_endpoints_new_network():
         # 6/ - register explorer instances into the target group
         register_explorers(reg, array_instance_id, dict_region_tgarn)
 
+        # 7/ TO-DO: create entries on Route 53
+        # array_record_set = create_name_record_set(i, BASE_DOMAIN_NAME)
+        # create_dns_entries(HOSTED_ZONE_ID, array_record_set)
 
 
 

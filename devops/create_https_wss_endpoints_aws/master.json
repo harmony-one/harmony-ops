@@ -5,6 +5,7 @@
   "explorers_1" : ["54.215.237.199", "13.56.250.243"],
   "explorers_2" : [],
   "explorers_3" : [],
+  "hosted_zone_id" : "Z2HRLI8TCUZ4AL",
   "subnet_us-east-1": ["subnet-14da445e", "subnet-2c957212", "subnet-2f00cb73", "subnet-7b65f774", "subnet-7da3751a", "subnet-7e5c8950"],
   "subnet_us-east-2": ["subnet-45031908", "subnet-b38df5db", "subnet-c071c0ba"],
   "subnet_us-west-1": ["subnet-551f560e", "subnet-5be2df3c"],
