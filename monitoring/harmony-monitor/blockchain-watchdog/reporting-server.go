@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -399,6 +400,7 @@ type monitor struct {
 	NoReplySnapshot     []noReply
 	consensusProgress   map[string]bool
 	badBlockHandler     badBlockHandler
+	newHeaderHandler    headerHandler
 	currentBadBlocks    struct {
 		sync.Mutex
 		blocks []badBlock
@@ -692,7 +694,9 @@ func (m *monitor) stakingCommitteeUpdate(beaconChainNode string) {
 		return
 	}
 	committeeReply := s{}
-	json.Unmarshal(result, &committeeReply)
+	if err := json.Unmarshal(result, &committeeReply); err != nil {
+		// TODO Janet handle error
+	}
 	m.SuperCommittee = committeeReply.Result
 	stdlog.Println("Updated Staking Committee information")
 }
@@ -977,18 +981,18 @@ func (m *monitor) badBlocksJSON(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(m.currentBadBlocks.blocks)
 }
 
-func (m *badBlockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var issue badBlock
+var (
+	upgrader = websocket.Upgrader{}
+)
 
-	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+type headerHandler struct {
+	newHeader chan struct {
+		NewHeaderEvent
+		AverageBlockTime time.Time
 	}
-
-	m.badBlockEvent <- issue
 }
 
-func (m *monitor) startListeningChainEvents(instrs *instruction) {
+func (h *headerHandler) start() {
 	addr := "localhost:9800"
 	u := url.URL{Scheme: "ws", Host: addr, Path: "/"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -1003,18 +1007,7 @@ func (m *monitor) startListeningChainEvents(instrs *instruction) {
 		SubscriptionID string `json:"result"`
 	}
 
-	type NewHeaderEvent struct {
-		Params struct {
-			SubscriptionID string `json:"subscription"`
-			Result         struct {
-				S uint32 `json:"shard-id"`
-				H string `json:"block-header-hash"`
-				N uint64 `json:"block-number"`
-				V uint64 `json:"view-id"`
-				E uint64 `json:"epoch"`
-			} `json:"result"`
-		} `json:"params"`
-	}
+	// http.ListenAndServe(":9876", &wsHandler{})
 
 	// Kick off the initial subscribe
 	if err := c.WriteJSON(struct {
@@ -1031,15 +1024,74 @@ func (m *monitor) startListeningChainEvents(instrs *instruction) {
 	}
 
 	// Now assume just plain streaming in
-	for {
+	for sum, i, now := 0.0, 1.0, time.Now(); ; i++ {
 		var newHeader NewHeaderEvent
 		if err := c.ReadJSON(&newHeader); err != nil {
 			// TODO Janet print error
 			break
 		}
+		nowNow := time.Now()
+		diff := nowNow.Sub(now).Seconds()
+		sum += diff
+		avg := sum / i
+		fmt.Println("prev avg", avg, diff, i)
 
-		stdlog.Printf("got reply %+v n", newHeader)
+		now = nowNow
+		stdlog.Printf("got reply in avg %f %f, %+v\n", avg, diff, newHeader)
 	}
+
+}
+
+type wsHandler struct{}
+
+// Meant to be from client HTML page
+func (ws *wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		// TODO Janet handle error
+	}
+	defer c.Close()
+	for {
+		mt, message, err := c.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			break
+		}
+		log.Printf("recv: %s", message)
+		if err = c.WriteMessage(mt, message); err != nil {
+			log.Println("write:", err)
+			break
+		}
+	}
+}
+
+func (m *badBlockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var issue badBlock
+
+	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	m.badBlockEvent <- issue
+}
+
+// NewHeaderEvent ..
+type NewHeaderEvent struct {
+	Params struct {
+		SubscriptionID string `json:"subscription"`
+		Result         struct {
+			S uint32 `json:"shard-id"`
+			H string `json:"block-header-hash"`
+			N uint64 `json:"block-number"`
+			V uint64 `json:"view-id"`
+			E uint64 `json:"epoch"`
+		} `json:"result"`
+	} `json:"params"`
+}
+
+func (m *monitor) startListeningChainEvents(instrs *instruction) {
+	go m.newHeaderHandler.start()
 }
 
 func (m *monitor) startReportingHTTPServers(instrs *instruction) {
