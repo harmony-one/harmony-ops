@@ -156,6 +156,7 @@ func (service *Service) monitorNetwork() error {
 	// set up channel on which to send accepted connections
 	listen := make(chan net.Conn, 100)
 	go service.startReportingHTTPServers(service.instruction)
+	go service.startListeningChainEvents(service.instruction)
 	go acceptConnection(listener, listen)
 	// loop work cycle with accept connections or interrupt
 	// by system signal

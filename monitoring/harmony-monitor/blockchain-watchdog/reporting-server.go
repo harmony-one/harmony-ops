@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"net/url"
 	"reflect"
 	"sort"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ahmetb/go-linq"
+	"github.com/gorilla/websocket"
 	"github.com/valyala/fasthttp"
 )
 
@@ -242,11 +244,11 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:        []interface{}{report.Chain},
-		RightTitle:       []interface{}{report.Build, time.Now().Format(time.RFC3339)},
-		Summary:          report.Summary,
-		SuperCommittee:   m.SuperCommittee,
-		NoReply:          report.NoReplies,
+		LeftTitle:      []interface{}{report.Chain},
+		RightTitle:     []interface{}{report.Build, time.Now().Format(time.RFC3339)},
+		Summary:        report.Summary,
+		SuperCommittee: m.SuperCommittee,
+		NoReply:        report.NoReplies,
 		DownMachineCount: linq.From(report.NoReplies).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
@@ -902,11 +904,11 @@ func (m *monitor) networkSnapshot() networkReport {
 	return networkReport{buildVersion, m.chain, cnsProgressCpy, sum, totalNoReplyMachines}
 }
 
-type statusReport struct{
-	Shards         []shardStatus `json:"shard-status"`
-	Versions       []string      `json:"commit-version"`
-	AvailSeats     int           `json:"avail-seats"`
-	ElectedSeats   int           `json:"used-seats"`
+type statusReport struct {
+	Shards       []shardStatus `json:"shard-status"`
+	Versions     []string      `json:"commit-version"`
+	AvailSeats   int           `json:"avail-seats"`
+	ElectedSeats int           `json:"used-seats"`
 }
 
 type shardStatus struct {
@@ -931,7 +933,7 @@ func (m *monitor) statusSnapshot() statusReport {
 
 	for i, shard := range sum[headerSumry] {
 		sample := shard.(any)["latest-block"].(BlockHeader)
-		status = append(status, shardStatus {
+		status = append(status, shardStatus{
 			i,
 			cnsProgressCpy[i],
 			shard.(any)[blockMax].(uint64),
@@ -948,7 +950,7 @@ func (m *monitor) statusSnapshot() statusReport {
 
 	usedSeats := 0
 	for _, info := range m.SuperCommittee.CurrentCommittee.Deciders {
-		usedSeats =+ linq.From(info.Committee).CountWith(func (v interface{}) bool {
+		usedSeats = +linq.From(info.Committee).CountWith(func(v interface{}) bool {
 			return !v.(CommitteeMember).IsHarmonyNode
 		})
 	}
@@ -984,6 +986,60 @@ func (m *badBlockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m.badBlockEvent <- issue
+}
+
+func (m *monitor) startListeningChainEvents(instrs *instruction) {
+	addr := "localhost:9800"
+	u := url.URL{Scheme: "ws", Host: addr, Path: "/"}
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		// TODO Janet handle error
+	}
+	defer c.Close()
+
+	type initialConnection struct {
+		RPC            string `json:"jsonrpc"`
+		ID             uint64 `json:"id"`
+		SubscriptionID string `json:"result"`
+	}
+
+	type NewHeaderEvent struct {
+		Params struct {
+			SubscriptionID string `json:"subscription"`
+			Result         struct {
+				S uint32 `json:"shard-id"`
+				H string `json:"block-header-hash"`
+				N uint64 `json:"block-number"`
+				V uint64 `json:"view-id"`
+				E uint64 `json:"epoch"`
+			} `json:"result"`
+		} `json:"params"`
+	}
+
+	// Kick off the initial subscribe
+	if err := c.WriteJSON(struct {
+		ID     uint64   `json:"id"`
+		Method string   `json:"method"`
+		Params []string `json:"params"`
+	}{1, "hmy_subscribe", []string{"newHeads"}}); err != nil {
+		//
+	}
+	// Initial read, get the subscription ID
+	initConn := initialConnection{}
+	if err := c.ReadJSON(&initConn); err != nil {
+		// TODO Janet handle error
+	}
+
+	// Now assume just plain streaming in
+	for {
+		var newHeader NewHeaderEvent
+		if err := c.ReadJSON(&newHeader); err != nil {
+			// TODO Janet print error
+			break
+		}
+
+		stdlog.Printf("got reply %+v n", newHeader)
+	}
 }
 
 func (m *monitor) startReportingHTTPServers(instrs *instruction) {
