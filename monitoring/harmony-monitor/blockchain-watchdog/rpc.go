@@ -4,12 +4,13 @@ package main
 const (
 	NodeMetadataRPC   = "hmy_getNodeMetadata"
 	BlockHeaderRPC    = "hmy_latestHeader"
-	PendingCxRPC      = "hmy_getPendingCxReceipts"
+	PendingCXRPC      = "hmy_getPendingCXReceipts"
 	SuperCommitteeRPC = "hmy_getSuperCommittees"
+	LastCrossLinkRPC  = "hmy_getLastCrossLinks"
 	JSONVersion       = "2.0"
 )
 
-// NodeMetadataReply
+// Node Metadata RPC Reply
 type NodeMetadataReply struct {
 	BLSPublicKey   string `json:"blskey"`
 	Version        string `json:"version"`
@@ -34,6 +35,7 @@ type NodeMetadata struct {
 	IP      string
 }
 
+// Latest Block Header RPC Reply
 type BlockHeaderReply struct {
 	BlockHash        string `json:"blockHash"`
 	BlockNumber      uint64 `json:"blockNumber"`
@@ -52,6 +54,22 @@ type BlockHeader struct {
 	IP      string
 }
 
+// Pending CX RPC Reply
+// TODO: Come back to this
+type PendingCXReply struct{
+	PendingCX    []CXReceiptProof `json:"-"`
+}
+
+// Don't care about contents of each Receipt
+type CXReceiptProof struct {
+	Receipts     interface{} `json:"receipts"`
+	MerkleProof  interface{} `json:"merkleProof"`
+	Header       interface{} `json:"header"`
+	CommitSig    string      `json:"commitSig"`
+	CommitBitmap string      `json:"commitBitmap"`
+}
+
+// Super Committees RPC Reply
 type SuperCommitteeReply struct {
 	PreviousCommittee struct {
 		Deciders      map[string]CommitteeInfo `json:"quorum-deciders"`
@@ -64,20 +82,41 @@ type SuperCommitteeReply struct {
 }
 
 type CommitteeInfo struct {
-	PolicyType    string            `json:"policy"`
-	ShardID       int               `json:"shard-id"`
-	MemberCount   int               `json:"count"`
-	Committee     []CommitteeMember `json:"committee-members"`
-	HarmonyPower  string            `json:"hmy-voting-power"`
-	StakedPower   string            `json:"staked-voting-power"`
-	TotalRawStake string            `json:"total-raw-staked"`
+	PolicyType      string            `json:"policy"`
+	MemberCount     int               `json:"count"`
+	Committee       []CommitteeMember `json:"committee-members"`
+	HarmonyPower    string            `json:"hmy-voting-power"`
+	StakedPower     string            `json:"staked-voting-power"`
+	TotalRawStake   string            `json:"total-raw-staked"`
 }
 
 type CommitteeMember struct {
-	Address        string `json:"earning-account"`
-	IsHarmonyNode  bool   `json:"is-harmony-slot"`
-	BLSKey         string `json:"bls-public-key"`
-	RawPercent     string `json:"voting-power-unnormalized,omitempty"`
-	VotingPower    string `json:"voting-power-%"`
-	EffectiveStake string `json:"effective-stake,omitempty"`
+	Address         string           `json:"earning-account"`
+	IsHarmonyNode   bool             `json:"is-harmony-slot"`
+	BLSKey          string           `json:"bls-public-key"`
+	RawPercent      string           `json:"voting-power-unnormalized,omitempty"`
+	VotingPower     string           `json:"voting-power-%"`
+	EffectiveStake  string           `json:"effective-stake,omitempty"`
+}
+
+// Last Cross Links RPC Reply
+type LastCrossLinkReply struct {
+	CrossLinks      []CrossLink      `json:"-"`
+}
+
+type CrossLink struct {
+	Hash            string           `json:"hash"`
+	BlockNumber     int              `json:"block-number"`
+	Signature       string           `json:"signature"`
+	SignatureBitmap string           `json:"signature-bitmap"`
+	ShardID         int              `json:"shard-id"`
+	EpochNumber     int              `json:"epoch-number"`
+}
+
+func getRPCRequest(rpc string) map[string]interface{} {
+	return map[string]interface{}{
+		"jsonrpc": JSONVersion,
+		"method":  rpc,
+		"params":  []interface{}{},
+	}
 }

@@ -200,6 +200,7 @@ type watchParams struct {
 		BlockHeader  int `yaml:"block-header"`
 		NodeMetadata int `yaml:"node-metadata"`
 		CxPending    int `yaml:"cx-pending"`
+		CrossLink    int `yaml:"cross-link"`
 	} `yaml:"inspect-schedule"`
 	Performance struct {
 		WorkerPoolSize int `yaml:"num-workers"`
@@ -299,6 +300,9 @@ func (w *watchParams) sanityCheck() error {
 	}
 	if w.InspectSchedule.CxPending == 0 {
 		errList = append(errList, "Missing cx-pending under inspect-schedule in yaml config")
+	}
+	if w.InspectSchedule.CrossLink == 0 {
+		errList = append(errList, "Missing cross-link under inspect-schedule in yaml config")
 	}
 	if w.Performance.WorkerPoolSize == 0 {
 		errList = append(errList, "Missing num-workers under performance in yaml config")
