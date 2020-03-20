@@ -93,7 +93,7 @@ hr:after {
   width: 100%%;
 }
 {{ with (index .Summary "block-header") }}
-{{range $key, $value := .}}
+{{ range $key, $value := .}}
 #curr-hn-toggle-{{$key}}:checked ~ * .curr-harmony-node-{{$key}}-true {
   display: table-row;
 }
@@ -173,7 +173,7 @@ hr:after {
             <a href="#version-{{$key}}">Version-{{$key}}</a>
             <p>
               Node Count:{{ len (index $value "records") }}
-              {{ with getCommitId $key }}
+              {{ with getCommitID $key }}
                 <a href="https://github.com/harmony-one/harmony/commit/{{.}}">commit</a>
               {{end}}
             <p>
@@ -290,7 +290,7 @@ hr:after {
     {{end}}
 
     {{ with (index .Summary "node-metadata") }}
-    {{range $key, $value := .}}
+    {{ range $key, $value := . }}
     <section class="report-wrapper" id="version-{{$key}}">
       <div class="summary-details">
         <div class="flex-col">
@@ -321,7 +321,7 @@ hr:after {
         </thead>
         <tbody>
           {{ with (index $value "records") }}
-          {{range .}}
+          {{ range . }}
           <tr class="{{if .Payload.IsLeader}}is-leader{{end}}">
             <td>{{ .IP }}</td>
             <td>{{ .Payload.BLSPublicKey }}</td>
@@ -341,19 +341,19 @@ hr:after {
 		{{ end }}
 
 		{{ with .SuperCommittee }}
-    {{ range .CurrentCommittee.Deciders}}
-    {{ with . }}
-    {{ $Decider := . }}
-    <section class="report-wrapper" id="current-committee-{{ .ShardID }}">
-      <input type="checkbox" id="curr-hn-toggle-{{.ShardID}}">
-      <label for="curr-hn-toggle-{{.ShardID}}">show harmony nodes</label>
+    {{ range $key, $value := .CurrentCommittee.Deciders}}
+		{{ $shard := getShardID $key }}
+    <section class="report-wrapper" id="current-committee-{{ $shard }}">
+      <input type="checkbox" id="curr-hn-toggle-{{ $shard }}">
+      <label for="curr-hn-toggle-{{ $shard }}">show harmony nodes</label>
       <div class="summary-details">
         <div class="flex-col">
           <div class="flex-row">
             <h3>
-              Shard {{ .ShardID }} Current Commitee <span><a href="#top-of-page">(Top)</a></span>
+              Shard {{ $shard }} Current Committee <span><a href="#top-of-page">(Top)</a></span>
            </h3>
           </div>
+					{{ with $value }}
           <div class="flex-row">
 						<div class="flex-col">
 					  	<p> policy: {{ .PolicyType }} </p>
@@ -381,7 +381,7 @@ hr:after {
         <tbody>
           {{ range .Committee }}
           {{ with . }}
-					<tr class="curr-harmony-node-{{$Decider.ShardID}}-{{.IsHarmonyNode}}">
+					<tr class="curr-harmony-node-{{ $shard }}-{{.IsHarmonyNode}}">
             <td>{{.Address}}</td>
             <td>{{.BLSKey}}</td>
             <td>{{.IsHarmonyNode}}</td>
@@ -399,19 +399,19 @@ hr:after {
 		{{end}}
 
 		{{ with .SuperCommittee }}
-		{{ range .PreviousCommittee.Deciders}}
-		{{ with . }}
-    {{ $Decider := . }}
-		<section class="report-wrapper" id="previous-committee-{{ .ShardID }}">
-      <input type="checkbox" id="prev-hn-toggle-{{ .ShardID }}">
-      <label for="prev-hn-toggle-{{.ShardID}}">show harmony nodes</label>
+		{{ range $key, $value := .PreviousCommittee.Deciders}}
+		{{ $shard := getShardID $key }}
+		<section class="report-wrapper" id="previous-committee-{{ $shard }}">
+      <input type="checkbox" id="prev-hn-toggle-{{ $shard }}">
+      <label for="prev-hn-toggle-{{ $shard }}">show harmony nodes</label>
 			<div class="summary-details">
 				<div class="flex-col">
 					<div class="flex-row">
 						<h3>
-							Shard {{ .ShardID }} Previous Commitee <span><a href="#top-of-page">(Top)</a></span>
+							Shard {{ $shard }} Previous Commitee <span><a href="#top-of-page">(Top)</a></span>
 					 </h3>
 					</div>
+					{{ with $value }}
 					<div class="flex-row">
 						<div class="flex-col">
 							<p> policy: {{ .PolicyType }} </p>
@@ -439,7 +439,7 @@ hr:after {
 				<tbody>
 					{{ range .Committee }}
 					{{ with . }}
-					<tr class="prev-harmony-node-{{$Decider.ShardID}}-{{.IsHarmonyNode}}">
+					<tr class="prev-harmony-node-{{ $shard }}-{{ .IsHarmonyNode }}">
 						<td>{{.Address}}</td>
 						<td>{{.BLSKey}}</td>
 						<td>{{.IsHarmonyNode}}</td>

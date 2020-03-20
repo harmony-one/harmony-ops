@@ -41,42 +41,12 @@ func identity(x interface{}) interface{} {
 }
 
 const (
-	metaSumry               = "node-metadata"
-	headerSumry             = "block-header"
-	chainSumry              = "chain-config"
-	committeeSumry          = "staking-committee"
-	blockMax                = "block-max"
-	timestamp               = "timestamp"
-	consensusWarningMessage = `
-Consensus stuck on shard %s!
-
-Block height stuck at %d starting at %s
-
-Block Hash: %s
-
-Leader: %s
-
-ViewID: %d
-
-Epoch: %d
-
-Block Timestamp: %s
-
-LastCommitSig: %s
-
-LastCommitBitmap: %s
-
-Time since last new block: %d seconds (%f minutes)
-
-See: http://watchdog.hmny.io/report-%s
-
---%s
-`
-	cxPendingPoolWarning = `
-Cx Transaction Pool too large on shard %s!
-
-Count: %d
-`
+	metaSumry      = "node-metadata"
+	headerSumry    = "block-header"
+	chainSumry     = "chain-config"
+	committeeSumry = "staking-committee"
+	blockMax       = "block-max"
+	timestamp      = "timestamp"
 )
 
 func init() {
@@ -214,10 +184,13 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	t, e := template.New("report").
 		//Adds to template a function to retrieve github commit id from version
 		Funcs(template.FuncMap{
-			"getCommitId": func(version string) string {
+			"getCommitID": func(version string) string {
 				r := strings.Split(version, `-g`)
 				r = strings.Split(r[len(r)-1], "-")
 				return r[0]
+			},
+			"getShardID": func(s string) string {
+				return s[len(s)-1:]
 			},
 		}).
 		Parse(reportPage(m.chain))
@@ -242,11 +215,11 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:        []interface{}{report.Chain},
-		RightTitle:       []interface{}{report.Build, time.Now().Format(time.RFC3339)},
-		Summary:          report.Summary,
-		SuperCommittee:   m.SuperCommittee,
-		NoReply:          report.NoReplies,
+		LeftTitle:      []interface{}{report.Chain},
+		RightTitle:     []interface{}{report.Build, time.Now().Format(time.RFC3339)},
+		Summary:        report.Summary,
+		SuperCommittee: m.SuperCommittee,
+		NoReply:        report.NoReplies,
 		DownMachineCount: linq.From(report.NoReplies).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
@@ -440,11 +413,7 @@ func (m *monitor) consensusMonitor(
 		go m.worker(jobs, replyChannels, syncGroups)
 	}
 
-	requestFields := map[string]interface{}{
-		"jsonrpc": JSONVersion,
-		"method":  BlockHeaderRPC,
-		"params":  []interface{}{},
-	}
+	requestFields := getRPCRequest(BlockHeaderRPC)
 
 	type s struct {
 		Result BlockHeaderReply `json:"result"`
@@ -497,14 +466,13 @@ func (m *monitor) consensusMonitor(
 				if currentBlockHeight <= lastBlock.Height {
 					timeSinceLastSuccess := currentUTCTime.Sub(lastBlock.TS)
 					if uint64(timeSinceLastSuccess.Seconds()) > interval {
-						message := fmt.Sprintf(consensusWarningMessage,
+						message := fmt.Sprintf(consensusMessage,
 							shard, currentBlockHeight, lastBlock.TS.Format(timeFormat),
 							currentBlockHeader.Payload.BlockHash, currentBlockHeader.Payload.Leader,
 							currentBlockHeader.Payload.ViewID, currentBlockHeader.Payload.Epoch,
 							currentBlockHeader.Payload.Timestamp, currentBlockHeader.Payload.LastCommitSig,
 							currentBlockHeader.Payload.LastCommitBitmap,
-							int64(timeSinceLastSuccess.Seconds()), timeSinceLastSuccess.Minutes(),
-							chain, fmt.Sprintf(nameFMT, chain))
+							int64(timeSinceLastSuccess.Seconds()), timeSinceLastSuccess.Minutes(), chain)
 						incidentKey := fmt.Sprintf("Shard %s consensus stuck! - %s", shard, chain)
 						err := notify(pdServiceKey, incidentKey, chain, message)
 						if err != nil {
@@ -532,27 +500,19 @@ func (m *monitor) consensusMonitor(
 }
 
 func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain string, shardMap map[string]int) {
-	cxRequestFields := map[string]interface{}{
-		"jsonrpc": JSONVersion,
-		"method":  PendingCxRPC,
-		"params":  []interface{}{},
-	}
-	nodeRequestFields := map[string]interface{}{
-		"jsonrpc": JSONVersion,
-		"method":  NodeMetadataRPC,
-		"params":  []interface{}{},
-	}
+	cxRequestFields := getRPCRequest(PendingCXRPC)
+	nodeRequestFields := getRPCRequest(NodeMetadataRPC)
 
 	jobs := make(chan work, len(shardMap))
 	replyChannels := make(map[string](chan reply))
 	syncGroups := make(map[string]*sync.WaitGroup)
-	for _, rpc := range []string{NodeMetadataRPC, PendingCxRPC} {
+	for _, rpc := range []string{NodeMetadataRPC, PendingCXRPC} {
 		replyChannels[rpc] = make(chan reply, len(shardMap))
 		switch rpc {
 		case NodeMetadataRPC:
 			var mGroup sync.WaitGroup
 			syncGroups[rpc] = &mGroup
-		case PendingCxRPC:
+		case PendingCXRPC:
 			var cxGroup sync.WaitGroup
 			syncGroups[rpc] = &cxGroup
 		}
@@ -606,16 +566,16 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 			for _, n := range node {
 				cxRequestFields["id"] = strconv.Itoa(queryID)
 				requestBody, _ := json.Marshal(cxRequestFields)
-				jobs <- work{n, PendingCxRPC, requestBody}
+				jobs <- work{n, PendingCXRPC, requestBody}
 				queryID++
-				syncGroups[PendingCxRPC].Add(1)
+				syncGroups[PendingCXRPC].Add(1)
 			}
 		}
-		syncGroups[PendingCxRPC].Wait()
-		close(replyChannels[PendingCxRPC])
+		syncGroups[PendingCXRPC].Wait()
+		close(replyChannels[PendingCXRPC])
 
 		cxPoolSize := make(map[int][]uint64)
-		for i := range replyChannels[PendingCxRPC] {
+		for i := range replyChannels[PendingCXRPC] {
 			if i.oops == nil {
 				report := a{}
 				json.Unmarshal(i.rpcResult, &report)
@@ -634,7 +594,7 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 					cxPoolSize[shard] = []uint64{report.Result}
 				}
 				if report.Result > uint64(1000) {
-					message := fmt.Sprintf(cxPendingPoolWarning, shard, report.Result)
+					message := fmt.Sprintf(crossShardTransactionMessage, shard, report.Result)
 					incidentKey := fmt.Sprintf("Shard %s cx transaction pool size > 1000! - %s", shard, chain)
 					err := notify(pdServiceKey, incidentKey, chain, message)
 					if err != nil {
@@ -650,16 +610,12 @@ func (m *monitor) cxMonitor(interval uint64, poolSize int, pdServiceKey, chain s
 		stdlog.Print(cxPoolSize)
 
 		replyChannels[NodeMetadataRPC] = make(chan reply, len(shardMap))
-		replyChannels[PendingCxRPC] = make(chan reply, len(shardMap))
+		replyChannels[PendingCXRPC] = make(chan reply, len(shardMap))
 	}
 }
 
 func (m *monitor) stakingCommitteeUpdate(beaconChainNode string) {
-	committeeRequestFields := map[string]interface{}{
-		"jsonrpc": JSONVersion,
-		"method":  SuperCommitteeRPC,
-		"params":  []interface{}{},
-	}
+	committeeRequestFields := getRPCRequest(SuperCommitteeRPC)
 
 	committeeRequestFields["id"] = "0"
 	requestBody, _ := json.Marshal(committeeRequestFields)
@@ -685,11 +641,7 @@ func (m *monitor) manager(
 	rpc string, group *sync.WaitGroup,
 	channels map[string](chan reply),
 ) {
-	requestFields := map[string]interface{}{
-		"jsonrpc": JSONVersion,
-		"method":  rpc,
-		"params":  []interface{}{},
-	}
+	requestFields := getRPCRequest(rpc)
 
 	prevEpoch := uint64(0)
 	for now := range time.Tick(time.Duration(interval) * time.Second) {
@@ -818,6 +770,13 @@ func (m *monitor) update(
 				params.Network.TargetChain,
 				shardMap,
 			)
+			go m.crossLinkMonitor(
+				uint64(params.InspectSchedule.CrossLink),
+				params.Performance.WorkerPoolSize,
+				params.Auth.PagerDuty.EventServiceKey,
+				params.Network.TargetChain,
+				shardMap,
+			)
 		}
 	}
 }
@@ -887,11 +846,11 @@ func (m *monitor) networkSnapshot() networkReport {
 	return networkReport{buildVersion, m.chain, cnsProgressCpy, sum, totalNoReplyMachines}
 }
 
-type statusReport struct{
-	Shards         []shardStatus `json:"shard-status"`
-	Versions       []string      `json:"commit-version"`
-	AvailSeats     int           `json:"avail-seats"`
-	ElectedSeats   int           `json:"used-seats"`
+type statusReport struct {
+	Shards       []shardStatus `json:"shard-status"`
+	Versions     []string      `json:"commit-version"`
+	AvailSeats   int           `json:"avail-seats"`
+	ElectedSeats int           `json:"used-seats"`
 }
 
 type shardStatus struct {
@@ -916,7 +875,7 @@ func (m *monitor) statusSnapshot() statusReport {
 
 	for i, shard := range sum[headerSumry] {
 		sample := shard.(any)["latest-block"].(BlockHeader)
-		status = append(status, shardStatus {
+		status = append(status, shardStatus{
 			i,
 			cnsProgressCpy[i],
 			shard.(any)[blockMax].(uint64),
@@ -933,7 +892,7 @@ func (m *monitor) statusSnapshot() statusReport {
 
 	usedSeats := 0
 	for _, info := range m.SuperCommittee.CurrentCommittee.Deciders {
-		usedSeats =+ linq.From(info.Committee).CountWith(func (v interface{}) bool {
+		usedSeats += linq.From(info.Committee).CountWith(func(v interface{}) bool {
 			return !v.(CommitteeMember).IsHarmonyNode
 		})
 	}

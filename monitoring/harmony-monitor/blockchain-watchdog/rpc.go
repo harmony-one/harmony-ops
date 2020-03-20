@@ -4,12 +4,12 @@ package main
 const (
 	NodeMetadataRPC   = "hmy_getNodeMetadata"
 	BlockHeaderRPC    = "hmy_latestHeader"
-	PendingCxRPC      = "hmy_getPendingCxReceipts"
+	PendingCXRPC      = "hmy_getPendingCXReceipts"
 	SuperCommitteeRPC = "hmy_getSuperCommittees"
+	LastCrossLinkRPC  = "hmy_getLastCrossLinks"
 	JSONVersion       = "2.0"
 )
 
-// NodeMetadataReply
 type NodeMetadataReply struct {
 	BLSPublicKey   string `json:"blskey"`
 	Version        string `json:"version"`
@@ -54,6 +54,20 @@ type BlockHeader struct {
 	IP      string
 }
 
+// TODO: Come back to this
+type PendingCXReply struct {
+	PendingCX []CXReceiptProof `json:"-"`
+}
+
+// Don't care about contents of each Receipt
+type CXReceiptProof struct {
+	Receipts     interface{} `json:"receipts"`
+	MerkleProof  interface{} `json:"merkleProof"`
+	Header       interface{} `json:"header"`
+	CommitSig    string      `json:"commitSig"`
+	CommitBitmap string      `json:"commitBitmap"`
+}
+
 type SuperCommitteeReply struct {
 	PreviousCommittee struct {
 		Deciders      map[string]CommitteeInfo `json:"quorum-deciders"`
@@ -67,7 +81,6 @@ type SuperCommitteeReply struct {
 
 type CommitteeInfo struct {
 	PolicyType    string            `json:"policy"`
-	ShardID       int               `json:"shard-id"`
 	MemberCount   int               `json:"count"`
 	Committee     []CommitteeMember `json:"committee-members"`
 	HarmonyPower  string            `json:"hmy-voting-power"`
@@ -82,4 +95,25 @@ type CommitteeMember struct {
 	RawPercent     string `json:"voting-power-unnormalized,omitempty"`
 	VotingPower    string `json:"voting-power-%"`
 	EffectiveStake string `json:"effective-stake,omitempty"`
+}
+
+type LastCrossLinkReply struct {
+	CrossLinks []CrossLink
+}
+
+type CrossLink struct {
+	Hash            string `json:"hash"`
+	BlockNumber     int    `json:"block-number"`
+	Signature       string `json:"signature"`
+	SignatureBitmap string `json:"signature-bitmap"`
+	ShardID         int    `json:"shard-id"`
+	EpochNumber     int    `json:"epoch-number"`
+}
+
+func getRPCRequest(rpc string) map[string]interface{} {
+	return map[string]interface{}{
+		"jsonrpc": JSONVersion,
+		"method":  rpc,
+		"params":  []interface{}{},
+	}
 }
