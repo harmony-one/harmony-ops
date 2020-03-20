@@ -5,7 +5,6 @@ import sys
 import boto3
 import json
 
-
 ap = argparse.ArgumentParser(description='parse the network type')
 # param to define network, required
 ap.add_argument("-n", action="store", dest='network_value', required=True, help="define network type")
@@ -25,6 +24,7 @@ def parse_network_config(param):
 
     return network_config_dict[param]
 
+
 def shcmd2(cmd, ignore_error=False):
     """ customized version of shcmd created by aw """
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
@@ -38,7 +38,7 @@ def retrieve_instance_region(ip):
     cmd = "host {ip}".format(ip=ip)
     resp = shcmd2(cmd)
     info = resp.split('.')
-    if info[-4] ==  'compute':
+    if info[-4] == 'compute':
         region = info[-5]
     elif info[-4] == 'compute-1':
         region = 'us-east-1'
@@ -50,14 +50,15 @@ def retrieve_instance_region(ip):
 def verify_nodes_same_region(region, array_ip):
     for ip in array_ip:
         if retrieve_instance_region(ip) != region:
-            sys.exit("All nodes registered for the same endpoints should be located in the region, if not, gracefully exit!! ")
+            sys.exit(
+                "All nodes registered for the same endpoints should be located in the region, if not, gracefully exit!! ")
 
 
 def create_name_target_group(shard, id_domain):
     ret = []
     tg_prefix = 'tg-s' + str(shard) + '-api-' + id_domain + '-'
-    ret.append(tg_prefix+'https')
-    ret.append(tg_prefix+'wss')
+    ret.append(tg_prefix + 'https')
+    ret.append(tg_prefix + 'wss')
     return ret
 
 
@@ -74,9 +75,9 @@ def retrieve_instance_id(array_instance_ip):
     return array_instance_id
 
 
-
 def create_name_record_set(shard, id_domain):
-    ret = []
-    ret.append('api.s' + str(shard) + '.' + id_domain)
-    ret.append('ws.s' + str(shard) + '.' + id_domain)
+    ret = [
+        'api.s' + str(shard) + '.' + id_domain,
+        'ws.s' + str(shard) + '.' + id_domain
+    ]
     return ret
