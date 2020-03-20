@@ -1,7 +1,7 @@
 package main
 
 const (
-  consensusMessage = `
+	consensusMessage = `
 Consensus stuck on shard %s!
 
 Block height stuck at %d starting at %s
@@ -24,12 +24,12 @@ Time since last new block: %d seconds (%f minutes)
 
 See: http://watchdog.hmny.io/report-%s
 `
-  crossShardTransactionMessage = `
+	crossShardTransactionMessage = `
 Cx Transaction Pool too large on shard %s!
 
 Count: %d
 `
-  crossLinkMessage = `
+	crossLinkMessage = `
 Haven't processed a cross link for shard %d in a while!
 
 Cross Link Hash: %s

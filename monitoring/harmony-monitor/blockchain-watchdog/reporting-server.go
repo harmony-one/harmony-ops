@@ -41,12 +41,12 @@ func identity(x interface{}) interface{} {
 }
 
 const (
-	metaSumry               = "node-metadata"
-	headerSumry             = "block-header"
-	chainSumry              = "chain-config"
-	committeeSumry          = "staking-committee"
-	blockMax                = "block-max"
-	timestamp               = "timestamp"
+	metaSumry      = "node-metadata"
+	headerSumry    = "block-header"
+	chainSumry     = "chain-config"
+	committeeSumry = "staking-committee"
+	blockMax       = "block-max"
+	timestamp      = "timestamp"
 )
 
 func init() {
@@ -182,14 +182,14 @@ func request(node string, requestBody []byte) ([]byte, []byte, error) {
 func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 	t, e := template.New("report").
 		//Adds to template a function to retrieve github commit id from version
-		Funcs(template.FuncMap {
+		Funcs(template.FuncMap{
 			"getCommitID": func(version string) string {
 				r := strings.Split(version, `-g`)
 				r = strings.Split(r[len(r)-1], "-")
 				return r[0]
 			},
-			"getShardID": func (s string) string {
-				return s[len(s) - 1:]
+			"getShardID": func(s string) string {
+				return s[len(s)-1:]
 			},
 		}).
 		Parse(reportPage(m.chain))
@@ -214,11 +214,11 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	t.ExecuteTemplate(w, "report", v{
-		LeftTitle:        []interface{}{report.Chain},
-		RightTitle:       []interface{}{report.Build, time.Now().Format(time.RFC3339)},
-		Summary:          report.Summary,
-		SuperCommittee:   m.SuperCommittee,
-		NoReply:          report.NoReplies,
+		LeftTitle:      []interface{}{report.Chain},
+		RightTitle:     []interface{}{report.Build, time.Now().Format(time.RFC3339)},
+		Summary:        report.Summary,
+		SuperCommittee: m.SuperCommittee,
+		NoReply:        report.NoReplies,
 		DownMachineCount: linq.From(report.NoReplies).Select(
 			func(c interface{}) interface{} { return c.(noReply).IP },
 		).Distinct().Count(),
@@ -844,11 +844,11 @@ func (m *monitor) networkSnapshot() networkReport {
 	return networkReport{buildVersion, m.chain, cnsProgressCpy, sum, totalNoReplyMachines}
 }
 
-type statusReport struct{
-	Shards         []shardStatus `json:"shard-status"`
-	Versions       []string      `json:"commit-version"`
-	AvailSeats     int           `json:"avail-seats"`
-	ElectedSeats   int           `json:"used-seats"`
+type statusReport struct {
+	Shards       []shardStatus `json:"shard-status"`
+	Versions     []string      `json:"commit-version"`
+	AvailSeats   int           `json:"avail-seats"`
+	ElectedSeats int           `json:"used-seats"`
 }
 
 type shardStatus struct {
@@ -873,7 +873,7 @@ func (m *monitor) statusSnapshot() statusReport {
 
 	for i, shard := range sum[headerSumry] {
 		sample := shard.(any)["latest-block"].(BlockHeader)
-		status = append(status, shardStatus {
+		status = append(status, shardStatus{
 			i,
 			cnsProgressCpy[i],
 			shard.(any)[blockMax].(uint64),
@@ -890,7 +890,7 @@ func (m *monitor) statusSnapshot() statusReport {
 
 	usedSeats := 0
 	for _, info := range m.SuperCommittee.CurrentCommittee.Deciders {
-		usedSeats += linq.From(info.Committee).CountWith(func (v interface{}) bool {
+		usedSeats += linq.From(info.Committee).CountWith(func(v interface{}) bool {
 			return !v.(CommitteeMember).IsHarmonyNode
 		})
 	}

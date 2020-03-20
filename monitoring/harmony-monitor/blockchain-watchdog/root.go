@@ -258,7 +258,7 @@ func newInstructions(yamlPath string) (*instruction, error) {
 		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
-		 	ipList = append(ipList, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort))
+			ipList = append(ipList, scanner.Text()+":"+strconv.Itoa(t.Network.RPCPort))
 		}
 		err = scanner.Err()
 		if err != nil {
@@ -271,8 +271,8 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	for i, s := range byShard {
 		for _, m := range s.members {
 			if _, check := nodeList[m]; check {
-				dups = append(dups, strconv.FormatInt(int64(i), 10) + ": " + m)
-				dups = append(dups, nodeList[m] + ": " + m)
+				dups = append(dups, strconv.FormatInt(int64(i), 10)+": "+m)
+				dups = append(dups, nodeList[m]+": "+m)
 			} else {
 				nodeList[m] = strconv.FormatInt(int64(i), 10)
 			}
@@ -281,7 +281,7 @@ func newInstructions(yamlPath string) (*instruction, error) {
 	if len(nodeList) == 0 {
 		return nil, errors.New("Empty node list.")
 	}
-	if len(dups) > 0  {
+	if len(dups) > 0 {
 		return nil, errors.New("Duplicate IPs detected.\n" + strings.Join(dups, "\n"))
 	}
 	return &instruction{t, byShard}, nil
