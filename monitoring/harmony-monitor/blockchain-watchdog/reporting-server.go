@@ -176,6 +176,7 @@ func summaryMaps(metas []NodeMetadata, headers []BlockHeader) summary {
 			"pre-staking-epoch": sample.(NodeMetadata).Payload.ChainConfig.PreStakingEpoch,
 			"staking-epoch":     sample.(NodeMetadata).Payload.ChainConfig.StakingEpoch,
 			"blocks-per-epoch":  sample.(NodeMetadata).Payload.BlocksPerEpoch,
+			"dns-zone":          sample.(NodeMetadata).Payload.DNSZone,
 		}
 	})
 
@@ -313,6 +314,7 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 						strconv.FormatBool(v.(NodeMetadata).Payload.IsLeader),
 						strconv.FormatUint(uint64(v.(NodeMetadata).Payload.ShardID), 10),
 						v.(NodeMetadata).Payload.NodeRole,
+						strconv.FormatBool(v.(NodeMetadata).Payload.ArchivalNode),
 					}
 					records = append(records, row)
 				}

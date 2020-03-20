@@ -18,6 +18,8 @@ type NodeMetadataReply struct {
 	ShardID        uint32 `json:"shard-id"`
 	NodeRole       string `json:"role"`
 	BlocksPerEpoch int    `json:"blocks-per-epoch"`
+	DNSZone        string `json:"dns-zone,omit-empty"`
+	ArchivalNode   bool   `json:"is-archival,omit-empty"`
 	ChainConfig    struct {
 		ChainID         int `json:"chain-id"`
 		CrossLinkEpoch  int `json:"cross-link-epoch"`
