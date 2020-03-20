@@ -141,6 +141,8 @@ hr:after {
             <p><span>S3 Epoch:</span><span>{{index $value "s3-epoch"}}</span></p>
             <p><span>Pre-Staking Epoch:</span><span>{{index $value "pre-staking-epoch"}}</span></p>
             <p><span>Staking Epoch:</span><span>{{index $value "staking-epoch"}}</span></p>
+            <p><span>Blocks Per Epoch:</span><span>{{index $value "blocks-per-epoch"}}</span></p>
+            <p><span>DNS Zone:</span><span>{{index $value "dns-zone"}}</span></p>
             {{ if $root.SuperCommittee.CurrentCommittee.Deciders }}
               <a href="#current-committee-{{$key}}">Current Committee</a>
             {{end}}
@@ -314,19 +316,21 @@ hr:after {
 	    <th>ChainID</th>
 	    <th>ShardID</th>
 	    <th>Role</th>
+	    <th>IsArchivalNode</th>
 	  </tr>
         </thead>
         <tbody>
           {{ with (index $value "records") }}
           {{range .}}
           <tr class="{{if .Payload.IsLeader}}is-leader{{end}}">
-            <td>{{.IP}} </td>
-            <td>{{.Payload.BLSPublicKey}} </td>
-            <td>{{.Payload.Version}} </td>
-            <td>{{.Payload.NetworkType}} </td>
-            <td>{{.Payload.ChainConfig.ChainID}} </td>
-            <td>{{.Payload.ShardID}} </td>
-            <td>{{.Payload.NodeRole}} </td>
+            <td>{{ .IP }}</td>
+            <td>{{ .Payload.BLSPublicKey }}</td>
+            <td>{{ .Payload.Version }}</td>
+            <td>{{ .Payload.NetworkType }}</td>
+            <td>{{ .Payload.ChainConfig.ChainID }}</td>
+            <td>{{ .Payload.ShardID }}</td>
+            <td>{{ .Payload.NodeRole }}</td>
+            <td>{{ .Payload.ArchivalNode }}</td>
           </tr>
           {{end}}
           {{end}}
