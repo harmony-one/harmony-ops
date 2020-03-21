@@ -1,10 +1,8 @@
-# TO-DO:
-
 import boto3
 
 
 # step7 - create entries on Route 53
-def create_dns_entries(zone_id, arr_record_set, region_elb2_dns_name):
+def create_dns_entries(zone_id, arr_record_set, array_dns_zone):
     print("\n==== step 7: create entries on Route 53 \n")
     client = boto3.client('route53')
     for record in arr_record_set:
@@ -19,8 +17,8 @@ def create_dns_entries(zone_id, arr_record_set, region_elb2_dns_name):
                                 'Name': record,
                                 'Type': 'A',
                                 'AliasTarget': {
-                                    'HostedZoneId': zone_id,
-                                    'DNSName': region_elb2_dns_name,
+                                    'DNSName': array_dns_zone[0],
+                                    'HostedZoneId': array_dns_zone[1],
                                     'EvaluateTargetHealth': True
                                 },
                             }
