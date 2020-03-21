@@ -7,3 +7,4 @@ bridge-watchd
 *.note
 node_modules
 *.log
+.idea

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-'''
+"""
 
 PURPOSE:
 
@@ -20,8 +20,7 @@ $ python3 main.py -n testnet --update
 or
 $ python3 main.py -n testnet -u
 
-
-'''
+"""
 
 import sys
 import json
@@ -46,17 +45,13 @@ from creation_entries import *
 
 pp = pprint.PrettyPrinter(indent=4)
 
-
 # store name of target group, key: tg_https, tg_wss, value: array of target group
 dict_tg_https_wss = defaultdict(list)
 
-
-NUM_OF_SHARDS       = parse_network_config("num_of_shards")
-BASE_DOMAIN_NAME    = parse_network_config("domain_name")
-ID_DOMAIN_NAME      = BASE_DOMAIN_NAME.split('.')[0]
-HOSTED_ZONE_ID      = parse_network_config("hosted_zone_id")
-
-
+NUM_OF_SHARDS = parse_network_config("num_of_shards")
+BASE_DOMAIN_NAME = parse_network_config("domain_name")
+ID_DOMAIN_NAME = BASE_DOMAIN_NAME.split('.')[0]
+HOSTED_ZONE_ID = parse_network_config("hosted_zone_id")
 
 
 def create_endpoints_new_network():
@@ -81,7 +76,8 @@ def create_endpoints_new_network():
         # all nodes registered for the same endpoints should be located in the same region, if not, gracefully exit
         # verify_nodes_same_region(reg, array_instance_ip)
 
-        print("\n######################################### Creating complete pipeline for shard", str(i), " in AWS region: ", reg, "#########################################\n")
+        print("\n######################################### Creating complete pipeline for shard", str(i),
+              " in AWS region: ", reg, "#########################################\n")
         # 1/ - request certificates
         domain_name = 'api.s' + str(i) + "." + BASE_DOMAIN_NAME
         request_ssl_certificates(reg, domain_name)
@@ -111,10 +107,9 @@ def create_endpoints_new_network():
         # 6/ - register explorer instances into the target group
         register_explorers(reg, array_instance_id, dict_region_tgarn)
 
-        # 7/ TO-DO: create entries on Route 53
-        # array_record_set = create_name_record_set(i, BASE_DOMAIN_NAME)
-        # create_dns_entries(HOSTED_ZONE_ID, array_record_set)
-
+        # 7/ - create entries on Route 53
+        array_record_set = create_name_record_set(i, BASE_DOMAIN_NAME)
+        create_dns_entries(HOSTED_ZONE_ID, array_record_set, region_elb2_dns_name)
 
 
 def create_dict_tg():
@@ -128,9 +123,6 @@ def create_dict_tg():
         array_target_group = parse_network_config(key_tg)
         dict_tg_https_wss["tg_https"].append(array_target_group[0])
         dict_tg_https_wss["tg_wss"].append(array_target_group[1])
-
-
-
 
 
 def update_target_groups():
@@ -181,7 +173,8 @@ def update_target_groups():
         for tg in array_target_group:
             for instance_id in dict_tg_instanceid[tg]:
                 try:
-                    resp = elbv2_client.deregister_targets(TargetGroupArn=dict_tg_arn[tg], Targets=[{'Id': instance_id}])
+                    resp = elbv2_client.deregister_targets(TargetGroupArn=dict_tg_arn[tg],
+                                                           Targets=[{'Id': instance_id}])
                 except Exception as e:
                     print("Unexpected error to deregister the instance: %s" % e)
 
@@ -193,7 +186,7 @@ def update_target_groups():
             for instance in array_instance_id:
                 response = elbv2_client.register_targets(
                     TargetGroupArn=dict_tg_arn[tg],
-                    Targets=[{'Id': instance,},]
+                    Targets=[{'Id': instance, }, ]
                 )
 
 
