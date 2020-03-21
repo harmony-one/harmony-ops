@@ -93,7 +93,7 @@ def create_endpoints_new_network():
 
         # 3/ - create elb
         elb2_name = 's' + str(i) + '-' + ID_DOMAIN_NAME + '-' + reg
-        create_elb2(reg, elb2_name)
+        array_dns_hostedzone = create_elb2(reg, elb2_name)
         pp.pprint(dict_region_elb2arn)
 
         # 4/ - create listener
@@ -109,7 +109,7 @@ def create_endpoints_new_network():
 
         # 7/ - create entries on Route 53
         array_record_set = create_name_record_set(i, BASE_DOMAIN_NAME)
-        create_dns_entries(HOSTED_ZONE_ID, array_record_set, region_elb2_dns_name)
+        create_dns_entries(HOSTED_ZONE_ID, array_record_set, array_dns_hostedzone)
 
 
 def create_dict_tg():
@@ -192,9 +192,10 @@ def update_target_groups():
 
 def main():
     # update targets registered to the endpoints
-    if args.update:
-        update_target_groups()
-        sys.exit(0)
+    # Andy disabled the followig functionality on March 21, 2020
+    # if args.update:
+    #     update_target_groups()
+    #     sys.exit(0)
 
     # create the complete pipeline of https/wss endpoints
     create_endpoints_new_network()
