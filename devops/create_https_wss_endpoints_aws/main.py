@@ -79,8 +79,10 @@ def create_endpoints_new_network():
         print("\n######################################### Creating complete pipeline for shard", str(i),
               " in AWS region: ", reg, "#########################################\n")
         # 1/ - request certificates
+        dict_exist_sslcerts = get_exist_ssl_certificates(reg)
+
         domain_name = 'api.s' + str(i) + "." + BASE_DOMAIN_NAME
-        request_ssl_certificates(reg, domain_name)
+        request_ssl_certificates(reg, domain_name, dict_exist_sslcerts)
 
         print("\nRESULTS OF STEP 1 \n")
         pp.pprint(dict_region_sslcerts)
