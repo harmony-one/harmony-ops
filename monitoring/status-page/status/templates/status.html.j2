@@ -61,7 +61,7 @@
             {% for net in data.keys() %}
             <span style="width: 95%;margin-right: 0;">
               <details open>
-                <summary>{{ net }}</summary>
+                <summary>{{ net }} ({{ data[net]['commit-version'] }})</summary>
                 <div class="flex-col" style="padding-bottom: 4px">
                   <div class="flex-row">
                     <p>
@@ -107,11 +107,6 @@
                     </tr>
                     {% endfor %}
                   </table>
-                </div>
-                <div class="flex-col" style="padding-bottom: 4px">
-                  <div class="flex-row">
-                    <p>Version: {{ data[net]['commit-version'] }}</p>
-                  </div>
                 </div>
               </details>
             </span>
