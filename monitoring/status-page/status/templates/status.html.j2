@@ -61,7 +61,7 @@
             {% for net in data.keys() %}
             <span style="width: 95%;margin-right: 0;">
               <details open>
-                <summary>{{ net }}</summary>
+                <summary>{{ net }} ({{ data[net]['commit-version'] }})</summary>
                 <div class="flex-col" style="padding-bottom: 4px">
                   <div class="flex-row">
                     <p>
@@ -69,7 +69,7 @@
                       <a href="{{ data[net]['explorer-link'] }}">Block Explorer</a>
                     {% endif %}
                     {% if data[net]['staking-link'] %}
-                      // <a href="{{ data[net]['staking-link'] }}">Staking Dashboard</a>
+                      // <a href="{{ data[net]['staking-link'] }}">Staking Dashboard</a> [{{ data[net]['used-seats'] }}/{{ data[net]['avail-seats'] }}]
                     {% endif %}
                     </p>
                   </div>
@@ -107,11 +107,6 @@
                     </tr>
                     {% endfor %}
                   </table>
-                </div>
-                <div class="flex-col" style="padding-bottom: 4px">
-                  <div class="flex-row">
-                    <p>Version: {{ data[net]['commit-version'] }}</p>
-                  </div>
                 </div>
               </details>
             </span>
