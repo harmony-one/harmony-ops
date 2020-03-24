@@ -4,8 +4,10 @@ On any machine with docker (install [here](https://docs.docker.com/install/)) on
 
 ## Setup
 
-Curl `./scripts/auto_node.sh`, this is the main script that one can use to interact with the node.
-
+Download the `auto_node.sh` shell script:
+```
+curl -O https://raw.githubusercontent.com/harmony-one/harmony-ops/master/devops/auto_node/scripts/auto_node.sh && chmod +x ./auto_node.sh
+```
 > For help on the parameters of `auto_node.sh` use the help option with `./auto_node.sh --help` 
 
 ## Usages
