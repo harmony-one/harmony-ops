@@ -7,6 +7,7 @@ import argparse
 import json, os, sys
 import requests
 import time
+import logging
 from threading import Thread
 from collections import defaultdict
 
@@ -40,7 +41,8 @@ def request(endpoint, request, output = False) -> str:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--endpoints', help = 'Endpoints to query from, sorted by shard & seperated by commas')
-    parser.add_argument('--endpoint-file', dest = 'endpoint_file', help = 'List of endpoints, seperated by new lines')
+    parser.add_argument('--endpoint-file', dest = 'endpoint_file', help = 'List of endpoints, sorted by shard & seperated by new lines')
+    parser.add_argument('--output-file', dest = 'output_file', default = 'output.txt', help = 'Path to output data')
     parser.add_argument('--no-staking', action = 'store_true', dest = 'no_staking', help = 'Disable check for staking transactions')
     parser.add_argument('--sleep', default = 8, type = int, help = 'Sleep timer')
 
@@ -60,6 +62,16 @@ if __name__ == '__main__':
         except FileNotFoundError:
             print('Given file not found: %s' % args.endpoint_file)
             sys.exit(-1)
+
+    # Set up logger
+    logger = logging.getLogger("mini_explorer")
+    logger.setLevel(logging.INFO)
+    file_handler = logging.FileHandler(args.output_file)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
     try:
         while True:
@@ -84,12 +96,14 @@ if __name__ == '__main__':
                              "size": int(next["result"]["size"], 0),
                              "transactions": len(next["result"]["transactions"]),
                              "staking": sx}
-                        print(json.dumps(t))
+                        logger.info(json.dumps(t))
             threads = []
             for x in range(len(endpoint)):
                 threads.append(Thread(target = collect_data, args = [x]))
             for t in threads:
                 t.start()
+            for t in threads:
+                t.join()
             time.sleep(args.sleep)
     except KeyboardInterrupt:
         pass
