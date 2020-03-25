@@ -13,8 +13,8 @@ watchdog = 'http://watchdog.hmny.io/status-%s'
 endpoint = 'https://api.s%s.%s.hmny.io'
 
 statuses = {}
-q = queue.Queue(maxsize = 0)
-
+watchdog_queue = queue.Queue(maxsize = 0)
+endpoint_queue = queue.Queue(maxsize = 0)
 
 @app.route('/status')
 def status():
@@ -28,7 +28,7 @@ def status():
         statuses[n]['block'] = {}
         statuses[n]['explorer-link'] = network_list[n].explorer
         statuses[n]['staking-link'] = network_list[n].staking
-        watchdog_threads.append(Thread(target = query_watchdog, args = (n, network_list[n].watchdog, q)))
+        watchdog_threads.append(Thread(target = query_watchdog, args = (n, network_list[n].watchdog, watchdog_queue)))
 
     for w in watchdog_threads:
         w.start()
@@ -37,14 +37,14 @@ def status():
         w.join()
 
     endpoint_threads = []
-    while not q.empty():
-        network_name, result = q.get()
+    while not watchdog_queue.empty():
+        network_name, result = watchdog_queue.get()
         for item in result['shard-status']:
             id = item['shard-id']
             e = endpoint % (item['shard-id'], network_list[network_name].endpoint)
             statuses[network_name]['block'][id] = item
             statuses[network_name]['block'][id]['endpoint'] = e
-            endpoint_threads.append(Thread(target = check_endpoint, args = (e, id, network_name, q)))
+            endpoint_threads.append(Thread(target = check_endpoint, args = (e, id, network_name, endpoint_queue)))
         if len(result['commit-version']) == 1:
             statuses[network_name]['commit-version'] = result['commit-version'][0]
         else:
@@ -58,8 +58,8 @@ def status():
     for e in endpoint_threads:
         e.join()
 
-    while not q.empty():
-        network_name, shard_id, avail = q.get()
+    while not endpoint_queue.empty():
+        network_name, shard_id, avail = endpoint_queue.get()
         statuses[network_name]['block'][shard_id]['endpoint-status'] = avail
 
     # Sort output by ShardID
