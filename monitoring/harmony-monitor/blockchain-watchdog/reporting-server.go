@@ -278,9 +278,16 @@ func (m *monitor) produceCSV(w http.ResponseWriter, req *http.Request) {
 			if m.SummarySnapshot[metaSumry][vrs[0]] != nil {
 				recs := m.SummarySnapshot[metaSumry][vrs[0]].(map[string]interface{})["records"].([]interface{})
 				for _, v := range recs {
+					blsKeys := ""
+					for _, k := range v.(NodeMetadata).Payload.BLSPublicKey {
+						if blsKeys != "" {
+							blsKeys += ", "
+						}
+						blsKeys += k
+					}
 					row := []string{
 						v.(NodeMetadata).IP,
-						v.(NodeMetadata).Payload.BLSPublicKey,
+						blsKeys,
 						v.(NodeMetadata).Payload.Version,
 						v.(NodeMetadata).Payload.NetworkType,
 						strconv.FormatUint(uint64(v.(NodeMetadata).Payload.ChainConfig.ChainID), 10),
