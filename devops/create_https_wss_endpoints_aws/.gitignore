@@ -1,2 +1,3 @@
 ../../grafana-dashboard/
 .env
+__pycache__

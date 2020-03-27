@@ -65,6 +65,16 @@ def create_endpoints_new_network():
     # TO-DO
     * 5/ - create entries on Route53
     """
+    # load network config for retrieve network type abbr
+    network_abbr = parse_network_abbr(network_config)
+
+    # load the distribution config file for retrieve explorer ips
+    distribution_config_path = "../../../experiment-deploy/pipeline/logs/{network_abbr}/" \
+                               "distribution_config.txt".format(network_abbr=network_abbr)
+    dict_explorer_ip = parse_distribution_config(distribution_config_path)
+
+    # update explorer ips in network config
+    update_network_config_explorers(network_config, dict_explorer_ip)
 
     for i in range(NUM_OF_SHARDS):
         key_explorer = "explorers_" + str(i)
