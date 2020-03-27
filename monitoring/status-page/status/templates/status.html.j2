@@ -69,7 +69,15 @@
                       <a href="{{ data[net]['explorer-link'] }}">Block Explorer</a>
                     {% endif %}
                     {% if data[net]['staking-link'] %}
-                      // <a href="{{ data[net]['staking-link'] }}">Staking Dashboard</a> [{{ data[net]['used-seats'] }}/{{ data[net]['avail-seats'] }}]
+                      // <a href="{{ data[net]['staking-link'] }}">Staking Dashboard</a>
+                      {% if data[net]['used-seats'] %}
+                        // Current Committee: 
+                        [{{ data[net]['used-seats'] }} elected
+                        {% if data[net]['validators'] %}
+                          ({{ data[net]['validators'] }} validators)
+                        {% endif %}
+                        / {{ data[net]['avail-seats'] }} available]
+                      {% endif %}
                     {% endif %}
                     </p>
                   </div>
