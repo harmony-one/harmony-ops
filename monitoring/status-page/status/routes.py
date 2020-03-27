@@ -48,9 +48,10 @@ def status():
         if len(result['commit-version']) == 1:
             statuses[network_name]['commit-version'] = result['commit-version'][0]
         else:
-            statuses[network_name]['commit-version'] = ", ".join(result['commit-version'])
+            statuses[network_name]['commit-version'] = ", ".join(sorted(result['commit-version']))
         statuses[network_name]['used-seats'] = result['used-seats']
         statuses[network_name]['avail-seats'] = result['avail-seats']
+        statuses[network_name]['validators'] = result['validators']
 
     for e in endpoint_threads:
         e.start()
