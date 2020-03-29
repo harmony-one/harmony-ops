@@ -316,6 +316,13 @@ func (w *watchParams) sanityCheck() error {
 	if w.ShardHealthReporting.Consensus.Warning == 0 {
 		errList = append(errList, "Missing warning under shard-health-reporting, consensus in yaml config")
 	}
+	for _, f := range w.DistributionFiles.MachineIPList {
+		_, err := os.Stat(f)
+		if os.IsNotExist(err) {
+			errList = append(errList, fmt.Sprintf("File not found: %s", f))
+		}
+	}
+
 	if len(errList) == 0 {
 		return nil
 	}
