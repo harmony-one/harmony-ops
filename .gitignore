@@ -8,3 +8,4 @@ bridge-watchd
 node_modules
 *.log
 .idea
+__pycache__
