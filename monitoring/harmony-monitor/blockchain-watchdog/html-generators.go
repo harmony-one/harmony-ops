@@ -143,6 +143,7 @@ hr:after {
             <p><span>Staking Epoch:</span><span>{{index $value "staking-epoch"}}</span></p>
             <p><span>Blocks Per Epoch:</span><span>{{index $value "blocks-per-epoch"}}</span></p>
             <p><span>DNS Zone:</span><span>{{index $value "dns-zone"}}</span></p>
+            <p><span>Last Crosslink:</span><span>{{index (index (index $root.Summary "block-header") $key) "last-crosslink"}}</span></p>
             {{ if $root.SuperCommittee.CurrentCommittee.Deciders }}
                {{ $externCount := currentCommitteeCount $key }}
               <a href="#current-committee-{{$key}}"><span>{{ $externCount }}</span> Current Committee</a>

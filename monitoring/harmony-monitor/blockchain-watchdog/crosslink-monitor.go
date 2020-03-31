@@ -9,7 +9,7 @@ import (
 )
 
 // Only need to query leader on Shard 0
-func (m *monitor) crossLinkMonitor(interval uint64, poolSize int, pdServiceKey, chain string, shardMap map[string]int) {
+func (m *monitor) crossLinkMonitor(interval, warning uint64, poolSize int, pdServiceKey, chain string, shardMap map[string]int) {
 	crossLinkRequestFields := getRPCRequest(LastCrossLinkRPC)
 	nodeRequestFields := getRPCRequest(NodeMetadataRPC)
 
@@ -37,6 +37,10 @@ func (m *monitor) crossLinkMonitor(interval uint64, poolSize int, pdServiceKey, 
 		Result NodeMetadataReply `json:"result"`
 	}
 
+	type t struct {
+		Result []CrossLink `json:"result"`
+	}
+
 	type processedCrossLink struct {
 		BlockNum  int
 		CrossLink CrossLink
@@ -47,11 +51,11 @@ func (m *monitor) crossLinkMonitor(interval uint64, poolSize int, pdServiceKey, 
 	for now := range time.Tick(time.Duration(interval) * time.Second) {
 		queryID := 0
 		// Send requests to find potential shard 0 leaders
-		for n := range shardMap {
-			if shardMap[n] == 0 {
+		for k, v := range shardMap {
+			if v == 0 {
 				nodeRequestFields["id"] = strconv.Itoa(queryID)
 				requestBody, _ := json.Marshal(nodeRequestFields)
-				jobs <- work{n, NodeMetadataRPC, requestBody}
+				jobs <- work{k, NodeMetadataRPC, requestBody}
 				queryID++
 				syncGroups[NodeMetadataRPC].Add(1)
 			}
@@ -64,7 +68,7 @@ func (m *monitor) crossLinkMonitor(interval uint64, poolSize int, pdServiceKey, 
 			if d.oops == nil {
 				oneReport := r{}
 				json.Unmarshal(d.rpcResult, &oneReport)
-				if oneReport.Result.IsLeader {
+				if oneReport.Result.IsLeader && oneReport.Result.ShardID == 0 {
 					leader = append(leader, d.address)
 				}
 			}
@@ -82,24 +86,26 @@ func (m *monitor) crossLinkMonitor(interval uint64, poolSize int, pdServiceKey, 
 		syncGroups[LastCrossLinkRPC].Wait()
 		close(replyChannels[LastCrossLinkRPC])
 
+		crossLinks := LastCrossLinkReply{}
 		for i := range replyChannels[LastCrossLinkRPC] {
 			if i.oops == nil {
-				crossLinks := LastCrossLinkReply{}
-				json.Unmarshal(i.rpcResult, &crossLinks.CrossLinks)
+				json.Unmarshal(i.rpcResult, &crossLinks)
 				for _, result := range crossLinks.CrossLinks {
 					if entry, exists := lastProcessed[result.ShardID]; exists {
+						elapsedTime := now.Sub(entry.TS)
 						if result.BlockNumber <= entry.BlockNum {
-							elapsedTime := now.Sub(entry.TS)
-							message := fmt.Sprintf(crossLinkMessage, result.ShardID,
-								result.Hash, result.ShardID, result.BlockNumber, result.ShardID,
-								result.EpochNumber, result.Signature, result.SignatureBitmap,
-								elapsedTime.Seconds(), elapsedTime.Minutes())
-							incidentKey := fmt.Sprintf("Chain: %s, Shard %d, CrossLinkMonitor", chain, result.ShardID)
-							err := notify(pdServiceKey, incidentKey, chain, message)
-							if err != nil {
-								errlog.Print(err)
-							} else {
-								stdlog.Print("Sent PagerDuty alert! %s", incidentKey)
+						  if uint64(elapsedTime.Seconds()) >= warning {
+								message := fmt.Sprintf(crossLinkMessage, result.ShardID,
+									result.Hash, result.ShardID, result.BlockNumber, result.ShardID,
+									result.EpochNumber, result.Signature, result.SignatureBitmap,
+									elapsedTime.Seconds(), elapsedTime.Minutes())
+								incidentKey := fmt.Sprintf("Chain: %s, Shard %d, CrossLinkMonitor", chain, result.ShardID)
+								err := notify(pdServiceKey, incidentKey, chain, message)
+								if err != nil {
+									errlog.Print(err)
+								} else {
+									stdlog.Print("Sent PagerDuty alert! %s", incidentKey)
+								}
 							}
 							continue
 						}
@@ -110,10 +116,14 @@ func (m *monitor) crossLinkMonitor(interval uint64, poolSize int, pdServiceKey, 
 						now,
 					}
 				}
+				break
 			}
 		}
 		stdlog.Print(lastProcessed)
 		replyChannels[NodeMetadataRPC] = make(chan reply, len(shardMap))
 		replyChannels[LastCrossLinkRPC] = make(chan reply, len(shardMap))
+		m.inUse.Lock()
+		m.LastCrossLinks.CrossLinks = append([]CrossLink{}, crossLinks.CrossLinks...)
+		m.inUse.Unlock()
 	}
 }

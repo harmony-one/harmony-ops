@@ -213,6 +213,9 @@ type watchParams struct {
 		Consensus struct {
 			Warning int `yaml:"warning"`
 		} `yaml:"consensus"`
+		CrossLink struct {
+			Warning int `yaml:"warning"`
+		} `yaml:"cross-link"`
 	} `yaml:"shard-health-reporting"`
 	DistributionFiles struct {
 		MachineIPList []string `yaml:"machine-ip-list"`
@@ -315,6 +318,9 @@ func (w *watchParams) sanityCheck() error {
 	}
 	if w.ShardHealthReporting.Consensus.Warning == 0 {
 		errList = append(errList, "Missing warning under shard-health-reporting, consensus in yaml config")
+	}
+	if w.ShardHealthReporting.CrossLink.Warning == 0 {
+		errList = append(errList, "Missing warning under shard-health-reporting, cross-link in yaml config")
 	}
 	for _, f := range w.DistributionFiles.MachineIPList {
 		_, err := os.Stat(f)
