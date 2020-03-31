@@ -135,10 +135,12 @@ func generateSampleYAML() *cobra.Command {
 			sampleParams.InspectSchedule.BlockHeader = 15
 			sampleParams.InspectSchedule.NodeMetadata = 30
 			sampleParams.InspectSchedule.CxPending = 300
+			sampleParams.InspectSchedule.CrossLink = 30
 			sampleParams.Performance.WorkerPoolSize = 32
 			sampleParams.Performance.HTTPTimeout = 1
 			sampleParams.HTTPReporter.Port = 8080
 			sampleParams.ShardHealthReporting.Consensus.Warning = 70
+			sampleParams.ShardHealthReporting.CrossLink.Warning = 600
 			sampleParams.DistributionFiles.MachineIPList = []string{
 				"/home/ec2_user/mainnet/shard0.txt",
 				"/home/ec2_user/mainnet/shard1.txt",
