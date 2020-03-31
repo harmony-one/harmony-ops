@@ -181,6 +181,14 @@ func request(node string, requestBody []byte) ([]byte, []byte, error) {
 }
 
 func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
+	report := m.networkSnapshot()
+	if len(report.ConsensusProgress) != 0 {
+		for k, v := range report.ConsensusProgress {
+			if report.Summary[chainSumry][k] != nil {
+				report.Summary[chainSumry][k].(any)["consensus-status"] = v
+			}
+		}
+	}
 	t, e := template.New("report").
 		//Adds to template a function to retrieve github commit id from version
 		Funcs(template.FuncMap{
@@ -188,6 +196,12 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 				r := strings.Split(version, `-g`)
 				r = strings.Split(r[len(r)-1], "-")
 				return r[0]
+			},
+			"currentCommitteeCount": func(shardID string) string {
+				return strconv.Itoa(m.SuperCommittee.CurrentCommittee.Deciders[shardID].Externals)
+			},
+			"previousCommitteeCount": func(shardID string) string {
+				return strconv.Itoa(m.SuperCommittee.PreviousCommittee.Deciders[shardID].Externals)
 			},
 			"getShardID": func(s string) string {
 				return s[len(s)-1:]
@@ -205,14 +219,6 @@ func (m *monitor) renderReport(w http.ResponseWriter, req *http.Request) {
 		SuperCommittee        SuperCommitteeReply
 		NoReply               []noReply
 		DownMachineCount      int
-	}
-	report := m.networkSnapshot()
-	if len(report.ConsensusProgress) != 0 {
-		for k, v := range report.ConsensusProgress {
-			if report.Summary[chainSumry][k] != nil {
-				report.Summary[chainSumry][k].(any)["consensus-status"] = v
-			}
-		}
 	}
 	t.ExecuteTemplate(w, "report", v{
 		LeftTitle:      []interface{}{report.Chain},
@@ -901,7 +907,7 @@ func (m *monitor) statusSnapshot() statusReport {
 	addresses := []string{}
 	usedSeats := 0
 	for _, info := range m.SuperCommittee.CurrentCommittee.Deciders {
-		linq.From(info.Committee).ForEach(func (v interface{}){
+		linq.From(info.Committee).ForEach(func(v interface{}) {
 			if !v.(CommitteeMember).IsHarmonyNode {
 				usedSeats += 1
 				addresses = append(addresses, v.(CommitteeMember).Address)

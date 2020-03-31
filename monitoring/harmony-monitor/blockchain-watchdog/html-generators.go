@@ -144,10 +144,12 @@ hr:after {
             <p><span>Blocks Per Epoch:</span><span>{{index $value "blocks-per-epoch"}}</span></p>
             <p><span>DNS Zone:</span><span>{{index $value "dns-zone"}}</span></p>
             {{ if $root.SuperCommittee.CurrentCommittee.Deciders }}
-              <a href="#current-committee-{{$key}}">Current Committee</a>
+               {{ $externCount := currentCommitteeCount $key }}
+              <a href="#current-committee-{{$key}}"><span>{{ $externCount }}</span> Current Committee</a>
             {{end}}
             {{ if $root.SuperCommittee.PreviousCommittee.Deciders }}
-              <a href="#previous-committee-{{$key}}">Previous Committee</a>
+               {{ $externCount := previousCommitteeCount $key }}
+              <a href="#previous-committee-{{$key}}"><span>{{ $externCount }}</span> Previous Committee</a>
             {{end}}
           </div>
         {{end}}

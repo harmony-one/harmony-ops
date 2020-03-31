@@ -82,6 +82,7 @@ type SuperCommitteeReply struct {
 type CommitteeInfo struct {
 	PolicyType    string            `json:"policy"`
 	MemberCount   int               `json:"count"`
+	Externals     int               `json:"external-validator-slot-count"`
 	Committee     []CommitteeMember `json:"committee-members"`
 	HarmonyPower  string            `json:"hmy-voting-power"`
 	StakedPower   string            `json:"staked-voting-power"`
