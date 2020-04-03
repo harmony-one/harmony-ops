@@ -33,7 +33,7 @@ fi
 case "${1}" in
   "run")
     if [ ! -d "${HOME}/.hmy_cli" ]; then
-      echo "CLI keystore not found at ~/.hmy_cli. Create or import a wallet using the CLI before running autonode.sh"
+      echo "CLI keystore not found at ~/.hmy_cli. Create or import a wallet using the CLI before running auto_node.sh"
       exit
     fi
     if [ "$(docker inspect -f '{{.State.Running}}' "$container_name")" = "true" ]; then
