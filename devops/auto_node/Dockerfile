@@ -12,11 +12,9 @@ RUN python3 -m pip install pyhmy
 
 RUN python3 -m pip install requests
 
-COPY scripts/run.sh /root
+COPY run.py /root
 
-RUN chmod +x /root/run.sh
-
-COPY scripts/run.py /root
+COPY utils.py /root
 
 RUN chmod +x /root/run.py
 
@@ -36,4 +34,4 @@ COPY scripts/header.sh /root
 
 RUN chmod +x /root/header.sh
 
-ENTRYPOINT ["/root/run.sh"]
+ENTRYPOINT ["/root/run.py"]
