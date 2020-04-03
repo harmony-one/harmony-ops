@@ -179,7 +179,7 @@ def run_node(bls_path, network, clean=False):
             f.write(r.content.decode())
         st = os.stat("node.sh")
         os.chmod("node.sh", st.st_mode | stat.S_IEXEC)
-        node_args = ["-I", "-N", network, "-z", "-k", bls_path]  # TODO: note this assumption in the README.
+        node_args = ["-I", "-N", network, "-z", "-k", bls_path]
         if clean:
             node_args.append("-c")
         proc = pexpect.spawn("./node.sh", node_args, env=env, timeout=None)
