@@ -45,6 +45,7 @@ However, one could also generate the BLS for a specific shard as needed with the
 
 **It is important to note that the CLI used in the docker image shares the keystore with the host machine.**
 
+* A node is always ran with the following command `./node.sh -I -N <network> -z -k <BLS key path>`. 
 * One can define the validator information used in the create validator tx by setting the 
 fields in the `validator_config.json` file (which is in the same directory as `auto_node.sh`). 
 **Note that this is where you define the wallet linked to the auto_node. Moreover, the defined wallet MUST 
