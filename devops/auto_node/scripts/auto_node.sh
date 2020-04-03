@@ -13,25 +13,29 @@ case $1 in
     shift;;
 esac
 
-if [ ! -f "$validator_config_path" ]; then
-    echo '{
-     "validator-addr": null,
-     "name": "harmony_autonode",
-     "website": "harmony.one",
-     "security-contact": "Daniel-VDM",
-     "identity": "auto-node",
-     "amount": 10100,
-     "min-self-delegation": 10000,
-     "rate": 0.1,
-     "max-rate": 0.75,
-     "max-change-rate": 0.05,
-     "max-total-delegation": 1000000.0,
-     "details": "None"
-}' > $validator_config_path
-fi
+function setup() {
+  echo '{
+       "validator-addr": null,
+       "name": "harmony_autonode",
+       "website": "harmony.one",
+       "security-contact": "Daniel-VDM",
+       "identity": "auto-node",
+       "amount": 10100,
+       "min-self-delegation": 10000,
+       "rate": 0.1,
+       "max-rate": 0.75,
+       "max-change-rate": 0.05,
+       "max-total-delegation": 1000000.0,
+       "details": "None"
+  }' > $validator_config_path
+  docker pull harmonyone/sentry
+}
 
 case "${1}" in
   "run")
+    if [ ! -f "$validator_config_path" ]; then
+      setup
+    fi
     if [ ! -d "${HOME}/.hmy_cli" ]; then
       echo "CLI keystore not found at ~/.hmy_cli. Create or import a wallet using the CLI before running auto_node.sh"
       exit
@@ -81,6 +85,9 @@ case "${1}" in
   "hmy")
     docker exec -it "${container_name}" /root/bin/hmy "${@:2}"
     ;;
+  "setup")
+    setup
+    ;;
   "clean")
     docker kill "${container_name}"
     docker rm "${container_name}"
@@ -101,6 +108,8 @@ case "${1}" in
       [--container=<name>] attach             Attach to the docker image to take a look around
       [--container=<name>] hmy <CLI params>   Call the CLI where the localhost is the current node
       [--container=<name>] clean              Kills and remove the node's docker container and shared directory
+      [--container=<name>] kill               Safely kill the node
+      [--container=<name>] setup              Setup auto_node
     "
     exit
     ;;
