@@ -215,14 +215,14 @@ def create_validator(val_info, bls_pub_key):
 
     # Check BLS key with validator if it exists
     all_val = json_load(cli.single_call(f"hmy --node={args.endpoint} blockchain validator all"))["result"]
-    if val_info['validator-addr'] in all_val \
-            and (args.auto_interaction
-                 or input("Add BLS key to existing validator? [Y]/n \n> ") in {'Y', 'y', 'yes', 'Yes'}):
+    if val_info['validator-addr'] in all_val:
         print(f"{Typgpy.HEADER}{val_info['validator-addr']} already in list of validators!{Typgpy.ENDC}")
-        val_chain_info = json_load(cli.single_call(f"hmy --node={args.endpoint} blockchain "
+        validator_chain_info = json_load(cli.single_call(f"hmy --node={args.endpoint} blockchain "
                                                    f"validator information {val_info['validator-addr']}"))["result"]
-        bls_keys = val_chain_info["validator"]["bls-public-keys"]
-        if bls_pub_key not in bls_keys:  # Add imported BLS key to existing validator if needed
+        bls_keys = validator_chain_info["validator"]["bls-public-keys"]
+        if bls_pub_key not in bls_keys \
+                and (args.auto_interaction
+                     or input("Add BLS key to existing validator? [Y]/n \n> ") in {'Y', 'y', 'yes', 'Yes'}):
             print(f"{Typgpy.OKBLUE}adding bls key: {bls_pub_key} "
                   f"to validator: {val_info['validator-addr']}{Typgpy.ENDC}")
             directory_lock.acquire()
