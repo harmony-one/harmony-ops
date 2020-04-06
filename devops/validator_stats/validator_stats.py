@@ -92,6 +92,7 @@ if __name__ == '__main__':
 
     per_group_earning_validators = defaultdict(list)
     per_group_created_validators = defaultdict(list)
+    per_group_elected_validators = defaultdict(list)
 
     for g in by_group.keys():
         for v in by_group[g]:
@@ -99,6 +100,8 @@ if __name__ == '__main__':
                 per_group_created_validators[g].append(v)
                 if validator_information[v]['lifetime']['reward-accumulated'] > 0:
                     per_group_earning_validators[g].append(v)
+                if validator_information[v]['currently-in-committee']:
+                    per_group_elected_validators[g].append(v)
 
     print("-- Total Validator Stats --")
     print("Total created validators: %d" % len(network_validators))
@@ -108,25 +111,37 @@ if __name__ == '__main__':
 
     print()
 
-    print("-- Per Group Validator Stats --")
+    print("-- Created Validators Per Group --")
     total_csv_created_validators = 0
     for g in per_group_created_validators.keys():
         c = len(per_group_created_validators[g])
-        print("Group: %-20s Created validators: %d" % (g, c))
+        print("Group: %-20s Number: %d" % (g, c))
         total_csv_created_validators += c
     print("Total: %d" % total_csv_created_validators)
 
     print()
 
+    print("-- Earned Validators Per Group --")
     total_csv_earned_validators = 0
     for g in per_group_earning_validators.keys():
         c = len(per_group_earning_validators[g])
-        print("Group: %-20s Any reward earned validators: %d" % (g, c))
+        print("Group: %-20s Number: %d" % (g, c))
         total_csv_earned_validators += c
     print("Total: %d" % total_csv_earned_validators)
 
     print()
 
+    print("-- Elected Validators Per Group")
+    total_csv_elected_validators = 0
+    for g in per_group_elected_validators.keys():
+        c = len(per_group_elected_validators[g])
+        print("Group: %-20s Number: %d" % (g, c))
+        total_csv_elected_validators += c
+    print("Total: %d" % total_csv_elected_validators)
+
+    print()
+
     print("-- New Validators --")
+    print("New Validators: %d" % len(new_validators))
     for n in new_validators:
         print("Address: %s, Validator Name: %s, Security Contact: %s, Website: %s" % (n, validator_information[n]['validator']['name'], validator_information[n]['validator']['security-contact'], validator_information[n]['validator']['website']))
