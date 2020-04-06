@@ -31,6 +31,16 @@ function setup() {
   }' > $validator_config_path
   docker pull harmonyone/sentry
   mkdir -p $bls_keys_path
+  echo '
+      Setup for Harmony auto node is complete.
+
+      1. Docker image for node has been installed.
+      2. Default validator config has been created at $validator_config_path
+      3. BLS key directory for node has been created at $bls_keys_path
+
+      Once you have imported your validator wallet to the harmony CLI,
+      start your node with the following command: `./auto_node.sh run`
+  '
 }
 
 case "${1}" in
