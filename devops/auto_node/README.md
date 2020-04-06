@@ -10,6 +10,8 @@ curl -O https://raw.githubusercontent.com/harmony-one/harmony-ops/master/devops/
 ```
 > For help on the parameters of `auto_node.sh` use the help option with `./auto_node.sh --help` 
 
+**Currently, there is an assumption that `auto_node.sh` is in the current working directory for all commands.** 
+
 ## Usages
 
 1. To run a node, use the `run` param of `auto_node.sh`. For example:
@@ -20,32 +22,35 @@ $ ./auto_node.sh run --clean --auto-active --auto-interaction
 >
 > Note that keys from the CLI keystore are used to create a validator.
 
-2. Safely kill the node with `./auto_node.sh kill`.
+2. Get the version of the harmony node with `./auto_node.sh version.`
 
-3. Manually activate a node for EPOS with `./auto_node.sh activate`.
+3. Safely kill the node with `./auto_node.sh kill`.
 
-4. Get validator information of the account associated with the node with `./auto_node.sh info`.
+4. Manually activate a node for EPOS with `./auto_node.sh activate`.
 
-5. Get latest header of the node with `./auto_node.sh header`.
+5. Get validator information of the account associated with the node with `./auto_node.sh info`.
 
-6. Export the validator private key and BLS key associated with the node with `./auto_node.sh export`.
+6. Get latest header of the node with `./auto_node.sh header`.
 
-7. Attach to the docker image (to look around / debug) with `./auto_node.sh attach`.
+7. Export the validator private key and BLS key associated with the node with `./auto_node.sh export`.
 
-8. Call the CLI with the node as localhost with `./auto_node.sh hmy <cli args>`.
+8. Attach to the docker image (to look around / debug) with `./auto_node.sh attach`.
 
-9. Kill and remove a node's docker container and shared directory with `./auto_node.sh clean`.
+9. Call the CLI with the node as localhost with `./auto_node.sh hmy <cli args>`.
+
+10. Kill and remove a node's docker container and shared directory with `./auto_node.sh clean`.
 
 ### A note on BLS keys
 
-With the `--bls-private-key <BLS PRIVATE KEY>` run option, one could give the private BLS key one wishes to use for their node. 
-However, one could also generate the BLS for a specific shard as needed with the `--shard <SHARD ID>` run option.  
+If you wish to use your own BLS keys, you can add the `.key` files to the `./harmony_bls_keys` directory. If you have
+a custom passphrase for the BLS key, enable passphrase input for BLS keys at node run with the `--bls-passphrase` run option.
+Note that this method is supported for multi key nodes as well. 
 
 ## Advanced `run` usage
 
 **It is important to note that the CLI used in the docker image shares the keystore with the host machine.**
 
-* A node is always ran with the following command `./node.sh -I -N <network> -z -k <BLS key path>`. 
+* A node is always ran with the following command `./node.sh -N <network> -z -f <BLS key dir path> -M`. 
 * One can define the validator information used in the create validator tx by setting the 
 fields in the `validator_config.json` file (which is in the same directory as `auto_node.sh`). 
 **Note that this is where you define the wallet linked to the auto_node. Moreover, the defined wallet MUST 
@@ -71,19 +76,20 @@ optional arguments:
   --auto-active         Always try to set active when EPOS status is inactive.
   --auto-interaction    Say yes to all interaction (except wallet pw).
   --clean               Clean shared node directory before starting node.
-  --wallet-passphrase   Toggle specifying a passphrase interactively
+  --wallet-passphrase   Toggle specifying a passphrase interactively for the wallet.
                           If not toggled, default CLI passphrase will be used.
   --wallet-passphrase-string WALLET_PASSPHRASE_STRING
                         Specify passphrase string for validator's wallet.
                           The passphrase may be exposed on the host machine.
 
-  --bls-private-key BLS_PRIVATE_KEY
-                        Private BLS key to be used by this node.
-                          Note that this is a temp solution and will be removed once the
-                          CLI manages the BLS keys.
-                          If none provided, a BLS key will be generated with the default CLI passphrase.
+  --bls-passphrase      Toggle specifying a passphrase interactively for the BLS key.
+                          If not toggled, default CLI passphrase will be used.
+  --bls-passphrase-string BLS_PASSPHRASE_STRING
+                        Specify passphrase string for validator's BLS key.
+                          The passphrase may be exposed on the host machine.
+
   --shard SHARD         Specify shard of generated bls key.
-                          Only used if bls private key is not provided.
+                          Only used if no BLS keys are not provided.
   --network NETWORK     Network to connect to (staking, partner, stress).
                           Default: 'staking'.
   --duration DURATION   Duration of how long the node is to run in seconds.

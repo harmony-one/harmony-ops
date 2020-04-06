@@ -34,4 +34,8 @@ COPY scripts/header.sh /root
 
 RUN chmod +x /root/header.sh
 
+COPY scripts/version.sh /root
+
+RUN chmod +x /root/version.sh
+
 ENTRYPOINT ["/root/run.py"]
