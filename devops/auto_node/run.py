@@ -27,6 +27,7 @@ with open("./node/validator_config.json") as f:  # WARNING: assumption of copied
     validator_info = json.load(f)
 wallet_passphrase = ""  # WARNING: default passphrase is set here.
 bls_key_folder = "./node/bls_keys"
+shutil.rmtree(bls_key_folder, ignore_errors=True)
 os.makedirs(bls_key_folder, exist_ok=True)
 imported_bls_key_folder = "/root/harmony_bls_keys"  # WARNING: assumption made on auto_node.sh
 
