@@ -76,8 +76,9 @@ if __name__ == '__main__':
     network_validators = get_all_validators(args.endpoint)
     committee = get_all_keys(args.endpoint)
     by_group, csv_validators = read_csv(args.csv_link)
-    all_validators = list(set(network_validators).union(set(csv_validators)))
-    validator_information = get_validator_information(args.endpoint, all_validators)
+    all_validators = list(set(network_validators + csv_validators))
+    new_validators = [x for x in network_validators if x not in csv_validators]
+    validator_information = get_validator_information(args.endpoint, network_validators)
 
     v_print("-- Processing data --")
     external_bls_keys = []
@@ -86,20 +87,20 @@ if __name__ == '__main__':
             if not y['is-harmony-slot']:
                 external_bls_keys.append(y['bls-public-key'])
 
-    current_validators = [v for v in network_validators if validator_information[v] != None and validator_information[v]['currently-in-committee'] > 0]
-    earned_validators = [v for v in network_validators if validator_information[v] != None and validator_information[v]['lifetime']['reward-accumulated'] > 0]
+    current_validators = [v for v in network_validators if validator_information[v]['currently-in-committee'] > 0]
+    earned_validators = [v for v in network_validators if validator_information[v]['lifetime']['reward-accumulated'] > 0]
 
     per_group_earning_validators = defaultdict(list)
     per_group_created_validators = defaultdict(list)
 
     for g in by_group.keys():
         for v in by_group[g]:
-            if validator_information[v] != None:
+            if v in validator_information.keys():
                 per_group_created_validators[g].append(v)
                 if validator_information[v]['lifetime']['reward-accumulated'] > 0:
                     per_group_earning_validators[g].append(v)
 
-    print("-- Total Results --")
+    print("-- Total Validator Stats --")
     print("Total created validators: %d" % len(network_validators))
     print("Validators that have earned rewards: %d" % len(earned_validators))
     print("Current validators: %d" % len(current_validators))
@@ -107,7 +108,7 @@ if __name__ == '__main__':
 
     print()
 
-    print("-- Per Group Results --")
+    print("-- Per Group Validator Stats --")
     total_csv_created_validators = 0
     for g in per_group_created_validators.keys():
         c = len(per_group_created_validators[g])
@@ -123,3 +124,9 @@ if __name__ == '__main__':
         print("Group: %-20s Any reward earned validators: %d" % (g, c))
         total_csv_earned_validators += c
     print("Total: %d" % total_csv_earned_validators)
+
+    print()
+
+    print("-- New Validators --")
+    for n in new_validators:
+        print("Address: %s, Validator Name: %s, Security Contact: %s, Website: %s" % (n, validator_information[n]['validator']['name'], validator_information[n]['validator']['security-contact'], validator_information[n]['validator']['website']))
