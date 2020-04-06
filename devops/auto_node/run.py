@@ -28,7 +28,7 @@ with open("./node/validator_config.json") as f:  # WARNING: assumption of copied
 wallet_passphrase = ""  # WARNING: default passphrase is set here.
 bls_key_folder = "./node/bls_keys"
 os.makedirs(bls_key_folder, exist_ok=True)
-imported_bls_key_folder = "/root/harmony_bls_keys"
+imported_bls_key_folder = "/root/harmony_bls_keys"  # WARNING: assumption made on auto_node.sh
 
 env = os.environ
 node_script_source = "https://raw.githubusercontent.com/harmony-one/harmony/master/scripts/node.sh"
