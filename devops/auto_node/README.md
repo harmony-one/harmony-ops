@@ -10,6 +10,8 @@ curl -O https://raw.githubusercontent.com/harmony-one/harmony-ops/master/devops/
 ```
 > For help on the parameters of `auto_node.sh` use the help option with `./auto_node.sh --help` 
 
+**Currently, there is an assumption that `auto_node.sh` is in the current working directory for all commands.** 
+
 ## Usages
 
 1. To run a node, use the `run` param of `auto_node.sh`. For example:
