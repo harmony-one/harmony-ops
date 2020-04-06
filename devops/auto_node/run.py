@@ -228,7 +228,10 @@ def run_node(bls_keys_path, network, clean=False):
         os.chdir("/root/node")
         r = requests.get(node_script_source)
         with open("node.sh", 'w') as f:
-            f.write(r.content.decode())
+            node_sh = r.content.decode()
+            # WARNING: Hack untill node.sh is changed for auto-node.
+            node_sh = node_sh.replace("save_pass_file=false", 'save_pass_file=true')
+            f.write(node_sh)
         st = os.stat("node.sh")
         os.chmod("node.sh", st.st_mode | stat.S_IEXEC)
         node_args = ["-N", network, "-z", "-f", bls_keys_path, "-M"]
