@@ -101,6 +101,14 @@ case "${1}" in
     docker exec -it "${container_name}" /bin/bash -c "killall harmony"
     docker kill "${container_name}"
     ;;
+  "export-bls")
+    if [ ! -d "${2}" ]; then
+      echo "${2}" is not a directory.
+      exit
+    fi
+    cp -r "$(pwd)/.${container_name}/bls_keys" "${2}"
+    echo "Exported BLS keys to ${2}/bls_keys"
+    ;;
   "hmy")
     docker exec -it "${container_name}" /root/bin/hmy "${@:2}"
     ;;
@@ -116,20 +124,21 @@ case "${1}" in
     echo "
       == Harmony auto-node deployment help message ==
 
-      Optional:            Param:             Help:
+      Optional:            Param:              Help:
 
-      [--container=<name>] run <run params>   Main execution to run a sentry node. If errors are given
+      [--container=<name>] run <run params>    Main execution to run a sentry node. If errors are given
                                                 for other params, this needs to be ran. Use '-h' for run help msg.
-      [--container=<name>] activate           Make validator associated with sentry elegable for election in next epoch
-      [--container=<name>] info               Fetch information for validator associated with sentry
-      [--container=<name>] version            Fetch the version for the harmony node binary and node.sh
-      [--container=<name>] header             Fetch the latest header for the node
-      [--container=<name>] export             Export the private keys associated with this sentry
-      [--container=<name>] attach             Attach to the docker image to take a look around
-      [--container=<name>] hmy <CLI params>   Call the CLI where the localhost is the current node
-      [--container=<name>] clean              Kills and remove the node's docker container and shared directory
-      [--container=<name>] kill               Safely kill the node
-      [--container=<name>] setup              Setup auto_node
+      [--container=<name>] activate            Make validator associated with sentry elegable for election in next epoch
+      [--container=<name>] info                Fetch information for validator associated with sentry
+      [--container=<name>] version             Fetch the version for the harmony node binary and node.sh
+      [--container=<name>] header              Fetch the latest header for the node
+      [--container=<name>] export              Export the private keys associated with this sentry
+      [--container=<name>] attach              Attach to the docker image to take a look around
+      [--container=<name>] export-bls <path>   Export all BLS keys used by the node
+      [--container=<name>] hmy <CLI params>    Call the CLI where the localhost is the current node
+      [--container=<name>] clean               Kills and remove the node's docker container and shared directory
+      [--container=<name>] kill                Safely kill the node
+      [--container=<name>] setup               Setup auto_node
     "
     exit
     ;;
