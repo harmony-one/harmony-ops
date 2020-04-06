@@ -6,6 +6,7 @@ if [ "$EUID" = 0 ]
 fi
 
 validator_config_path="./validator_config.json"
+bls_keys_path="./harmony_bls_keys"
 container_name="harmony_node"
 case $1 in
   --container=*)
@@ -29,12 +30,16 @@ function setup() {
        "details": "None"
   }' > $validator_config_path
   docker pull harmonyone/sentry
+  mkdir -p $bls_keys_path
 }
 
 case "${1}" in
   "run")
     if [ ! -f "$validator_config_path" ]; then
       setup
+    fi
+    if [ ! -d "$bls_keys_path" ]; then
+      mkdir -p $bls_keys_path
     fi
     if [ ! -d "${HOME}/.hmy_cli" ]; then
       echo "CLI keystore not found at ~/.hmy_cli. Create or import a wallet using the CLI before running auto_node.sh"
@@ -61,13 +66,17 @@ case "${1}" in
 
     # Warning: Assumption about CLI files, might have to change in the future...
     eval docker run --name "${container_name}" -v "$(pwd)/.${container_name}:/root/node" \
-     -v "${HOME}/.hmy_cli/:/root/.hmy_cli" -it harmonyone/sentry "${@:2}"
+     -v "${HOME}/.hmy_cli/:/root/.hmy_cli" -v "$(pwd)/${bls_keys_path}:/root/imported_bls_keys" \
+     -it harmonyone/sentry "${@:2}"
     ;;
   "activate")
     docker exec -it "${container_name}" /root/activate.sh
     ;;
   "info")
     docker exec -it "${container_name}" /root/info.sh
+    ;;
+  "version")
+    docker exec -it "${container_name}" /root/version.sh
     ;;
   "header")
     docker exec -it "${container_name}" /root/header.sh
@@ -103,6 +112,7 @@ case "${1}" in
                                                 for other params, this needs to be ran. Use '-h' for run help msg.
       [--container=<name>] activate           Make validator associated with sentry elegable for election in next epoch
       [--container=<name>] info               Fetch information for validator associated with sentry
+      [--container=<name>] version            Fetch the version for the harmony node binary and node.sh
       [--container=<name>] header             Fetch the latest header for the node
       [--container=<name>] export             Export the private keys associated with this sentry
       [--container=<name>] attach             Attach to the docker image to take a look around
