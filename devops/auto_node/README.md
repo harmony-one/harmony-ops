@@ -22,23 +22,25 @@ $ ./auto_node.sh run --clean --auto-active --auto-interaction
 >
 > Note that keys from the CLI keystore are used to create a validator.
 
-2. Get the version of the harmony node with `./auto_node.sh version.`
+2. Export the BLS key files used by the running node with `./auto_node.sh export-bls <path to directory>`
 
-3. Safely kill the node with `./auto_node.sh kill`.
+3. Get the version of the harmony node with `./auto_node.sh version.`
 
-4. Manually activate a node for EPOS with `./auto_node.sh activate`.
+4. Safely kill the node with `./auto_node.sh kill`.
 
-5. Get validator information of the account associated with the node with `./auto_node.sh info`.
+5. Manually activate a node for EPOS with `./auto_node.sh activate`.
 
-6. Get latest header of the node with `./auto_node.sh header`.
+6. Get validator information of the account associated with the node with `./auto_node.sh info`.
 
-7. Export the validator private key and BLS key associated with the node with `./auto_node.sh export`.
+7. Get latest header of the node with `./auto_node.sh header`.
 
-8. Attach to the docker image (to look around / debug) with `./auto_node.sh attach`.
+8. Export the validator private key and BLS key associated with the node with `./auto_node.sh export`.
 
-9. Call the CLI with the node as localhost with `./auto_node.sh hmy <cli args>`.
+9. Attach to the docker image (to look around / debug) with `./auto_node.sh attach`.
 
-10. Kill and remove a node's docker container and shared directory with `./auto_node.sh clean`.
+10. Call the CLI with the node as localhost with `./auto_node.sh hmy <cli args>`.
+
+11. Kill and remove a node's docker container and shared directory with `./auto_node.sh clean`.
 
 ### A note on BLS keys
 
