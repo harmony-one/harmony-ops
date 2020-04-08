@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import ntpath
 import os
 import time
 import stat
@@ -8,9 +7,9 @@ import sys
 import subprocess
 import random
 import datetime
-import re
 import shutil
 import getpass
+import traceback
 from argparse import RawTextHelpFormatter
 from multiprocessing.pool import ThreadPool
 from threading import Lock
@@ -128,13 +127,13 @@ def import_bls(passphrase):
         for k in imported_keys:
             try:
                 key = json_load(cli.single_call(f"hmy keys recover-bls-key {imported_bls_key_folder}/{k} "
-                                                           f"--passphrase-file /tmp/bls_pass"))
+                                                f"--passphrase-file /tmp/bls_pass"))
                 keys_list.append(key)
                 shutil.copy(f"{imported_bls_key_folder}/{k}", bls_key_folder)
                 shutil.copy(f"{imported_bls_key_folder}/{k}", "./bin")  # For CLI
                 with open(f"{bls_key_folder}/{key['public-key'].replace('0x', '')}.pass", 'w') as fw:
                     fw.write(passphrase)
-            except Exception as e:  # WARNING: catch all exception to not halt
+            except (RuntimeError, json.JSONDecodeError, shutil.ExecError) as e:
                 print(f"{Typgpy.FAIL}Failed to load BLS key {k}, error: {e}{Typgpy.ENDC}")
         if len(keys_list) == 0:
             print(f"{Typgpy.FAIL}Could not import any BLS key, exiting...{Typgpy.ENDC}")
@@ -197,7 +196,7 @@ def import_node_info():
     with open(os.path.abspath("/.bls_keys"),
               'w') as f:  # WARNING: assumption made of where to store address in other scripts.
         print(f"{Typgpy.OKGREEN}BLS keys:{Typgpy.ENDC} {public_bls_keys}")
-        f.write(address)
+        f.write(str(public_bls_keys))
     with open(os.path.abspath("/.bls_passphrase"),
               'w') as f:  # WARNING: assumption made of where to store address in other scripts.
         print(f"{Typgpy.OKGREEN}BLS passphrase (for all keys):{Typgpy.ENDC} {bls_passphrase}")
@@ -217,7 +216,7 @@ def import_node_info():
     print("~" * 110)
     print("")
     print(f"{Typgpy.HEADER}[!] Copied BLS key file to shared node directory "
-          f"saved the given passphrase (or default CLI passphrase if none is given){Typgpy.ENDC}")
+          f"with the given passphrase (or default CLI passphrase if none){Typgpy.ENDC}")
     return public_bls_keys
 
 
@@ -248,17 +247,6 @@ def run_node(bls_keys_path, network, clean=False):
     except KeyboardInterrupt:
         directory_lock.release()
         proc.close()
-
-
-def fund_account(address, endpoint):
-    try:
-        faucet_endpoint = re.sub(r"api\.s.", "faucet", endpoint)
-        r = requests.get(f"{faucet_endpoint}fund?address={address}", timeout=60)
-        print(f"{Typgpy.OKBLUE}Triggered account funding: {address}\n\t{r.content.decode()}{Typgpy.ENDC}")
-        print(f"{Typgpy.OKBLUE}Waiting 60 seconds for funds...{Typgpy.ENDC}")
-        time.sleep(60)
-    except Exception as e:  # Don't terminate on any error
-        print(f"{Typgpy.FAIL}Failed to fund account: {address}\n\t{e}{Typgpy.ENDC}")
 
 
 def add_key_to_validator(val_info, bls_pub_keys, passphrase):
@@ -302,8 +290,6 @@ def create_new_validator(val_info, bls_pub_keys, passphrase):
     print(f"{Typgpy.OKBLUE}Verifying Balance...{Typgpy.ENDC}")
     # Check validator amount +1 for gas fees.
     if not check_min_bal_on_s0(val_info['validator-addr'], val_info['amount'] + 1, args.endpoint):
-        fund_account(val_info['validator-addr'], args.endpoint)
-    if not check_min_bal_on_s0(val_info['validator-addr'], val_info['amount'] + 1, args.endpoint):
         print(f"{Typgpy.FAIL}Cannot create validator, {val_info['validator-addr']} "
               f"does not have sufficient funds.{Typgpy.ENDC}")
         return
@@ -311,28 +297,32 @@ def create_new_validator(val_info, bls_pub_keys, passphrase):
         print(f"{Typgpy.OKGREEN}Address: {val_info['validator-addr']} has enough funds{Typgpy.ENDC}")
     print(f"{Typgpy.OKBLUE}Verifying Node Sync...{Typgpy.ENDC}")
     directory_lock.acquire()
-    curr_epoch = get_latest_header("http://localhost:9500/")['epoch']
+    curr_headers = get_latest_headers("http://localhost:9500/")
+    curr_epoch_shard = curr_headers['shard-chain-header']['epoch']
+    curr_epoch_beacon = curr_headers['beacon-chain-header']['epoch']
     ref_epoch = get_latest_header(args.endpoint)['epoch']
-    while curr_epoch != ref_epoch:
-        sys.stdout.write(
-            f"\rWaiting for node to sync with chain epoch ({ref_epoch}) -- current epoch: {curr_epoch}")
+    while curr_epoch_shard != ref_epoch or curr_epoch_beacon != ref_epoch:
+        sys.stdout.write(f"\rWaiting for node to sync: shard epoch ({curr_epoch_shard}/{ref_epoch}) "
+                         f"& beacon epoch ({curr_epoch_beacon}/{ref_epoch})")
         sys.stdout.flush()
-        time.sleep(2)
-        curr_epoch = get_latest_header("http://localhost:9500/")['epoch']
+        time.sleep(1)
+        curr_headers = get_latest_headers("http://localhost:9500/")
+        curr_epoch_shard = curr_headers['shard-chain-header']['epoch']
+        curr_epoch_beacon = curr_headers['beacon-chain-header']['epoch']
         ref_epoch = get_latest_header(args.endpoint)['epoch']
-    print(f"{Typgpy.OKGREEN}Node synced to current epoch{Typgpy.ENDC}")
+    print(f"\n{Typgpy.OKGREEN}Node synced to current epoch{Typgpy.ENDC}")
     print(f"\n{Typgpy.OKBLUE}Sending create validator transaction...{Typgpy.ENDC}")
     os.chdir("/root/bin")  # Needed for implicit BLS key...
-    proc = cli.expect_call(f"hmy --node={args.endpoint} staking create-validator "
-                           f"--validator-addr {val_info['validator-addr']} --name {val_info['name']} "
-                           f"--identity {val_info['identity']} --website {val_info['website']} "
-                           f"--security-contact {val_info['security-contact']} --details {val_info['max-rate']} "
-                           f"--rate {val_info['rate']} --max-rate {val_info['max-rate']} "
-                           f"--max-change-rate {val_info['max-change-rate']} "
-                           f"--min-self-delegation {val_info['min-self-delegation']} "
-                           f"--max-total-delegation {val_info['max-total-delegation']} "
-                           f"--amount {val_info['amount']} --bls-pubkeys {','.join(bls_pub_keys)} "
-                           f"--passphrase-file /.wallet_passphrase ")  # WARNING: assumption of pw file
+    proc = cli.expect_call(f'hmy --node={args.endpoint} staking create-validator '
+                           f'--validator-addr {val_info["validator-addr"]} --name "{val_info["name"]}" '
+                           f'--identity "{val_info["identity"]}" --website "{val_info["website"]}" '
+                           f'--security-contact "{val_info["security-contact"]}" --details "{val_info["details"]}" '
+                           f'--rate {val_info["rate"]} --max-rate {val_info["max-rate"]} '
+                           f'--max-change-rate {val_info["max-change-rate"]} '
+                           f'--min-self-delegation {val_info["min-self-delegation"]} '
+                           f'--max-total-delegation {val_info["max-total-delegation"]} '
+                           f'--amount {val_info["amount"]} --bls-pubkeys {",".join(bls_pub_keys)} '
+                           f'--passphrase-file /.wallet_passphrase ')
     for _ in range(len(bls_pub_keys)):
         proc.expect("Enter the bls passphrase:\r\n")  # WARNING: assumption about interaction
         proc.sendline(passphrase)
@@ -340,7 +330,7 @@ def create_new_validator(val_info, bls_pub_keys, passphrase):
     try:
         response = json_load(proc.before.decode())
         print(f"{Typgpy.OKBLUE}Created Validator!\n{Typgpy.OKGREEN}{json.dumps(response, indent=4)}{Typgpy.ENDC}")
-    except Exception:  # WARNING: catching all errors
+    except (json.JSONDecodeError, RuntimeError, pexpect.exceptions):
         print(f"{Typgpy.FAIL}Failed to create validator!\n\tError: {e}"
               f"\n\tMsg:\n{proc.before.decode()}{Typgpy.ENDC}")
     directory_lock.release()
@@ -389,12 +379,23 @@ if __name__ == "__main__":
                       f"{json.dumps(val_chain_info['current-epoch-performance'], indent=4)}{Typgpy.ENDC}")
                 if args.auto_active:
                     check_and_activate(validator_info["validator-addr"], val_chain_info['epos-status'])
-            except Exception as e:
+            except (json.JSONDecodeError, requests.exceptions, RuntimeError) as e:
                 print(f"{Typgpy.FAIL}Error when checking validator. Error: {e}{Typgpy.ENDC}")
-            print(f"{Typgpy.HEADER}This node's latest header at {datetime.datetime.utcnow()}: "
-                  f"{Typgpy.OKGREEN}{json.dumps(get_latest_header('http://localhost:9500/'), indent=4)}{Typgpy.ENDC}")
-            time.sleep(15)
-    except KeyboardInterrupt as e:
-        print(f"{Typgpy.OKGREEN}Killing all harmony processes...{Typgpy.ENDC}")
-        subprocess.check_call(["killall", "harmony"])
-        raise e
+            try:
+                print(f"{Typgpy.HEADER}This node's latest header at {datetime.datetime.utcnow()}: "
+                      f"{Typgpy.OKGREEN}{json.dumps(get_latest_headers('http://localhost:9500/'), indent=4)}"
+                      f"{Typgpy.ENDC}")
+            except (json.JSONDecodeError, requests.exceptions, RuntimeError) as e:
+                print(f"{Typgpy.HEADER}This node's latest header at {datetime.datetime.utcnow()}: "
+                      f"{Typgpy.OKGREEN}{json.dumps(get_latest_header('http://localhost:9500/'), indent=4)}"
+                      f"{Typgpy.ENDC}")
+            time.sleep(8)
+    except Exception as e:
+        if isinstance(e, KeyboardInterrupt):
+            print(f"{Typgpy.OKGREEN}Killing all harmony processes...{Typgpy.ENDC}")
+            subprocess.call(["killall", "harmony"])
+            exit()
+        traceback.print_exc(file=sys.stdout)
+        print(f"{Typgpy.FAIL}Auto node failed with error: {e}{Typgpy.ENDC}")
+        print(f"Docker image still running; `auto_node.sh` commands will still work.")
+        subprocess.call(['tail', '-f', '/dev/null'], env=env, timeout=None)

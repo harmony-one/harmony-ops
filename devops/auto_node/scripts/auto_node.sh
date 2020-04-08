@@ -15,27 +15,29 @@ case $1 in
 esac
 
 function setup() {
-  echo '{
-       "validator-addr": null,
-       "name": "harmony_autonode",
-       "website": "harmony.one",
-       "security-contact": "Daniel-VDM",
-       "identity": "auto-node",
-       "amount": 10100,
-       "min-self-delegation": 10000,
-       "rate": 0.1,
-       "max-rate": 0.75,
-       "max-change-rate": 0.05,
-       "max-total-delegation": 1000000.0,
-       "details": "None"
-  }' > $validator_config_path
+  if [ ! -f "$validator_config_path" ]; then
+    echo '{
+  "validator-addr": null,
+  "name": "harmony autonode",
+  "website": "harmony.one",
+  "security-contact": "Daniel-VDM",
+  "identity": "auto-node",
+  "amount": 10100,
+  "min-self-delegation": 10000,
+  "rate": 0.1,
+  "max-rate": 0.75,
+  "max-change-rate": 0.05,
+  "max-total-delegation": 1000000.0,
+  "details": "None"
+}' > $validator_config_path
+  fi
   docker pull harmonyone/sentry
   mkdir -p $bls_keys_path
   echo "
       Setup for Harmony auto node is complete.
 
       1. Docker image for node has been installed.
-      2. Default validator config has been created at $validator_config_path
+      2. Default validator config has been created at $validator_config_path (if it does not exist)
       3. BLS key directory for node has been created at $bls_keys_path
 
       Once you have imported your validator wallet to the harmony CLI,
@@ -82,14 +84,23 @@ case "${1}" in
   "activate")
     docker exec -it "${container_name}" /root/activate.sh
     ;;
+  "deactivate")
+    docker exec -it "${container_name}" /root/deactivate.sh
+    ;;
   "info")
     docker exec -it "${container_name}" /root/info.sh
+    ;;
+  "balances")
+    docker exec -it "${container_name}" /root/balances.sh
     ;;
   "version")
     docker exec -it "${container_name}" /root/version.sh
     ;;
   "header")
     docker exec -it "${container_name}" /root/header.sh
+    ;;
+  "headers")
+    docker exec -it "${container_name}" /root/headers.sh
     ;;
   "export")
     docker exec -it "${container_name}" /root/export.sh
@@ -126,13 +137,16 @@ case "${1}" in
 
       Optional:            Param:              Help:
 
-      [--container=<name>] run <run params>    Main execution to run a sentry node. If errors are given
+      [--container=<name>] run <run params>    Main execution to run a node. If errors are given
                                                 for other params, this needs to be ran. Use '-h' for run help msg.
-      [--container=<name>] activate            Make validator associated with sentry elegable for election in next epoch
-      [--container=<name>] info                Fetch information for validator associated with sentry
+      [--container=<name>] activate            Make validator associated with node elegable for election in next epoch
+      [--container=<name>] deactivate            Make validator associated with node NOT elegable for election in next epoch
+      [--container=<name>] info                Fetch information for validator associated with node
+      [--container=<name>] balances            Fetch balances for validator associated with node
       [--container=<name>] version             Fetch the version for the harmony node binary and node.sh
-      [--container=<name>] header              Fetch the latest header for the node
-      [--container=<name>] export              Export the private keys associated with this sentry
+      [--container=<name>] header              Fetch the latest header (shard chain) for the node
+      [--container=<name>] headers             Fetch the latest headers (beacon and shard chain) for the node
+      [--container=<name>] export              Export the private keys associated with this node
       [--container=<name>] attach              Attach to the docker image to take a look around
       [--container=<name>] export-bls <path>   Export all BLS keys used by the node
       [--container=<name>] hmy <CLI params>    Call the CLI where the localhost is the current node

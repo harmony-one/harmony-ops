@@ -26,6 +26,14 @@ COPY scripts/activate.sh /root
 
 RUN chmod +x /root/activate.sh
 
+COPY scripts/deactivate.sh /root
+
+RUN chmod +x /root/deactivate.sh
+
+COPY scripts/balances.sh /root
+
+RUN chmod +x /root/balances.sh
+
 COPY scripts/export.sh /root
 
 RUN chmod +x /root/export.sh
@@ -33,6 +41,10 @@ RUN chmod +x /root/export.sh
 COPY scripts/header.sh /root
 
 RUN chmod +x /root/header.sh
+
+COPY scripts/headers.sh /root
+
+RUN chmod +x /root/headers.sh
 
 COPY scripts/version.sh /root
 
