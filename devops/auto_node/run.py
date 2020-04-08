@@ -410,7 +410,11 @@ if __name__ == "__main__":
                       f"{Typgpy.OKGREEN}{json.dumps(get_latest_header('http://localhost:9500/'), indent=4)}"
                       f"{Typgpy.ENDC}")
             time.sleep(15)
-    except KeyboardInterrupt as e:
-        print(f"{Typgpy.OKGREEN}Killing all harmony processes...{Typgpy.ENDC}")
-        subprocess.call(["killall", "harmony"])
-        raise e
+    except Exception as e:
+        if isinstance(e, KeyboardInterrupt):
+            print(f"{Typgpy.OKGREEN}Killing all harmony processes...{Typgpy.ENDC}")
+            subprocess.call(["killall", "harmony"])
+            exit()
+        print(f"{Typgpy.FAIL}Auto node failed with error: {e}{Typgpy.ENDC}")
+        print(f"Docker image still running; `autonode.sh` commands will still work.")
+        subprocess.call(['tail', '-f', '/dev/null'], env=env, timeout=None)
