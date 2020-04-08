@@ -21,6 +21,17 @@ def get_latest_header(endpoint=default_endpoint):
     return json.loads(response.content)["result"]
 
 
+def get_latest_headers(endpoint=default_endpoint):
+    payload = json.dumps({"id": "1", "jsonrpc": "2.0",
+                          "method": "hmy_getLatestChainHeaders",
+                          "params": []})
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    response = requests.request('POST', endpoint, headers=headers, data=payload, allow_redirects=False, timeout=3)
+    return json.loads(response.content)["result"]
+
+
 def get_staking_epoch(endpoint=default_endpoint):
     payload = json.dumps({"id": "1", "jsonrpc": "2.0",
                           "method": "hmy_getNodeMetadata",

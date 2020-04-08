@@ -25,6 +25,12 @@ from utils import *
 
 with open("./node/validator_config.json") as f:  # WARNING: assumption of copied file on docker run.
     validator_info = json.load(f)
+    # Temp sanitation b4 for pyhmy lib update for space strings
+    validator_info['name'] = validator_info['name'].replace(' ', '_')
+    validator_info['identity'] = validator_info['identity'].replace(' ', '_')
+    validator_info['website'] = validator_info['website'].replace(' ', '_')
+    validator_info['security-contact'] = validator_info['security-contact'].replace(' ', '_')
+    validator_info['details'] = validator_info['details'].replace(' ', '_')
 wallet_passphrase = ""  # WARNING: default passphrase is set here.
 bls_key_folder = "./node/bls_keys"
 shutil.rmtree(bls_key_folder, ignore_errors=True)
@@ -197,7 +203,7 @@ def import_node_info():
     with open(os.path.abspath("/.bls_keys"),
               'w') as f:  # WARNING: assumption made of where to store address in other scripts.
         print(f"{Typgpy.OKGREEN}BLS keys:{Typgpy.ENDC} {public_bls_keys}")
-        f.write(address)
+        f.write(str(public_bls_keys))
     with open(os.path.abspath("/.bls_passphrase"),
               'w') as f:  # WARNING: assumption made of where to store address in other scripts.
         print(f"{Typgpy.OKGREEN}BLS passphrase (for all keys):{Typgpy.ENDC} {bls_passphrase}")
@@ -217,7 +223,7 @@ def import_node_info():
     print("~" * 110)
     print("")
     print(f"{Typgpy.HEADER}[!] Copied BLS key file to shared node directory "
-          f"saved the given passphrase (or default CLI passphrase if none is given){Typgpy.ENDC}")
+          f"with the given passphrase (or default CLI passphrase if none){Typgpy.ENDC}")
     return public_bls_keys
 
 
@@ -311,22 +317,26 @@ def create_new_validator(val_info, bls_pub_keys, passphrase):
         print(f"{Typgpy.OKGREEN}Address: {val_info['validator-addr']} has enough funds{Typgpy.ENDC}")
     print(f"{Typgpy.OKBLUE}Verifying Node Sync...{Typgpy.ENDC}")
     directory_lock.acquire()
-    curr_epoch = get_latest_header("http://localhost:9500/")['epoch']
+    curr_headers = get_latest_headers("http://localhost:9500/")
+    curr_epoch_shard = curr_headers['shard-chain-header']['epoch']
+    curr_epoch_beacon = curr_headers['beacon-chain-header']['epoch']
     ref_epoch = get_latest_header(args.endpoint)['epoch']
-    while curr_epoch != ref_epoch:
-        sys.stdout.write(
-            f"\rWaiting for node to sync with chain epoch ({ref_epoch}) -- current epoch: {curr_epoch}")
+    while curr_epoch_shard != ref_epoch or curr_epoch_beacon != ref_epoch:
+        sys.stdout.write(f"\rWaiting for node to sync: shard epoch ({curr_epoch_shard}/{ref_epoch}) "
+                         f"& beacon epoch ({curr_epoch_beacon}/{ref_epoch})")
         sys.stdout.flush()
         time.sleep(2)
-        curr_epoch = get_latest_header("http://localhost:9500/")['epoch']
+        curr_headers = get_latest_headers("http://localhost:9500/")
+        curr_epoch_shard = curr_headers['shard-chain-header']['epoch']
+        curr_epoch_beacon = curr_headers['beacon-chain-header']['epoch']
         ref_epoch = get_latest_header(args.endpoint)['epoch']
-    print(f"{Typgpy.OKGREEN}Node synced to current epoch{Typgpy.ENDC}")
+    print(f"\n{Typgpy.OKGREEN}Node synced to current epoch{Typgpy.ENDC}")
     print(f"\n{Typgpy.OKBLUE}Sending create validator transaction...{Typgpy.ENDC}")
     os.chdir("/root/bin")  # Needed for implicit BLS key...
     proc = cli.expect_call(f"hmy --node={args.endpoint} staking create-validator "
                            f"--validator-addr {val_info['validator-addr']} --name {val_info['name']} "
                            f"--identity {val_info['identity']} --website {val_info['website']} "
-                           f"--security-contact {val_info['security-contact']} --details {val_info['max-rate']} "
+                           f"--security-contact {val_info['security-contact']} --details {val_info['details']} "
                            f"--rate {val_info['rate']} --max-rate {val_info['max-rate']} "
                            f"--max-change-rate {val_info['max-change-rate']} "
                            f"--min-self-delegation {val_info['min-self-delegation']} "
@@ -391,10 +401,16 @@ if __name__ == "__main__":
                     check_and_activate(validator_info["validator-addr"], val_chain_info['epos-status'])
             except Exception as e:
                 print(f"{Typgpy.FAIL}Error when checking validator. Error: {e}{Typgpy.ENDC}")
-            print(f"{Typgpy.HEADER}This node's latest header at {datetime.datetime.utcnow()}: "
-                  f"{Typgpy.OKGREEN}{json.dumps(get_latest_header('http://localhost:9500/'), indent=4)}{Typgpy.ENDC}")
+            try:
+                print(f"{Typgpy.HEADER}This node's latest header at {datetime.datetime.utcnow()}: "
+                      f"{Typgpy.OKGREEN}{json.dumps(get_latest_headers('http://localhost:9500/'), indent=4)}"
+                      f"{Typgpy.ENDC}")
+            except (json.JSONDecodeError, requests.exceptions, RuntimeError) as e:
+                print(f"{Typgpy.HEADER}This node's latest header at {datetime.datetime.utcnow()}: "
+                      f"{Typgpy.OKGREEN}{json.dumps(get_latest_header('http://localhost:9500/'), indent=4)}"
+                      f"{Typgpy.ENDC}")
             time.sleep(15)
     except KeyboardInterrupt as e:
         print(f"{Typgpy.OKGREEN}Killing all harmony processes...{Typgpy.ENDC}")
-        subprocess.check_call(["killall", "harmony"])
+        subprocess.call(["killall", "harmony"])
         raise e
