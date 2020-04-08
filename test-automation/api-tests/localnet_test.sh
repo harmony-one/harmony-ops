@@ -62,5 +62,5 @@ timeout "$timeout_dir" cat <( waitBoot )
 echo "Sleeping ${wait} seconds to generate some funds..."
 sleep "$wait"
 
-python3 -u "${DIR}"/test.py --test_dir=./tests/default/ --endpoints "http://localhost:9500/, http://localhost:9501/" \
+python3 -u "${DIR}"/test.py --endpoints "http://localhost:9500/, http://localhost:9501/" \
   --delay="${delay}" --iterations="${iters}" --passphrase=''

@@ -572,6 +572,11 @@ def setup_newman_s0_s1(test_json, global_json, env_json):
 # TODO: Staking test where you send Cx and Tx to and from delegator and validator. Txns from other validators,
 #       delegators, and regular transaction. Also make sure to do it before and after undelegation
 # TODO: Undelegation test and collect rewards test.
+
+# TODO: START WITH THIS TASK FIRST
+# TODO: Create test that creates a validator with faucet key as this will be needed...
+# TODO: Need to create a localnet faucet (different address) that has sufficient funds to create validator....
+#       Make sure to also include the key file in the main repo...
 def staking_integration_test():
     print(f"{Typgpy.UNDERLINE}{Typgpy.BOLD}== Running staking integration test =={Typgpy.ENDC}")
 
@@ -727,3 +732,4 @@ if __name__ == "__main__":
     print(json.dumps(test_results, indent=4))
     print(Typgpy.ENDC)
     sys.exit(all(test_results.values()))
+    # TODO: save results to file...
