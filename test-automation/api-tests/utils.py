@@ -1,12 +1,21 @@
 import json
 import datetime
 import re
+import os
+import inspect
 import traceback
 
 import requests
 import pyhmy
 from pyhmy import util
 from pyhmy import cli
+from pyhmy.util import (
+    json_load,
+    Typgpy
+)
+
+ACC_NAMES_ADDED = []
+ACC_NAME_PREFIX = "_Test_key_"
 
 
 def setup_pyhmy():
@@ -14,7 +23,7 @@ def setup_pyhmy():
     assert hasattr(pyhmy, "__version__")
     assert pyhmy.__version__.major == 20, "wrong pyhmy version"
     assert pyhmy.__version__.minor == 1, "wrong pyhmy version"
-    assert pyhmy.__version__.micro >= 15, "wrong pyhmy version, update please"
+    assert pyhmy.__version__.micro >= 27, "wrong pyhmy version, update please"
     env = cli.download("./bin/hmy", replace=False)
     cli.environment.update(env)
     cli.set_binary("./bin/hmy")
@@ -67,6 +76,18 @@ def get_current_epoch(endpoint):
     return int(body["result"]["epoch"])
 
 
+def get_staking_epoch(endpoint):
+    payload = json.dumps({"id": "1", "jsonrpc": "2.0",
+                          "method": "hmy_getNodeMetadata",
+                          "params": []})
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    response = requests.request('POST', endpoint, headers=headers, data=payload, allow_redirects=False, timeout=3)
+    body = json.loads(response.content)
+    return int(body["result"]["chain-config"]["staking-epoch"])
+
+
 def is_active_shard(endpoint, delay_tolerance=60):
     """
     :param endpoint: The endpoint of the SHARD to check
@@ -94,15 +115,65 @@ def is_active_shard(endpoint, delay_tolerance=60):
         return False
 
 
-def process_passphrase(proc, passphrase):
+def add_key(name, passphrase='', verbose=False):
+    proc = cli.expect_call(f"hmy keys add {name} --passphrase")
+    process_passphrase(proc, passphrase, double=True)
+    proc.wait()
+    if verbose:
+        print(f"Added account key with name: {name}")
+    ACC_NAMES_ADDED.append(name)
+
+
+def get_faucet_account(min_funds, endpoint):
+    """
+    Only looks for accounts that have funds on shard 0.
+    """
+    for acc_name in ACC_NAMES_ADDED:
+        if float(get_balance(endpoint, name=acc_name)[0]["amount"]) >= min_funds:
+            return acc_name
+    raise RuntimeError(f"None of the loaded accounts have at least {min_funds} on shard 0")
+
+
+def get_balance(node, name=None, address=None):
+    assert name or address, "Must provide a keystore name or address"
+    if not address:
+        address = cli.get_address(name=name)
+    assert address and address.startswith("one1")
+    return json_load(cli.single_call(f"hmy --node={node} balances {address}"))
+
+
+def process_passphrase(proc, passphrase, double=False):
     """
     This will enter the `passphrase` interactively given the pexpect child program, `proc`.
     """
     proc.expect("Enter passphrase:\r\n")
     proc.sendline(passphrase)
-    proc.expect("Repeat the passphrase:\r\n")
-    proc.sendline(passphrase)
-    proc.expect("\n")
+    if double:
+        proc.expect("Repeat the passphrase:\r\n")
+        proc.sendline(passphrase)
+        proc.expect("\n")
+
+
+def bls_generator(count, key_dir="/tmp", filter_fn=None, verbose=False):
+    assert os.path.isabs(key_dir)
+    if not os.path.exists(key_dir):
+        os.makedirs(key_dir)
+    if filter_fn is not None:
+        assert callable(filter_fn)
+        assert len(inspect.signature(filter_fn).parameters) == 1, "filter function must have 1 argument"
+
+    for i in range(count):
+        while True:
+            if os.path.exists(f"{key_dir}/{ACC_NAME_PREFIX}bls{i}.key") and verbose:
+                print(
+                    f"{Typgpy.WARNING}Overriding BLS key file at: {key_dir}/{ACC_NAME_PREFIX}bls{i}.key {Typgpy.ENDC}")
+            bls_key = json_load(cli.single_call(f"hmy keys generate-bls-key --bls-file-path "
+                                                f"{key_dir}/{ACC_NAME_PREFIX}bls{i}.key", timeout=3))
+            if filter_fn is None or filter_fn(bls_key):
+                break
+        if verbose:
+            print(f"Generated BLS key:\n{json.dumps(bls_key, indent=4)}")
+        yield bls_key
 
 
 def is_after_epoch(n, endpoint):

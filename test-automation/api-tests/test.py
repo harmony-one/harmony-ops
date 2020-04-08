@@ -3,7 +3,6 @@ import argparse
 import os
 import inspect
 import random
-import shutil
 import time
 import sys
 import subprocess
@@ -12,9 +11,7 @@ from multiprocessing.pool import ThreadPool
 
 import pexpect
 from pyhmy.util import (
-    json_load,
     datetime_format,
-    Typgpy
 )
 import harmony_transaction_generator as tx_gen
 from harmony_transaction_generator import account_manager
@@ -22,20 +19,14 @@ from harmony_transaction_generator import analysis
 
 from utils import *
 
-ACC_NAMES_ADDED = []
-ACC_NAME_PREFIX = "_Test_key_"
 endpoints = [
-    "https://api.s0.b.hmny.io/",
-    "https://api.s1.b.hmny.io/",
-    "https://api.s2.b.hmny.io/",
+    "http://localhost:9500/",
+    "http://localhost:9501/",
 ]
 tx_gen.Loggers.general.logger.addHandler(logging.StreamHandler(sys.stdout))
 tx_gen.Loggers.balance.logger.addHandler(logging.StreamHandler(sys.stdout))
 tx_gen.Loggers.transaction.logger.addHandler(logging.StreamHandler(sys.stdout))
 tx_gen.Loggers.report.logger.addHandler(logging.StreamHandler(sys.stdout))
-
-# TODO: fix script for latest staking CLI update...
-# TODO: fix the dump of the setting JSON file...
 
 
 def parse_args():
@@ -43,35 +34,30 @@ def parse_args():
     parser.add_argument("--test_dir", dest="test_dir", default="./tests/default",
                         help="Path to test directory. Default is './tests/default'", type=str)
     parser.add_argument("--endpoints", dest="endpoints", default=None,
-                        help="Default is long running testnet.")
+                        help="Default is localnet.")
     parser.add_argument("--iterations", dest="iterations", default=5,
                         help="Number of attempts for a successful test. Default is 5.", type=int)
     parser.add_argument("--start_epoch", dest="start_epoch", default=1,
                         help="The minimum epoch of all endpoints before starting tests. Default is 1.", type=int)
-    parser.add_argument("--delay", dest="txn_delay", default=45,
+    parser.add_argument("--delay", dest="txn_delay", default=30,
                         help="The time to wait before checking if a Cx/Tx is on the blockchain. "
-                             "Default is 45 seconds. (Input is in seconds)", type=int)
+                             "Default is 30 seconds. (Input is in seconds)", type=int)
     parser.add_argument("--chain_id", dest="chain_id", default="testnet",
                         help="Chain ID for the CLI. Default is 'testnet'", type=str)
-    parser.add_argument("--cli_path", dest="hmy_binary_path", default=None,
-                        help=f"ABSOLUTE PATH of CLI binary. "
-                             f"Default uses the CLI included in pyhmy module", type=str)
     parser.add_argument("--passphrase", dest="passphrase", default='',
-                        help=f"Passphrase used to unlock the keystore. "
+                        help=f"Passphrase used to unlock keystore files and BLS key files "
                              f"Default is ''", type=str)
     parser.add_argument("--keystore", dest="keys_dir", default=None,
                         help=f"Directory of keystore to import. Must be a directory of keystore files. "
                              f"Default will look in the main repo's `.hmy` keystore.", type=str)
     parser.add_argument("--import_keys", dest="import_keys", default=None,
                         help=f"A comma separated string of private keys to be imported.", type=str)
-    parser.add_argument("--staking_epoch", dest="staking_epoch", default=4,
-                        help=f"The epoch to start the staking integration tests. Default is 4.", type=int)
     parser.add_argument("--ignore_regression_test", dest="ignore_regression_test", action='store_true', default=False,
                         help="Disable the regression tests.")
     parser.add_argument("--ignore_staking_test", dest="ignore_staking_test", action='store_true', default=False,
                         help="Disable the staking tests.")
-    parser.add_argument("--ignore_transactions_test", dest="ignore_transactions_test", action='store_true', default=False,
-                        help="Disable the transactions tests.")
+    parser.add_argument("--ignore_transactions_test", dest="ignore_transactions_test", action='store_true',
+                        default=False, help="Disable the transactions tests.")
     parser.add_argument("--debug", dest="debug", action='store_true', default=False,
                         help="Enable debug printing.")
     return parser.parse_args()
@@ -102,7 +88,7 @@ def setup():
         "ESTIMATED_GAS_PER_TXN": 1e-3,
         "INIT_SRC_ACC_BAL_PER_SHARD": .1,
         "TXN_WAIT_TO_CONFIRM": 60,
-        "MAX_THREAD_COUNT": os.cpu_count()//2,
+        "MAX_THREAD_COUNT": os.cpu_count() // 2,
         "ENDPOINTS": args.endpoints,
         "CHAIN_ID": args.chain_id,
     })
@@ -111,55 +97,6 @@ def setup():
     while not all(is_after_epoch(args.start_epoch - 1, ep) for ep in args.endpoints):
         time.sleep(5)
     load_keys()
-
-
-def get_balance(node, name=None, address=None):
-    assert name or address, "Must provide a keystore name or address"
-    if not address:
-        address = cli.get_address(name=name)
-    assert address and address.startswith("one1")
-    return json_load(cli.single_call(f"hmy --node={node} balances {address}"))
-
-
-def add_key(name):
-    proc = cli.expect_call(f"hmy keys add {name} --passphrase")
-    process_passphrase(proc, args.passphrase)
-    proc.wait()
-    if args.debug:
-        print(f"Added account key with name: {name}")
-    ACC_NAMES_ADDED.append(name)
-
-
-def get_faucet_account(min_funds):
-    """
-    Only looks for accounts that have funds on shard 0.
-    """
-    for acc_name in ACC_NAMES_ADDED:
-        if float(get_balance(args.endpoints[0], name=acc_name)[0]["amount"]) >= min_funds:
-            return acc_name
-    raise RuntimeError(f"None of the loaded accounts have at least {min_funds} on shard 0")
-
-
-def bls_generator(count, key_dir="/tmp", filter_fn=None):
-    assert os.path.isabs(key_dir)
-    if not os.path.exists(key_dir):
-        os.makedirs(key_dir)
-    if filter_fn is not None:
-        assert callable(filter_fn)
-        assert len(inspect.signature(filter_fn).parameters) == 1, "filter function must have 1 argument"
-
-    for i in range(count):
-        while True:
-            if os.path.exists(f"{key_dir}/{ACC_NAME_PREFIX}bls{i}.key") and args.debug:
-                print(
-                    f"{Typgpy.WARNING}Overriding BLS key file at: {key_dir}/{ACC_NAME_PREFIX}bls{i}.key {Typgpy.ENDC}")
-            bls_key = json_load(cli.single_call(f"hmy keys generate-bls-key --bls-file-path "
-                                                f"{key_dir}/{ACC_NAME_PREFIX}bls{i}.key", timeout=3))
-            if filter_fn is None or filter_fn(bls_key):
-                break
-        if args.debug:
-            print(f"Generated BLS key:\n{json.dumps(bls_key, indent=4)}")
-        yield bls_key
 
 
 @announce
@@ -211,13 +148,13 @@ def create_simple_validators(validator_count):
     """
     node = args.endpoints[0]
     amount = 3  # Must be > 1 b/c of min-self-delegation
-    faucet_acc_name = get_faucet_account(validator_count * (amount + 1))  # +1/new_acc for gas overhead
+    faucet_acc_name = get_faucet_account(validator_count * (amount + 1), args.endpoints[0])  # +1/new_acc for gas overhead
     validator_data = {}
 
-    for i, bls_key in enumerate(bls_generator(validator_count, key_dir="/tmp/simple_val")):
+    for i, bls_key in enumerate(bls_generator(validator_count, key_dir="/tmp/simple_val", verbose=args.debug)):
         val_name = f"{ACC_NAME_PREFIX}validator{i}"
         cli.remove_account(val_name)
-        add_key(val_name)
+        add_key(val_name, passphrase=args.passphrase, verbose=args.debug)
         val_address = cli.get_address(val_name)
         fund_account(faucet_acc_name, val_name, amount + 1)  # +1 for gas overhead.
         rates = round(random.uniform(0, 1), 18), round(random.uniform(0, 1), 18)
@@ -332,8 +269,8 @@ def edit_validators(validator_data):
     TODO: Verify transaction-receipt
     """
     node = args.endpoints[0]
-    for (address, ref_data), bls_key in zip(validator_data.items(),
-                                            bls_generator(len(validator_data.keys()), key_dir="/tmp/edit_val")):
+    bls_gen_iter = bls_generator(len(validator_data.keys()), key_dir="/tmp/edit_val", verbose=args.debug)
+    for (address, ref_data), bls_key in zip(validator_data.items(), bls_gen_iter):
         max_total_delegation = ref_data['max_total_delegation'] + random.randint(1, 10)
         old_bls_key = ref_data['pub_bls_keys'].pop()
         proc = cli.expect_call(f"hmy staking edit-validator --validator-addr {address} "
@@ -375,10 +312,10 @@ def create_simple_delegators(validator_data):
     for i, (validator_address, data) in enumerate(validator_data.items()):
         account_name = f"{ACC_NAME_PREFIX}delegator{i}"
         cli.remove_account(account_name)
-        add_key(account_name)
+        add_key(account_name, passphrase=args.passphrase, verbose=args.debug)
         delegator_address = cli.get_address(account_name)
         amount = random.randint(1, data["max_total_delegation"] - data["amount"])
-        faucet_acc_name = get_faucet_account(amount + 2)  # 2 for 2x gas overhead.
+        faucet_acc_name = get_faucet_account(amount + 2, args.endpoints[0])  # 2 for 2x gas overhead.
         fund_account(faucet_acc_name, account_name, amount + 1)  # 1 for gas overhead.
         proc = cli.expect_call(f"hmy staking delegate --validator-addr {validator_address} "
                                f"--delegator-addr {delegator_address} --amount {amount} "
@@ -531,19 +468,19 @@ def create_single_validator_many_keys(bls_keys_count):
     """
     node = args.endpoints[0]
     amount = 2  # Must be > 1 b/c of min-self-delegation
-    faucet_acc_name = get_faucet_account(amount + 5)  # + 5 for gas overheads.
+    faucet_acc_name = get_faucet_account(amount + 5, args.endpoints[0])  # + 5 for gas overheads.
     validator_addresses = {}
 
     val_name = f"{ACC_NAME_PREFIX}many_keys_validator"
     cli.remove_account(val_name)
-    add_key(val_name)
+    add_key(val_name, passphrase=args.passphrase, verbose=args.debug)
     fund_account(faucet_acc_name, val_name, amount + 5)
     val_address = cli.get_address(val_name)
     rates = round(random.uniform(0, 1), 18), round(random.uniform(0, 1), 18)
     rate, max_rate = min(rates), max(rates)
     max_change_rate = round(random.uniform(0, max_rate - 1e-9), 18)
     max_total_delegation = random.randint(amount + 1, 10)
-    bls_keys = [k for k in bls_generator(bls_keys_count, key_dir="/tmp/single_val_many_keys")]
+    bls_keys = [k for k in bls_generator(bls_keys_count, key_dir="/tmp/single_val_many_keys", verbose=args.debug)]
     bls_key_string = ','.join(el["public-key"] for el in bls_keys)
     proc = cli.expect_call(f"hmy --node={node} staking create-validator "
                            f"--validator-addr {val_address} --name {val_name} "
@@ -736,7 +673,7 @@ def transactions_test():
     tx_gen.fund_accounts(source_accounts)
     tx_gen_pool = ThreadPool(processes=1)
     start_time = datetime.datetime.utcnow()
-    tx_gen.set_batch_amount(5)
+    tx_gen.set_batch_amount(3)
     tx_gen_pool.apply_async(lambda: tx_gen.start(source_accounts, sink_accounts))
     time.sleep(60)
     tx_gen.stop()
@@ -762,14 +699,17 @@ if __name__ == "__main__":
             test_results["Pre-staking epoch regression test"] = regression_test()
 
         if not args.ignore_staking_test:
+            staking_epoch = get_staking_epoch(args.endpoints[0])
             current_epoch = get_current_epoch(args.endpoints[0])
-            while current_epoch < args.staking_epoch:
-                print(f"Waiting for staking epoch ({args.staking_epoch}) currently epoch {current_epoch}")
+            while current_epoch < staking_epoch:
+                sys.stdout.write(f"\rWaiting for staking epoch ({staking_epoch}) currently epoch {current_epoch}")
+                sys.stdout.flush()
                 time.sleep(5)
                 current_epoch = get_current_epoch(args.endpoints[0])
             test_results["Staking integration test"] = staking_integration_test()
             print(f"{Typgpy.OKGREEN}Doing regression test after staking epoch...{Typgpy.ENDC}")
-            test_results["Post-staking epoch regression test"] = regression_test()
+            if not args.ignore_regression_test:
+                test_results["Post-staking epoch regression test"] = regression_test()
 
         if not args.ignore_transactions_test:
             test_results["Transactions test"] = transactions_test()

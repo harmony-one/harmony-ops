@@ -6,7 +6,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 delay=30
 iters=5
 timeout_dir=60
-wait=120
+wait=30
 
 while getopts hw:t:d:i: option; do
   case "${option}" in
@@ -15,7 +15,7 @@ while getopts hw:t:d:i: option; do
   t) timeout_dir=${OPTARG} ;;
   d) delay=${OPTARG} ;;
   i) iters=${OPTARG} ;;
-  h)
+  *)
     echo "Options:"
     echo ""
     echo "  Example: ./localnet_test.sh -w 60 -t 60 -d 30 -i 5"
@@ -31,9 +31,9 @@ while getopts hw:t:d:i: option; do
 done
 
 function tryConnect() {
-  until $(curl --silent --location --request POST "localhost:9500" \
+  until curl --silent --location --request POST "localhost:9500" \
     --header "Content-Type: application/json" \
-    --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' >/dev/null); do
+    --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' >/dev/null; do
     echo "Trying to connect..."
     sleep 3
   done
@@ -60,7 +60,7 @@ timeout "$timeout_dir" cat <( tryConnect )
 timeout "$timeout_dir" cat <( waitBoot )
 
 echo "Sleeping ${wait} seconds to generate some funds..."
-sleep $wait
+sleep "$wait"
 
-python3 -u ${DIR}/test.py --test_dir=./tests/default/ --endpoints "http://localhost:9500/, http://localhost:9501/" \
-  --delay=${delay} --iterations=${iters} --passphrase=''
+python3 -u "${DIR}"/test.py --test_dir=./tests/default/ --endpoints "http://localhost:9500/, http://localhost:9501/" \
+  --delay="${delay}" --iterations="${iters}" --passphrase=''
