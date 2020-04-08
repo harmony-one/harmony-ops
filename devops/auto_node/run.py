@@ -310,7 +310,7 @@ def create_new_validator(val_info, bls_pub_keys, passphrase):
         sys.stdout.write(f"\rWaiting for node to sync: shard epoch ({curr_epoch_shard}/{ref_epoch}) "
                          f"& beacon epoch ({curr_epoch_beacon}/{ref_epoch})")
         sys.stdout.flush()
-        time.sleep(2)
+        time.sleep(1)
         curr_headers = get_latest_headers("http://localhost:9500/")
         curr_epoch_shard = curr_headers['shard-chain-header']['epoch']
         curr_epoch_beacon = curr_headers['beacon-chain-header']['epoch']
