@@ -9,6 +9,7 @@ import random
 import datetime
 import shutil
 import getpass
+import traceback
 from argparse import RawTextHelpFormatter
 from multiprocessing.pool import ThreadPool
 from threading import Lock
@@ -23,12 +24,6 @@ from utils import *
 
 with open("./node/validator_config.json") as f:  # WARNING: assumption of copied file on docker run.
     validator_info = json.load(f)
-    # Temp sanitation b4 for pyhmy lib update for space strings
-    validator_info['name'] = validator_info['name'].replace(' ', '_')
-    validator_info['identity'] = validator_info['identity'].replace(' ', '_')
-    validator_info['website'] = validator_info['website'].replace(' ', '_')
-    validator_info['security-contact'] = validator_info['security-contact'].replace(' ', '_')
-    validator_info['details'] = validator_info['details'].replace(' ', '_')
 wallet_passphrase = ""  # WARNING: default passphrase is set here.
 bls_key_folder = "./node/bls_keys"
 shutil.rmtree(bls_key_folder, ignore_errors=True)
@@ -318,16 +313,16 @@ def create_new_validator(val_info, bls_pub_keys, passphrase):
     print(f"\n{Typgpy.OKGREEN}Node synced to current epoch{Typgpy.ENDC}")
     print(f"\n{Typgpy.OKBLUE}Sending create validator transaction...{Typgpy.ENDC}")
     os.chdir("/root/bin")  # Needed for implicit BLS key...
-    proc = cli.expect_call(f"hmy --node={args.endpoint} staking create-validator "
-                           f"--validator-addr {val_info['validator-addr']} --name {val_info['name']} "
-                           f"--identity {val_info['identity']} --website {val_info['website']} "
-                           f"--security-contact {val_info['security-contact']} --details {val_info['details']} "
-                           f"--rate {val_info['rate']} --max-rate {val_info['max-rate']} "
-                           f"--max-change-rate {val_info['max-change-rate']} "
-                           f"--min-self-delegation {val_info['min-self-delegation']} "
-                           f"--max-total-delegation {val_info['max-total-delegation']} "
-                           f"--amount {val_info['amount']} --bls-pubkeys {','.join(bls_pub_keys)} "
-                           f"--passphrase-file /.wallet_passphrase ")  # WARNING: assumption of pw file
+    proc = cli.expect_call(f'hmy --node={args.endpoint} staking create-validator '
+                           f'--validator-addr {val_info["validator-addr"]} --name "{val_info["name"]}" '
+                           f'--identity "{val_info["identity"]}" --website "{val_info["website"]}" '
+                           f'--security-contact "{val_info["security-contact"]}" --details "{val_info["details"]}" '
+                           f'--rate {val_info["rate"]} --max-rate {val_info["max-rate"]} '
+                           f'--max-change-rate {val_info["max-change-rate"]} '
+                           f'--min-self-delegation {val_info["min-self-delegation"]} '
+                           f'--max-total-delegation {val_info["max-total-delegation"]} '
+                           f'--amount {val_info["amount"]} --bls-pubkeys {",".join(bls_pub_keys)} '
+                           f'--passphrase-file /.wallet_passphrase ')
     for _ in range(len(bls_pub_keys)):
         proc.expect("Enter the bls passphrase:\r\n")  # WARNING: assumption about interaction
         proc.sendline(passphrase)
@@ -400,6 +395,7 @@ if __name__ == "__main__":
             print(f"{Typgpy.OKGREEN}Killing all harmony processes...{Typgpy.ENDC}")
             subprocess.call(["killall", "harmony"])
             exit()
+        traceback.print_exc(file=sys.stdout)
         print(f"{Typgpy.FAIL}Auto node failed with error: {e}{Typgpy.ENDC}")
         print(f"Docker image still running; `autonode.sh` commands will still work.")
         subprocess.call(['tail', '-f', '/dev/null'], env=env, timeout=None)
