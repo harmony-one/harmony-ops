@@ -389,7 +389,7 @@ if __name__ == "__main__":
                 print(f"{Typgpy.HEADER}This node's latest header at {datetime.datetime.utcnow()}: "
                       f"{Typgpy.OKGREEN}{json.dumps(get_latest_header('http://localhost:9500/'), indent=4)}"
                       f"{Typgpy.ENDC}")
-            time.sleep(15)
+            time.sleep(8)
     except Exception as e:
         if isinstance(e, KeyboardInterrupt):
             print(f"{Typgpy.OKGREEN}Killing all harmony processes...{Typgpy.ENDC}")
@@ -397,5 +397,5 @@ if __name__ == "__main__":
             exit()
         traceback.print_exc(file=sys.stdout)
         print(f"{Typgpy.FAIL}Auto node failed with error: {e}{Typgpy.ENDC}")
-        print(f"Docker image still running; `autonode.sh` commands will still work.")
+        print(f"Docker image still running; `auto_node.sh` commands will still work.")
         subprocess.call(['tail', '-f', '/dev/null'], env=env, timeout=None)
