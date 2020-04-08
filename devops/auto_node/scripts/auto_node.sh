@@ -99,6 +99,9 @@ case "${1}" in
   "header")
     docker exec -it "${container_name}" /root/header.sh
     ;;
+  "headers")
+    docker exec -it "${container_name}" /root/headers.sh
+    ;;
   "export")
     docker exec -it "${container_name}" /root/export.sh
     ;;
@@ -141,7 +144,8 @@ case "${1}" in
       [--container=<name>] info                Fetch information for validator associated with node
       [--container=<name>] balances            Fetch balances for validator associated with node
       [--container=<name>] version             Fetch the version for the harmony node binary and node.sh
-      [--container=<name>] header              Fetch the latest header for the node
+      [--container=<name>] header              Fetch the latest header (shard chain) for the node
+      [--container=<name>] headers             Fetch the latest headers (beacon and shard chain) for the node
       [--container=<name>] export              Export the private keys associated with this node
       [--container=<name>] attach              Attach to the docker image to take a look around
       [--container=<name>] export-bls <path>   Export all BLS keys used by the node
