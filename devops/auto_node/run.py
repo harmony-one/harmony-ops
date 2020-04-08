@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import ntpath
 import os
 import time
 import stat
@@ -8,7 +7,6 @@ import sys
 import subprocess
 import random
 import datetime
-import re
 import shutil
 import getpass
 from argparse import RawTextHelpFormatter
@@ -134,13 +132,13 @@ def import_bls(passphrase):
         for k in imported_keys:
             try:
                 key = json_load(cli.single_call(f"hmy keys recover-bls-key {imported_bls_key_folder}/{k} "
-                                                           f"--passphrase-file /tmp/bls_pass"))
+                                                f"--passphrase-file /tmp/bls_pass"))
                 keys_list.append(key)
                 shutil.copy(f"{imported_bls_key_folder}/{k}", bls_key_folder)
                 shutil.copy(f"{imported_bls_key_folder}/{k}", "./bin")  # For CLI
                 with open(f"{bls_key_folder}/{key['public-key'].replace('0x', '')}.pass", 'w') as fw:
                     fw.write(passphrase)
-            except Exception as e:  # WARNING: catch all exception to not halt
+            except (RuntimeError, json.JSONDecodeError, shutil.ExecError) as e:
                 print(f"{Typgpy.FAIL}Failed to load BLS key {k}, error: {e}{Typgpy.ENDC}")
         if len(keys_list) == 0:
             print(f"{Typgpy.FAIL}Could not import any BLS key, exiting...{Typgpy.ENDC}")
@@ -256,17 +254,6 @@ def run_node(bls_keys_path, network, clean=False):
         proc.close()
 
 
-def fund_account(address, endpoint):
-    try:
-        faucet_endpoint = re.sub(r"api\.s.", "faucet", endpoint)
-        r = requests.get(f"{faucet_endpoint}fund?address={address}", timeout=60)
-        print(f"{Typgpy.OKBLUE}Triggered account funding: {address}\n\t{r.content.decode()}{Typgpy.ENDC}")
-        print(f"{Typgpy.OKBLUE}Waiting 60 seconds for funds...{Typgpy.ENDC}")
-        time.sleep(60)
-    except Exception as e:  # Don't terminate on any error
-        print(f"{Typgpy.FAIL}Failed to fund account: {address}\n\t{e}{Typgpy.ENDC}")
-
-
 def add_key_to_validator(val_info, bls_pub_keys, passphrase):
     print(f"{Typgpy.HEADER}{val_info['validator-addr']} already in list of validators!{Typgpy.ENDC}")
     chain_val_info = json_load(cli.single_call(f"hmy --node={args.endpoint} blockchain "
@@ -308,8 +295,6 @@ def create_new_validator(val_info, bls_pub_keys, passphrase):
     print(f"{Typgpy.OKBLUE}Verifying Balance...{Typgpy.ENDC}")
     # Check validator amount +1 for gas fees.
     if not check_min_bal_on_s0(val_info['validator-addr'], val_info['amount'] + 1, args.endpoint):
-        fund_account(val_info['validator-addr'], args.endpoint)
-    if not check_min_bal_on_s0(val_info['validator-addr'], val_info['amount'] + 1, args.endpoint):
         print(f"{Typgpy.FAIL}Cannot create validator, {val_info['validator-addr']} "
               f"does not have sufficient funds.{Typgpy.ENDC}")
         return
@@ -350,7 +335,7 @@ def create_new_validator(val_info, bls_pub_keys, passphrase):
     try:
         response = json_load(proc.before.decode())
         print(f"{Typgpy.OKBLUE}Created Validator!\n{Typgpy.OKGREEN}{json.dumps(response, indent=4)}{Typgpy.ENDC}")
-    except Exception:  # WARNING: catching all errors
+    except (json.JSONDecodeError, RuntimeError, pexpect.exceptions):
         print(f"{Typgpy.FAIL}Failed to create validator!\n\tError: {e}"
               f"\n\tMsg:\n{proc.before.decode()}{Typgpy.ENDC}")
     directory_lock.release()
@@ -399,7 +384,7 @@ if __name__ == "__main__":
                       f"{json.dumps(val_chain_info['current-epoch-performance'], indent=4)}{Typgpy.ENDC}")
                 if args.auto_active:
                     check_and_activate(validator_info["validator-addr"], val_chain_info['epos-status'])
-            except Exception as e:
+            except (json.JSONDecodeError, requests.exceptions, RuntimeError) as e:
                 print(f"{Typgpy.FAIL}Error when checking validator. Error: {e}{Typgpy.ENDC}")
             try:
                 print(f"{Typgpy.HEADER}This node's latest header at {datetime.datetime.utcnow()}: "
