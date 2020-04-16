@@ -2,7 +2,7 @@ import boto3
 
 from helpers import *
 
-def register_explorers(egion, arr_instance_id, d_region_tgarn):
+def register_explorers(region, arr_instance_id, d_region_tgarn):
     """
     register explorer nodes into the corresponding target group
         * register the same target into tg-https and tg-wss
