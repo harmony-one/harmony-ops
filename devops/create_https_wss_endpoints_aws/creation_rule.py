@@ -1,7 +1,7 @@
 import boto3
 
 
-def create_rule(sess, region, d_region_ListenerArn, d_region_tgarn, d_region_elb2arn, header_value):
+def create_rule(region, d_region_ListenerArn, d_region_tgarn, d_region_elb2arn, header_value):
     """
 
 
@@ -9,7 +9,7 @@ def create_rule(sess, region, d_region_ListenerArn, d_region_tgarn, d_region_elb
     print("\n==== step 5: creating a customized rule such that traffic will be forwarded to tg-s[i]-api-pga-wss "
           "when host is ws.s[i].pga.hmny.io \n")
     # deliberately use index instead of obj to retrieve array item, this index needs to be reused to retrieve
-    elbv2_client = sess.client('elbv2', region_name=region)
+    elbv2_client = boto3.client('elbv2', region_name=region)
 
     try:
         resp = elbv2_client.create_rule(

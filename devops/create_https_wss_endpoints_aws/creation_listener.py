@@ -5,7 +5,7 @@ from collections import defaultdict
 
 dict_region_ListenerArn = defaultdict(list)
 
-def create_listener(sess, region, d_region_elb2arn, d_region_sslcerts, d_region_tgarn):
+def create_listener(region, d_region_elb2arn, d_region_sslcerts, d_region_tgarn):
     """
     depends on:
         * dict_region_elb2arn
@@ -13,7 +13,7 @@ def create_listener(sess, region, d_region_elb2arn, d_region_sslcerts, d_region_
         * dict_region_tgarn
     """
     print("\n==== step 4: creating https listener on the created elb2, ListenerArn will be stored into dict_region_ListenerArn \n")
-    elbv2_client = sess.client('elbv2', region_name=region)
+    elbv2_client = boto3.client('elbv2', region_name=region)
 
     try:
         resp = elbv2_client.create_listener(

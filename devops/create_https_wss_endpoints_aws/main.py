@@ -53,10 +53,9 @@ BASE_DOMAIN_NAME = parse_network_config("domain_name")
 ID_DOMAIN_NAME = BASE_DOMAIN_NAME.split('.')[0]
 HOSTED_ZONE_ID = parse_network_config("hosted_zone_id")
 
-# TO-DO:
-# 1. add this profile devops instance
-# 2. review permission attached to this user
-session = boto3.Session(profile_name='Endpoint_Creator')
+# NOTES:
+# 1/ From now on, endpoint creation can only be executed on devops instance, user-based aws account is disabled
+# 2/ All actions are idempotent
 
 def create_endpoints_new_network():
     """
@@ -73,7 +72,7 @@ def create_endpoints_new_network():
     for i in range(NUM_OF_SHARDS):
         key_explorer = "explorers_" + str(i)
         array_instance_ip = parse_network_config(key_explorer)
-        array_instance_id = retrieve_instance_id(session, array_instance_ip)
+        array_instance_id = retrieve_instance_id(array_instance_ip)
 
         # 0/ - detect region of explorers
         reg = retrieve_instance_region(array_instance_ip[0])
@@ -85,14 +84,14 @@ def create_endpoints_new_network():
         # 1/ - request certificates
         print("\n==== step 1: request SSL certificates, CertificateArn will be stored into dict_region_sslcerts \n")
         domain_name = ''.join(['api.s', str(i), ".", BASE_DOMAIN_NAME])
-        dict_existing_certs = get_existing_certs(session, reg, domain_name)
+        dict_existing_certs = get_existing_certs(reg, domain_name)
         dict_region_sslcerts.clear()
         if dict_existing_certs[domain_name]:
             print("[INFO] SSL certificate of", domain_name, "exists, skipping..")
             dict_region_sslcerts[reg].append(dict_existing_certs[domain_name][0])
         else:
             print("[INFO] SSL certificate of", domain_name, "does NOT exist, requesting..")
-            request_ssl_certificates(session, reg, domain_name)
+            request_ssl_certificates(reg, domain_name)
 
         print("[RESULT] OF STEP 1")
         pp.pprint(dict_region_sslcerts)
@@ -101,33 +100,33 @@ def create_endpoints_new_network():
         dict_region_tgarn.clear()
         array_tgs = create_name_target_group(i, ID_DOMAIN_NAME)
         pp.pprint(array_tgs)
-        create_target_group(session, reg, array_tgs)
+        create_target_group(reg, array_tgs)
         print("[RESULT] OF STEP 2")
         pp.pprint(dict_region_tgarn)
 
         # 3/ - create elb
         dict_region_elb2arn.clear()
         elb2_name = ''.join('s' + str(i) + '-' + ID_DOMAIN_NAME + '-' + reg)
-        array_dns_hostedzone = create_elb2(session, reg, elb2_name)
+        array_dns_hostedzone = create_elb2(reg, elb2_name)
         print("[RESULT] OF STEP 3")
         pp.pprint(dict_region_elb2arn)
 
         # 4/ - create listener
         dict_region_ListenerArn.clear()
-        create_listener(session, reg, dict_region_elb2arn, dict_region_sslcerts, dict_region_tgarn)
+        create_listener(reg, dict_region_elb2arn, dict_region_sslcerts, dict_region_tgarn)
         print("[RESULT] OF STEP 4")
         pp.pprint(dict_region_ListenerArn)
 
         # 5/ - create one more rule for the current listener
         host_header_value = ''.join('ws.s' + str(i) + '.' + BASE_DOMAIN_NAME)
-        create_rule(session, reg, dict_region_ListenerArn, dict_region_tgarn, dict_region_elb2arn, host_header_value)
+        create_rule(reg, dict_region_ListenerArn, dict_region_tgarn, dict_region_elb2arn, host_header_value)
 
         # 6/ - register explorer instances into the target group
-        register_explorers(session, reg, array_instance_id, dict_region_tgarn)
+        register_explorers(reg, array_instance_id, dict_region_tgarn)
 
         # 7/ - create entries on Route 53
         array_record_set = create_name_record_set(i, BASE_DOMAIN_NAME)
-        create_dns_entries(session, HOSTED_ZONE_ID, array_record_set, array_dns_hostedzone)
+        create_dns_entries(HOSTED_ZONE_ID, array_record_set, array_dns_hostedzone)
 
 
 def create_dict_tg():
