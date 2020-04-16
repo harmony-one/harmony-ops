@@ -2,7 +2,7 @@ import boto3
 
 from helpers import *
 
-def register_explorers(region, arr_instance_id, d_region_tgarn):
+def register_explorers(sess, region, arr_instance_id, d_region_tgarn):
     """
     register explorer nodes into the corresponding target group
         * register the same target into tg-https and tg-wss
@@ -10,8 +10,8 @@ def register_explorers(region, arr_instance_id, d_region_tgarn):
         * dict_region_tgarn
         *
     """
-
-    elbv2_client = boto3.client('elbv2', region_name=region)
+    print("\n==== step 6:  registering explorer instances into the target group \n")
+    elbv2_client = sess.client('elbv2', region_name=region)
 
     # array_of_exp_shard = parse_network_config(region + '-exp-' + str(j))
     # array_instance_id_exp = retrieve_instance_id(array_of_exp_shard)
@@ -39,6 +39,6 @@ def register_explorers(region, arr_instance_id, d_region_tgarn):
                     },
                 ]
             )
-            print("--registering an explorer node into TWO target groups (tg-https and tg-wss) in region " + region)
+            print("[INFO] registering an explorer node into TWO target groups (tg-https and tg-wss) in region " + region)
         except Exception as e:
-            print("Unexpected error to create the listener: %s" % e)
+            print("[ERROR] Unexpected error to create the listener: %s" % e)

@@ -14,12 +14,12 @@ dict_vpc_id = {
     "us-west-2": "vpc-cd3e33b4"
 }
 
-def create_target_group(region, target_group_array):
+def create_target_group(sess, region, target_group_array):
 
     print("\n==== step 2: creating target group in each region, TargetGroupArn will be stored into dict_region_tgarn \n")
-    elbv2_client = boto3.client('elbv2', region_name=region)
+    elbv2_client = sess.client('elbv2', region_name=region)
 
-    print("Need to target group: ", target_group_array[0])
+    # print("Need to target group: ", target_group_array[0])
     try:
         resp = elbv2_client.create_target_group(
             Name=target_group_array[0],
@@ -41,11 +41,11 @@ def create_target_group(region, target_group_array):
         )
         # TO-DO:
         dict_region_tgarn[region].append(resp['TargetGroups'][0]['TargetGroupArn'])
-        print("--creating target group in region " + region + ", target group name: " + target_group_array[0])
+        print("[INFO] creating target group in region " + region + ", target group name: " + target_group_array[0])
     except Exception as e:
-        print("Unexpected error to create the target group: %s" % e)
+        print("[ERROR] Unexpected error to create the target group: %s" % e)
 
-    print("Need to target group: ", target_group_array[1])
+    # print("Need to target group: ", target_group_array[1])
     try:
         resp = elbv2_client.create_target_group(
             Name=target_group_array[1],
@@ -67,9 +67,9 @@ def create_target_group(region, target_group_array):
         )
         # TO-DO:
         dict_region_tgarn[region].append(resp['TargetGroups'][0]['TargetGroupArn'])
-        print("--creating target group in region " + region + ", target group name: " + target_group_array[1])
+        print("[INFO] creating target group in region " + region + ", target group name: " + target_group_array[1])
     except Exception as e:
-        print("Unexpected error to create the target group: %s" % e)
+        print("[ERROR] Unexpected error to create the target group: %s" % e)
 
     # TO-DO
     # pp.pprint(dict_region_tgarn)
