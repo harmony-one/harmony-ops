@@ -14,10 +14,10 @@ dict_vpc_id = {
     "us-west-2": "vpc-cd3e33b4"
 }
 
-def create_target_group(sess, region, target_group_array):
+def create_target_group(region, target_group_array):
 
     print("\n==== step 2: creating target group in each region, TargetGroupArn will be stored into dict_region_tgarn \n")
-    elbv2_client = sess.client('elbv2', region_name=region)
+    elbv2_client = boto3.client('elbv2', region_name=region)
 
     # print("Need to target group: ", target_group_array[0])
     try:

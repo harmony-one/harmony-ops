@@ -1,0 +1,17 @@
+{
+  "domain_name": "stn.hmny.io",
+  "num_of_shards": 2,
+  "explorers_0" : ["54.245.77.197", "54.202.180.237"],
+  "explorers_1" : ["52.53.161.58", "13.56.155.47"],
+  "explorers_2" : [],
+  "explorers_3" : [],
+  "hosted_zone_id" : "Z3KY18NSN0TRRC",
+  "subnet_us-east-1": ["subnet-14da445e", "subnet-2c957212", "subnet-2f00cb73", "subnet-7b65f774", "subnet-7da3751a", "subnet-7e5c8950"],
+  "subnet_us-east-2": ["subnet-45031908", "subnet-b38df5db", "subnet-c071c0ba"],
+  "subnet_us-west-1": ["subnet-551f560e", "subnet-5be2df3c"],
+  "subnet_us-west-2": ["subnet-1953d052", "subnet-6a6c1230", "subnet-c33554ba", "subnet-d73bdcfc"],
+  "sg_us-east-1": ["sg-0a9f239987978e0eb"],
+  "sg_us-east-2": ["sg-05c8f480d9a17574c"],
+  "sg_us-west-1": ["sg-0fc2b150b51b313ec"],
+  "sg_us-west-2": ["sg-03de0eb6b8f247581"]
+}

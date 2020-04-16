@@ -2,9 +2,9 @@ import boto3
 
 
 # step7 - create entries on Route 53
-def create_dns_entries(sess, zone_id, arr_record_set, array_dns_zone):
+def create_dns_entries(zone_id, arr_record_set, array_dns_zone):
     print("\n==== step 7: create entries on Route 53 \n")
-    client = sess.client('route53')
+    client = boto3.client('route53')
     for record in arr_record_set:
         try:
             resp = client.change_resource_record_sets(
