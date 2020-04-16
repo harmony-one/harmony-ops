@@ -62,12 +62,12 @@ def create_name_target_group(shard, id_domain):
     return ret
 
 
-def retrieve_instance_id(array_instance_ip):
+def retrieve_instance_id(sess, array_instance_ip):
     """ mapping from instance-ip -> instance-id """
     array_instance_id = []
     for ip in array_instance_ip:
         region = retrieve_instance_region(ip)
-        ec2_client = boto3.client('ec2', region_name=region)
+        ec2_client = sess.client('ec2', region_name=region)
         response = ec2_client.describe_instances(Filters=[{'Name': 'ip-address', 'Values': [ip]}])
         instance_id = response["Reservations"][0]["Instances"][0]["InstanceId"]
         array_instance_id.append(instance_id)
