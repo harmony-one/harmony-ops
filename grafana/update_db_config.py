@@ -302,7 +302,7 @@ def main():
             shard_count = 1
 
         # get latest node ips from github
-        # download_ip_list_from_github(git_token, mode)
+        download_ip_list_from_github(git_token, mode)
 
         logging.info('download ip list success')
 
@@ -337,8 +337,8 @@ def main():
         logging.info('update grafana config success')
 
     # update prometheus config and restart service
-    # update_prometheus_config()
-    # logging.info('update prometheus config success')
+    update_prometheus_config()
+    logging.info('update prometheus config success')
 
 
 if __name__ == "__main__":
