@@ -1,47 +1,4 @@
 {
-  "alert": {
-    "alertRuleTags": {},
-    "conditions": [
-      {
-        "evaluator": {
-          "params": [
-            95
-          ],
-          "type": "gt"
-        },
-        "operator": {
-          "type": "and"
-        },
-        "query": {
-          "params": [
-            "A",
-            "3m",
-            "now"
-          ]
-        },
-        "reducer": {
-          "params": [],
-          "type": "avg"
-        },
-        "type": "query"
-      }
-    ],
-    "executionErrorState": "keep_state",
-    "for": "10m",
-    "frequency": "1m",
-    "handler": 1,
-    "message": "the cpu usage rate of the node is abnormal",
-    "name": "Node CPU Usage Rate Alert",
-    "noDataState": "keep_state",
-    "notifications": [
-      {
-        "uid": "PDozCvqZk"
-      },
-      {
-        "uid": "XsXwoKqZk"
-      }
-    ]
-  },
   "aliasColors": {},
   "bars": false,
   "dashLength": 10,
@@ -66,7 +23,6 @@
   },
   "lines": true,
   "linewidth": 1,
-  "links": [],
   "nullPointMode": "null",
   "options": {
     "dataLinks": []
@@ -82,17 +38,22 @@
   "targets": [
     {
       "expr": "",
-      "format": "time_series",
-      "legendFormat": "CPU Utilization",
-      "intervalFactor": 1,
+      "interval": "",
+      "legendFormat": "Read Count",
       "refId": "A"
+    },
+    {
+      "expr": "",
+      "interval": "",
+      "legendFormat": "Writes Count",
+      "refId": "B"
     }
   ],
   "thresholds": [],
   "timeFrom": null,
   "timeRegions": [],
   "timeShift": null,
-  "title": "",
+  "title": "DISK IO STAT - ",
   "tooltip": {
     "shared": true,
     "sort": 0,
@@ -109,7 +70,7 @@
   "yaxes": [
     {
       "format": "short",
-      "label": "%",
+      "label": null,
       "logBase": 1,
       "max": null,
       "min": null,

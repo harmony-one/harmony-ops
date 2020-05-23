@@ -1,7 +1,12 @@
 # prometheus.yml
 global:
   scrape_interval: 10s
-  
+
+#alerting:
+#  alertmanagers:
+#  - static_configs:
+#    - targets: ["alertmanager:9093"]
+
 scrape_configs:
   - job_name: 'shard0_mainnet'
     scrape_interval: 5s
@@ -19,27 +24,19 @@ scrape_configs:
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard0_ostn'
+  - job_name: 'shard0_lrtn'
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard1_ostn'
+  - job_name: 'shard1_lrtn'
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard2_ostn'
+  - job_name: 'shard2_lrtn'
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard3_ostn'
-    scrape_interval: 5s
-    static_configs:
-      - targets: []
-  - job_name: 'shard0_stn'
-    scrape_interval: 5s
-    static_configs:
-      - targets: []
-  - job_name: 'shard1_stn'
+  - job_name: 'shard3_lrtn'
     scrape_interval: 5s
     static_configs:
       - targets: []

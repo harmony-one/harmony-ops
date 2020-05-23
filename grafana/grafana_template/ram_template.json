@@ -5,7 +5,7 @@
       {
         "evaluator": {
           "params": [
-            80
+            85
           ],
           "type": "gt"
         },
@@ -26,16 +26,19 @@
         "type": "query"
       }
     ],
-    "executionErrorState": "alerting",
+    "executionErrorState": "keep_state",
     "for": "3m",
     "frequency": "30s",
     "handler": 1,
-    "message": "node is out of memory",
-    "name": "Node OOM Alert",
-    "noDataState": "no_data",
+    "message": "the memory usage rate of the node is abnormal",
+    "name": "Node Memory Usage Rate Alert",
+    "noDataState": "keep_state",
     "notifications": [
       {
         "uid": "PDozCvqZk"
+      },
+      {
+        "uid": "XsXwoKqZk"
       }
     ]
   },
