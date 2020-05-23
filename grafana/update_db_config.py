@@ -24,13 +24,14 @@ dict_grafana_folder_mode = {
     "ostn": 19,
     "stn": 20,
     "test": 31,
+    "lrtn": 45,
+    "pstn": 46,
+    "dryrun": 52
 }
 
 
 def shcmd(cmd, ignore_error=False):
-    print('Doing:', cmd)
     ret = subprocess.call(cmd, shell=True)
-    print('Returned', ret, cmd)
     if ignore_error is False and ret != 0:
         raise RuntimeError("Failed to execute {}. Return code:{}".format(
             cmd, ret))
@@ -39,10 +40,15 @@ def shcmd(cmd, ignore_error=False):
 
 # get latest node ips from github
 def download_ip_list_from_github(git_token, mode):
+    if mode == "lrtn":
+        github_dir = "testnet"
+    else:
+        github_dir = mode
+
     # download list of IP from shard, and save it to file
     for index in range(shard_count):
         url_path = "https://raw.githubusercontent.com/harmony-one/nodedb/" \
-                   "master/{mode}/shard{shard_index}.txt".format(shard_index=index, mode=mode)
+                   "master/{github_dir}/shard{shard_index}.txt".format(shard_index=index, github_dir=github_dir)
         cmd = "curl -H 'Authorization: token {token}' " \
               "-H 'Accept: application/vnd.github.v3.raw' -o ips/{mode}/shard{shard_index}.txt " \
               "{path}".format(token=git_token, shard_index=index, path=url_path, mode=mode)
@@ -68,21 +74,23 @@ def load_file_to_array(txt_file):
 
 
 # create grafana whole config file
-def create_grafana_config(mode, dict_ip_array, shard_dashboard_template_json, dict_part_temp_json):
+def create_grafana_config(mode, category, dict_ip_array, shard_dashboard_template_json, dict_part_temp_json):
     dict_shard_dashboard_json = {}
     for ind in range(shard_count):
         ip_array = dict_ip_array.get(ind)
         ip_array_size = len(ip_array)
 
-        shard = "shard{shard_index}_{mode}".format(shard_index=ind, mode=mode)
-        db_shard = "db_shard{shard_index}_{mode}.json".format(shard_index=ind, mode=mode)
+        if mode == "test":
+            shard = "shard0_mainnet"
+        else:
+            shard = "shard{shard_index}_{mode}".format(shard_index=ind, mode=mode)
 
         shard_dashboard_json = copy.deepcopy(shard_dashboard_template_json)
         # modify dashboard uid
-        shard_dashboard_json["uid"] = "{mode}_shard{shard_index}_basenode".format(mode=mode, shard_index=ind)
+        shard_dashboard_json["uid"] = "{mode}_shard{shard_index}_{category}".format(mode=mode, shard_index=ind, category=category)
         # modify dashboard title
-        shard_dashboard_json["title"] = "Harmony Nodes Monitoring - {mode} - SHARD {shard_index}".format(
-            mode=mode.upper(), shard_index=ind)
+        shard_dashboard_json["title"] = "{mode} - {category} - SHARD {shard_index}".format(
+            mode=mode.upper(), category=category.upper(), shard_index=ind)
         # modify global stat
         shard_dashboard_json["panels"][0]["targets"][0].update(
             {"expr": "count(up{{job=\"{shard}\"}}==1)".format(shard=shard)})
@@ -99,94 +107,174 @@ def create_grafana_config(mode, dict_ip_array, shard_dashboard_template_json, di
             if ip == "":
                 continue
 
-            for part_index in range(4):
-                id_0 += 2
+            if category == "base":
+                for part_index in range(4):
+                    id_0 += 2
 
-                x_point = part_index * 6
-                y_point = (idx + 1) * 6 + 2
+                    x_point = part_index * 6
+                    y_point = (idx + 1) * 6 + 2
 
-                data_part_json = {}
+                    data_part_json = {}
 
-                # customize title and targets.expr
-                # FIRST COLUMN - CPU Monitoring
-                if part_index == 0:
-                    # load cpu metric template
-                    data_part_json = copy.deepcopy(dict_part_temp_json["cpu"])
+                    # customize title and targets.expr
+                    # FIRST COLUMN - CPU Monitoring
+                    if part_index == 0:
+                        # load cpu metric template
+                        data_part_json = copy.deepcopy(dict_part_temp_json["cpu"])
 
-                    cpu_query = "100 - (avg by (instance) (irate(node_cpu_seconds_total{{instance=\"{ip}:9100\"," \
-                                "job=\"{shard}\",mode=\"idle\"}}[5m])) * 100)".format(ip=ip, shard=shard)
+                        # add an alert for CPU
+                        data_part_json["alert"]["message"] = "the cpu usage rate of the {mode} shard{shard_index} node({ip}) is abnormal".format(mode=mode, shard_index=ind, ip=ip)
+                        # no need alert network
+                        if mode not in ["mainnet", "lrtn"]:
+                            data_part_json["alert"]["notifications"] = []
 
-                    title_chart = "CPU UTILIZATION - "
-                    data_part_json["targets"][0].update({"expr": cpu_query})
-                # SECOND COLUMN - RAM Monitoring
-                elif part_index == 1:
-                    # load ram metric template
-                    data_part_json = copy.deepcopy(dict_part_temp_json["ram"])
+                        cpu_query = "100 - (avg by (instance) (irate(node_cpu_seconds_total{{instance=\"{ip}:9100\"," \
+                                    "job=\"{shard}\",mode=\"idle\"}}[5m])) * 100)".format(ip=ip, shard=shard)
 
-                    # add an alert for OOM
-                    data_part_json["alert"]["conditions"][0]["evaluator"]["params"][0] = int(max_actual_usage_memory_rate)
-                    data_part_json["alert"]["message"] = "{mode} shard{shard_index} node({ip}) is out of " \
-                                                         "memory".format(mode=mode, shard_index=ind, ip=ip)
+                        title_chart = "CPU UTILIZATION - "
+                        data_part_json["targets"][0].update({"expr": cpu_query})
+                    # SECOND COLUMN - RAM Monitoring
+                    elif part_index == 1:
+                        # load ram metric template
+                        data_part_json = copy.deepcopy(dict_part_temp_json["ram"])
 
-                    ram_query = "(node_memory_MemTotal_bytes{{instance=\"{ip}:9100\",job=\"{shard}\"}} - node_memory_" \
-                                "MemFree_bytes{{instance=\"{ip}:9100\",job=\"{shard}\"}}) / node_memory_MemTotal_" \
-                                "bytes{{instance=\"{ip}:9100\",job=\"{shard}\"}} * 100".format(ip=ip, shard=shard)
+                        # add an alert for Memory
+                        data_part_json["alert"]["message"] = "the memory usage rate of the {mode} shard{shard_index} node({ip}) is abnormal".format(mode=mode, shard_index=ind, ip=ip)
+                        # no need alert network
+                        if mode not in ["mainnet", "lrtn"]:
+                            data_part_json["alert"]["notifications"] = []
 
-                    ram_actual_usage_query = "(node_memory_MemTotal_bytes{{instance=\"{ip}:9100\"}} - node_memory_" \
-                                             "MemAvailable_bytes{{instance=\"{ip}:9100\"}}) * 100 / node_memory_" \
-                                             "MemTotal_bytes{{instance=\"{ip}:9100\"}}".format(ip=ip)
+                        ram_query = "(node_memory_MemTotal_bytes{{instance=\"{ip}:9100\",job=\"{shard}\"}} - node_memory_" \
+                                    "MemFree_bytes{{instance=\"{ip}:9100\",job=\"{shard}\"}}) / node_memory_MemTotal_" \
+                                    "bytes{{instance=\"{ip}:9100\",job=\"{shard}\"}} * 100".format(ip=ip, shard=shard)
 
-                    title_chart = "MEMORY - "
-                    data_part_json["targets"][0].update({"expr": ram_query})
-                    data_part_json["targets"][1].update({"expr": ram_actual_usage_query})
-                # THIRD COLUMN - DISK Monitoring
-                elif part_index == 2:
-                    # load disk metric template
-                    data_part_json = copy.deepcopy(dict_part_temp_json["disk"])
+                        ram_actual_usage_query = "(node_memory_MemTotal_bytes{{instance=\"{ip}:9100\",job=\"{shard}\"}} - node_memory_" \
+                                                 "MemAvailable_bytes{{instance=\"{ip}:9100\",job=\"{shard}\"}}) * 100 / node_memory_" \
+                                                 "MemTotal_bytes{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip, shard=shard)
 
-                    # add an alert for low storage
-                    data_part_json["alert"]["conditions"][0]["evaluator"]["params"][0] = int(min_storage_space)
-                    data_part_json["alert"]["message"] = "{mode} shard{shard_index} node({ip}) is out of " \
-                                                         "disk space".format(mode=mode, shard_index=ind, ip=ip)
+                        title_chart = "MEMORY - "
+                        data_part_json["targets"][0].update({"expr": ram_query})
+                        data_part_json["targets"][1].update({"expr": ram_actual_usage_query})
+                    # THIRD COLUMN - DISK Monitoring
+                    elif part_index == 2:
+                        # load disk metric template
+                        data_part_json = copy.deepcopy(dict_part_temp_json["disk"])
 
-                    disk_query = "node_filesystem_avail_bytes{{instance=\"{ip}:9100\"," \
-                                 "job=\"{shard}\", mountpoint=\"/\"}}/1024/1024/1024".format(ip=ip, shard=shard)
+                        # add an alert for storage
+                        data_part_json["alert"]["message"] = "the free space of the {mode} shard{shard_index} node({ip}) is abnormal".format(mode=mode, shard_index=ind, ip=ip)
+                        # no need alert network
+                        if mode not in ["mainnet", "lrtn"]:
+                            data_part_json["alert"]["notifications"] = []
 
-                    title_chart = "FREE SPACE -"
+                        disk_query = "node_filesystem_avail_bytes{{instance=\"{ip}:9100\"," \
+                                     "job=\"{shard}\", mountpoint=\"/\"}}/1024/1024/1024".format(ip=ip, shard=shard)
 
-                    data_part_json["targets"][0].update({"expr": disk_query})
-                # FOURTH COLUMN - NETWORK Monitoring
-                elif part_index == 3:
-                    # load net metric template
-                    data_part_json = copy.deepcopy(dict_part_temp_json["net"])
+                        title_chart = "FREE SPACE -"
 
-                    network_incoming_query = "rate(node_network_receive_bytes_total{{instance" \
-                                             "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(
-                        ip=ip, shard=shard)
-                    network_outgoing_query = "rate(node_network_transmit_bytes_total{{instance" \
-                                             "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(
-                        ip=ip, shard=shard)
+                        data_part_json["targets"][0].update({"expr": disk_query})
+                    # FOURTH COLUMN - DISK IO Monitoring
+                    elif part_index == 3:
+                        # load io metric template
+                        data_part_json = copy.deepcopy(dict_part_temp_json["io"])
 
-                    title_chart = "NETWORK TRAFFIC - "
+                        io_read_query = "irate(node_disk_reads_completed_total{{instance=\"{ip}:9100\", job=\"{shard}\"}}[5m])".format(
+                            ip=ip, shard=shard)
+                        io_write_query = "irate(node_disk_writes_completed_total{{instance=\"{ip}:9100\", job=\"{shard}\"}}[5m])".format(
+                            ip=ip, shard=shard)
 
-                    data_part_json["targets"][0].update({"expr": network_incoming_query})
-                    data_part_json["targets"][1].update({"expr": network_outgoing_query})
-                else:
-                    pass
+                        title_chart = "DISK IO - "
 
-                data_part_json.update({"gridPos": {'h': 6, 'w': 6, 'x': x_point, 'y': y_point},
-                                       "id": id_0,
-                                       "title": title_chart + ip
-                                       })
+                        data_part_json["targets"][0].update({"expr": io_read_query})
+                        data_part_json["targets"][1].update({"expr": io_write_query})
+                    # FOURTH COLUMN - NETWORK Monitoring
+                    # elif part_index == 3:
+                    #     # load net metric template
+                    #     data_part_json = copy.deepcopy(dict_part_temp_json["net"])
+                    #
+                    #     # add an alert for network traffic
+                    #     data_part_json["alert"]["message"] = "the network traffic of the {mode} shard{shard_index} node({ip}) is abnormal".format(mode=mode, shard_index=ind, ip=ip)
+                    #     # no need alert network
+                    #     if mode not in ["mainnet", "lrtn"]:
+                    #         data_part_json["alert"]["notifications"] = []
+                    #
+                    #     network_incoming_query = "rate(node_network_receive_bytes_total{{instance" \
+                    #                              "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(
+                    #         ip=ip, shard=shard)
+                    #     network_outgoing_query = "rate(node_network_transmit_bytes_total{{instance" \
+                    #                              "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(
+                    #         ip=ip, shard=shard)
+                    #
+                    #     title_chart = "NETWORK TRAFFIC - "
+                    #
+                    #     data_part_json["targets"][0].update({"expr": network_incoming_query})
+                    #     data_part_json["targets"][1].update({"expr": network_outgoing_query})
+                    else:
+                        pass
 
-                # insert this chart to dashboard.panels
-                shard_dashboard_json["panels"].append(data_part_json)
+                    data_part_json.update({"gridPos": {'h': 6, 'w': 6, 'x': x_point, 'y': y_point},
+                                           "id": id_0,
+                                           "title": title_chart + ip
+                                           })
+
+                    # insert this chart to dashboard.panels
+                    shard_dashboard_json["panels"].append(data_part_json)
+            elif category == "network":
+                for part_index in range(2):
+                    id_0 += 2
+
+                    x_point = part_index * 12
+                    y_point = (idx + 1) * 6 + 2
+
+                    data_part_json = {}
+
+                    # customize title and targets.expr
+                    # FIRST COLUMN - NETWORK Monitoring
+                    if part_index == 0:
+                        # load net metric template
+                        data_part_json = copy.deepcopy(dict_part_temp_json["net"])
+
+                        # add an alert for network traffic
+                        data_part_json["alert"]["message"] = "the network traffic of the {mode} shard{shard_index} node({ip}) is abnormal".format(mode=mode, shard_index=ind, ip=ip)
+                        # no need alert network
+                        if mode not in ["mainnet", "lrtn"]:
+                            data_part_json["alert"]["notifications"] = []
+
+                        network_incoming_query = "rate(node_network_receive_bytes_total{{instance" \
+                                                 "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(
+                            ip=ip, shard=shard)
+                        network_outgoing_query = "rate(node_network_transmit_bytes_total{{instance" \
+                                                 "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(
+                            ip=ip, shard=shard)
+
+                        title_chart = "NETWORK TRAFFIC - "
+
+                        data_part_json["targets"][0].update({"expr": network_incoming_query})
+                        data_part_json["targets"][1].update({"expr": network_outgoing_query})
+                    # SECOND COLUMN - RAM Monitoring
+                    elif part_index == 1:
+                        # load tcp metric template
+                        data_part_json = copy.deepcopy(dict_part_temp_json["tcp"])
+
+                        tcp_alloc = "node_sockstat_TCP_alloc{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip, shard=shard)
+                        tcp_inuse = "node_sockstat_TCP_inuse{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip, shard=shard)
+                        tcp_mem = "node_sockstat_TCP_mem{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip, shard=shard)
+
+                        title_chart = "TCP SOCK - "
+                        data_part_json["targets"][0].update({"expr": tcp_alloc})
+                        data_part_json["targets"][1].update({"expr": tcp_inuse})
+                        data_part_json["targets"][2].update({"expr": tcp_mem})
+                    else:
+                        pass
+
+                    data_part_json.update({"gridPos": {'h': 6, 'w': 12, 'x': x_point, 'y': y_point},
+                                           "id": id_0,
+                                           "title": title_chart + ip
+                                           })
+
+                    # insert this chart to dashboard.panels
+                    shard_dashboard_json["panels"].append(data_part_json)
 
         dict_shard_dashboard_json[ind] = shard_dashboard_json
-
-        with open("grafana/dashboards/{mode}/".format(mode=mode) + db_shard, 'w') as fp:
-            json.dump(shard_dashboard_json, fp)
-
     return dict_shard_dashboard_json
 
 
@@ -227,14 +315,18 @@ def update_prometheus_config():
 
 
 # update grafana config
-def update_grafana_config(mode, dict_shard_dashboard_json, grafana_token):
+def update_grafana_config(mode, category, dict_shard_dashboard_json, grafana_token):
     for index in range(shard_count):
         # get now dashboard version
-        url = grafana_api_host + "dashboards/uid/{mode}_shard{shard_index}_basenode".format(mode=mode,
-                                                                                            shard_index=index)
+        url = grafana_api_host + "dashboards/uid/{mode}_shard{shard_index}_{category}".format(mode=mode, shard_index=index, category=category)
         headers = {"Authorization": "Bearer " + grafana_token}
         response = requests.get(url, headers=headers).json()
-        version = response["dashboard"]["version"]
+
+        # check new dashboard
+        if "dashboard" in response:
+            version = response["dashboard"]["version"]
+        else:
+            version = 1
 
         # post new dashboard config
         dict_shard_dashboard_json[index]["version"] = version
@@ -278,28 +370,30 @@ def main():
     dict_part_temp_json = {
         "cpu": load_file_to_json("grafana_template/cpu_template.json"),
         "ram": load_file_to_json("grafana_template/ram_template.json"),
-        "disk": load_file_to_json("grafana_template/disk_template.json"),
-        "net": load_file_to_json("grafana_template/net_template.json")
+        "disk": load_file_to_json("grafana_template/disk_space_template.json"),
+        "io": load_file_to_json("grafana_template/disk_io_count_template.json"),
+        "net": load_file_to_json("grafana_template/net_traffic_template.json"),
+        "tcp": load_file_to_json("grafana_template/net_sock_tcp_template.json"),
     }
 
     # get script run mode
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', type=str, help="select run mode. mainnet ostn stn etc.")
     args = parser.parse_args()
-    if args.m not in ["all", "mainnet", "ostn", "stn", "test"]:
-        raise RuntimeError("need to set run mode")
+    if args.m not in ["all", "mainnet", "lrtn", "test"]:
+        raise RuntimeError("need to set correct network mode")
     elif args.m == "all":
-        run_modes = ["mainnet", "ostn", "stn"]
+        run_modes = ["mainnet", "lrtn"]
     else:
         run_modes = [args.m]
 
     # update for each mode network
-    for i, mode in enumerate(run_modes):
+    for mode in run_modes:
         # special shard count for stn & test
-        if mode in ["stn"]:
-            shard_count = 2
-        elif mode in ["test"]:
+        if mode in ["test"]:
             shard_count = 1
+        else:
+            shard_count = 4
 
         # get latest node ips from github
         download_ip_list_from_github(git_token, mode)
@@ -323,18 +417,18 @@ def main():
         else:
             prometheus_config_template = load_file_to_yaml("prometheus_template/prometheus.yml")
 
-        # create grafana whole config file
-        dict_shard_dashboard_json = create_grafana_config(mode, dict_ip_array, shard_dashboard_template_json,
-                                                          dict_part_temp_json)
-        logging.info('create grafana config success')
-
         # create prometheus whole config file
         create_prometheus_config(mode, dict_ip_array, prometheus_config_template)
         logging.info('create prometheus config success')
 
-        # update grafana config
-        update_grafana_config(mode, dict_shard_dashboard_json, grafana_token)
-        logging.info('update grafana config success')
+        for category in ["base", "network"]:
+            # create grafana whole config file
+            dict_shard_dashboard_json = create_grafana_config(mode, category, dict_ip_array, shard_dashboard_template_json, dict_part_temp_json)
+            logging.info('create grafana config success')
+
+            # update grafana config
+            update_grafana_config(mode, category, dict_shard_dashboard_json, grafana_token)
+            logging.info('update grafana config success')
 
     # update prometheus config and restart service
     update_prometheus_config()

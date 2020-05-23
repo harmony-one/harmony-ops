@@ -15,7 +15,7 @@
         "query": {
           "params": [
             "A",
-            "5m",
+            "3m",
             "now"
           ]
         },
@@ -26,16 +26,19 @@
         "type": "query"
       }
     ],
-    "executionErrorState": "alerting",
-    "for": "5m",
+    "executionErrorState": "keep_state",
+    "for": "3m",
     "frequency": "1m",
     "handler": 1,
-    "message": "node is out of disk space",
-    "name": "Node OODS Alert",
-    "noDataState": "no_data",
+    "message": "the free space of the node is abnormal",
+    "name": "Node Free Space Alert",
+    "noDataState": "keep_state",
     "notifications": [
       {
         "uid": "PDozCvqZk"
+      },
+      {
+        "uid": "XsXwoKqZk"
       }
     ]
   },
@@ -80,6 +83,7 @@
     {
       "expr": "",
       "format": "time_series",
+      "legendFormat": "Free Space",
       "intervalFactor": 1,
       "refId": "A"
     }

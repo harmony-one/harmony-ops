@@ -23,7 +23,6 @@
   },
   "lines": true,
   "linewidth": 1,
-  "links": [],
   "nullPointMode": "null",
   "options": {
     "dataLinks": []
@@ -39,24 +38,28 @@
   "targets": [
     {
       "expr": "",
-      "format": "time_series",
-      "intervalFactor": 1,
-      "legendFormat": "INCOMING",
+      "interval": "",
+      "legendFormat": "TCP Alloc",
       "refId": "A"
     },
     {
       "expr": "",
-      "format": "time_series",
-      "intervalFactor": 1,
-      "legendFormat": "OUTGOING",
+      "interval": "",
+      "legendFormat": "TCP Inuse",
       "refId": "B"
+    },
+    {
+      "expr": "",
+      "interval": "",
+      "legendFormat": "TCP Mem",
+      "refId": "C"
     }
   ],
   "thresholds": [],
   "timeFrom": null,
   "timeRegions": [],
   "timeShift": null,
-  "title": "",
+  "title": "TCP SOCK STAT - ",
   "tooltip": {
     "shared": true,
     "sort": 0,
@@ -73,7 +76,7 @@
   "yaxes": [
     {
       "format": "short",
-      "label": "KB",
+      "label": null,
       "logBase": 1,
       "max": null,
       "min": null,

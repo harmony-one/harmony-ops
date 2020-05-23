@@ -5,7 +5,7 @@
       {
         "evaluator": {
           "params": [
-            95
+            307200
           ],
           "type": "gt"
         },
@@ -24,21 +24,41 @@
           "type": "avg"
         },
         "type": "query"
+      },
+      {
+        "evaluator": {
+          "params": [
+            307200
+          ],
+          "type": "gt"
+        },
+        "operator": {
+          "type": "or"
+        },
+        "query": {
+          "params": [
+            "B",
+            "3m",
+            "now"
+          ]
+        },
+        "reducer": {
+          "params": [],
+          "type": "avg"
+        },
+        "type": "query"
       }
     ],
     "executionErrorState": "keep_state",
     "for": "10m",
     "frequency": "1m",
     "handler": 1,
-    "message": "the cpu usage rate of the node is abnormal",
-    "name": "Node CPU Usage Rate Alert",
+    "message": "the network traffic of the node is abnormal",
+    "name": "Node Network Traffic Alert",
     "noDataState": "keep_state",
     "notifications": [
       {
         "uid": "PDozCvqZk"
-      },
-      {
-        "uid": "XsXwoKqZk"
       }
     ]
   },
@@ -83,9 +103,16 @@
     {
       "expr": "",
       "format": "time_series",
-      "legendFormat": "CPU Utilization",
       "intervalFactor": 1,
+      "legendFormat": "INCOMING",
       "refId": "A"
+    },
+    {
+      "expr": "",
+      "format": "time_series",
+      "intervalFactor": 1,
+      "legendFormat": "OUTGOING",
+      "refId": "B"
     }
   ],
   "thresholds": [],
@@ -109,7 +136,7 @@
   "yaxes": [
     {
       "format": "short",
-      "label": "%",
+      "label": "KB",
       "logBase": 1,
       "max": null,
       "min": null,
