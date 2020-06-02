@@ -18,6 +18,58 @@
   "links": [],
   "panels": [
     {
+      "content": "<div style=\"text-align:center;\"><img src=\"https://assets.website-files.com/5ea98076e2f684f39f95888f/5ea98076e2f684fdc09588b9_harmony_logo.svg\"></div>",
+      "datasource": null,
+      "gridPos": {
+        "h": 2,
+        "w": 4,
+        "x": 10,
+        "y": 0
+      },
+      "id": 1,
+      "links": [],
+      "mode": "html",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "activeThemeId": 0,
+      "datasource": null,
+      "disableThemePicker": true,
+      "gridPos": {
+        "h": 2,
+        "w": 1,
+        "x": 23,
+        "y": 0
+      },
+      "id": 2,
+      "themes": [
+        {
+          "name": "aquamarine",
+          "styles": [
+            {
+              "props": {
+                "theme": "default"
+              },
+              "type": "basetheme"
+            },
+            {
+              "props": {
+                "url": "https://gilbn.github.io/theme.park/CSS/themes/grafana/aquamarine.css"
+              },
+              "type": "url"
+            }
+          ]
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "",
+      "transparent": true,
+      "type": "yesoreyeram-boomtheme-panel"
+    },
+    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
@@ -28,9 +80,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 2
       },
-      "id": 2,
+      "id": 3,
       "legend": {
         "avg": false,
         "current": false,
@@ -156,7 +208,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 2
       },
       "id": 4,
       "legend": {
@@ -238,7 +290,7 @@
       }
     }
   ],
-  "schemaVersion": 19,
+  "schemaVersion": 22,
   "style": "dark",
   "tags": [
     "templated"
