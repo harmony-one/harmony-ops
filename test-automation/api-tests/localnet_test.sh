@@ -59,22 +59,22 @@ python3 -m pip install pyhmy==0.11
 
 echo "Testing Cx from s0 to s1"
 if [ "$doStaking" == "true" ]; then
-    python3 test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" \
+    python3 -u test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" \
         --rpc_endpoint_dst="http://localhost:9501/" --keystore=./LocalnetValidatorKeys/ \
         --chain_id="localnet" --delay=${delay} --iterations=${iters} --cli_passphrase=''
 else
-    python3 test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" \
+    python3 -u test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9500/" \
         --rpc_endpoint_dst="http://localhost:9501/" --keystore=./LocalnetValidatorKeys/ \
         --chain_id="localnet" --delay=${delay} --iterations=${iters} --cli_passphrase='' --ignore_staking_test
 fi
 
 echo "Testing Cx from s1 to s0"
 if [ "$doStaking" == "true" ]; then
-    python3 test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9501/" \
+    python3 -u test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9501/" \
         --rpc_endpoint_dst="http://localhost:9500/" --keystore=./LocalnetValidatorKeys/ \
         --chain_id="localnet" --delay=${delay} --iterations=${iters} --cli_passphrase=''
 else
-    python3 test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9501/" \
+    python3 -u test.py --test_dir=./tests/no-explorer/ --rpc_endpoint_src="http://localhost:9501/" \
         --rpc_endpoint_dst="http://localhost:9500/" --keystore=./LocalnetValidatorKeys/ \
         --chain_id="localnet" --delay=${delay} --iterations=${iters} --cli_passphrase='' --ignore_staking_test
 fi
