@@ -185,6 +185,7 @@ def create_validator() -> list:
     print("Validators added: ", added_validators)
     return added_validators
 
+
 def bls_generator(count):
     for _ in range(count):
         proc = CLI.expect_call("hmy keys generate-bls-key --bls-file-path /tmp/file.key")
@@ -226,23 +227,25 @@ def create_validator_many_keys():
     print("Failed CLI staking test.")
     sys.exit(-1)
 
+
 def edit_validator(address):
     print("== Editing Validator ==")
 
     old_bls_key = "1480fca328daaddd3487195c5500969ecccbb806b6bf464734e0e3ad18c64badfae8578d76e2e9281b6a3645d056960a"
     new_bls_key = "249976f984f30306f800ef42fb45272b391cfdd17f966e093a9f711e30f66f77ecda6c367bf79afc9fa31a1789e9ee8e"
     staking_command = f"hmy staking edit-validator --validator-addr {address} " \
-                  f"--identity foo --details bar --name baz " \
-                  f"--max-total-delegation 10 " \
-                  f"--min-self-delegation 1 --rate 0.1 --security-contact Leo  " \
-                  f"--website harmony.one --node={args.hmy_endpoint_src} " \
-                  f"--remove-bls-key {old_bls_key} --add-bls-key {new_bls_key} " \
-                  f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
+                      f"--identity foo --details bar --name baz " \
+                      f"--max-total-delegation 10 " \
+                      f"--min-self-delegation 1 --rate 0.1 --security-contact Leo  " \
+                      f"--website harmony.one --node={args.hmy_endpoint_src} " \
+                      f"--remove-bls-key {old_bls_key} --add-bls-key {new_bls_key} " \
+                      f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
     response = CLI.single_call(staking_command)
     print(f"\tStaking transaction response: {response}")
 
     print(f"Sleeping {args.txn_delay} seconds for finality...\n")
     time.sleep(args.txn_delay)
+
 
 def create_delegator(address) -> str:
     print("== Creating Delegator ==")
@@ -256,9 +259,9 @@ def create_delegator(address) -> str:
     ACC_NAMES_ADDED.append(account_name)
     delegator_address = CLI.get_address(account_name)
     staking_command = f"hmy staking delegate --validator-addr {address} " \
-                  f"--delegator-addr {delegator_address} --amount 1 " \
-                  f"--node={args.hmy_endpoint_src} " \
-                  f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
+                      f"--delegator-addr {delegator_address} --amount 1 " \
+                      f"--node={args.hmy_endpoint_src} " \
+                      f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
     response = CLI.single_call(staking_command)
     print(f"\tDelegator transaction response: {response}")
 
@@ -267,61 +270,67 @@ def create_delegator(address) -> str:
 
     return delegator_address
 
+
 def undelegate(v_address, d_address):
     print("== Undelegate ==")
     staking_command = f"hmy staking undelegate --validator-addr {v_address} " \
-                  f"--delegator-addr {d_address} --amount 1 " \
-                  f"--node={args.hmy_endpoint_src} " \
-                  f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
+                      f"--delegator-addr {d_address} --amount 1 " \
+                      f"--node={args.hmy_endpoint_src} " \
+                      f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
     response = CLI.single_call(staking_command)
     print(f"\tUndelegate transaction response: {response}")
 
     print(f"Sleeping {args.txn_delay} seconds for finality...\n")
     time.sleep(args.txn_delay)
 
+
 def collect_rewards(address):
     print("== Collecting Rewards ==")
     staking_command = f"hmy staking collect-rewards --delegator-addr {address} " \
-                  f"--node={args.hmy_endpoint_src} " \
-                  f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
+                      f"--node={args.hmy_endpoint_src} " \
+                      f"--chain-id={args.chain_id} --passphrase={args.passphrase}"
     response = CLI.single_call(staking_command)
     print(f"\tCollect rewards transaction response: {response}")
 
     print(f"Sleeping {args.txn_delay} seconds for finality...\n")
     time.sleep(args.txn_delay)
 
+
 def get_validators():
     print("== Listing All Active Validators ==")
     staking_command = f"hmy blockchain validator all-active " \
-                  f"--node={args.hmy_endpoint_src} "
+                      f"--node={args.hmy_endpoint_src} "
     response = CLI.single_call(staking_command)
     print(f"\tValidator transaction response: {response}")
 
     print("== Listing History of All Validators ==")
     staking_command = f"hmy blockchain validator all " \
-                  f"--node={args.hmy_endpoint_src} "
+                      f"--node={args.hmy_endpoint_src} "
     response = CLI.single_call(staking_command)
     print(f"\tValidator transaction response: {response}")
+
 
 def get_validator_info(v_addr):
     print("== Getting Validator Info ==")
     staking_command = f"hmy blockchain validator information {v_addr} " \
-                  f"--node={args.hmy_endpoint_src}"
+                      f"--node={args.hmy_endpoint_src}"
     response = CLI.single_call(staking_command)
     print(f"\tValidator info transaction response: {response}")
+
 
 def get_delegator_info(v_addr, d_addr):
     print("== Getting Delegator Info by Delegator ==")
     staking_command = f"hmy blockchain delegation by-delegator {d_addr} " \
-                  f"--node={args.hmy_endpoint_src}"
+                      f"--node={args.hmy_endpoint_src}"
     response = CLI.single_call(staking_command)
     print(f"\tDelegator info transaction response: {response} ")
 
     print("== Getting Delegator Info by Validator ==")
     staking_command = f"hmy blockchain delegation by-validator {v_addr} " \
-                  f"--node={args.hmy_endpoint_src}"
+                      f"--node={args.hmy_endpoint_src}"
     response = CLI.single_call(staking_command)
     print(f"\tDelegator info transaction response: {response}")
+
 
 def get_raw_txn(passphrase, chain_id, node, src_shard, dst_shard) -> str:
     """
@@ -350,9 +359,11 @@ def get_raw_txn(passphrase, chain_id, node, src_shard, dst_shard) -> str:
             print(f"\tTransaction for {chain_id}")
             response_lines = response.split("\n")
             assert len(response_lines) == 17, 'CLI output for transaction dry-run is not recognized, check CLI version.'
-            transaction = '\n\t\t'.join(response_lines[1:15])
-            print(f"\tTransaction:\n\t\t{transaction}")
-            return response_lines[-2].replace("RawTxn: ", "")
+            transaction = json.loads('\n'.join(response_lines[1:15]))
+            print(f"\tTransaction:\n\t\t{json.dumps(transaction, indent=2)}")
+            tx_hash = transaction['hash']
+            print("tx-hash", tx_hash)
+            return response_lines[-2].replace("RawTxn: ", ""), tx_hash
     raise RuntimeError(f"None of the loaded accounts have funds on shard {src_shard}")
 
 
@@ -372,8 +383,8 @@ def get_shard_from_endpoint(endpoint):
 def setup_newman_no_explorer(test_json, global_json, env_json):
     source_shard = args.src_shard if args.src_shard else get_shard_from_endpoint(args.hmy_endpoint_src)
     destination_shard = args.dst_shard if args.dst_shard else get_shard_from_endpoint(args.hmy_endpoint_dst)
-    raw_txn = get_raw_txn(passphrase=args.passphrase, chain_id=args.chain_id,
-                          node=args.hmy_endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
+    raw_txn, tx_hash = get_raw_txn(passphrase=args.passphrase, chain_id=args.chain_id,
+                                   node=args.hmy_endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
 
     if str(source_shard) not in args.hmy_endpoint_src:
         print(f"Source shard {source_shard} may not match source endpoint {args.hmy_endpoint_src}")
@@ -383,6 +394,8 @@ def setup_newman_no_explorer(test_json, global_json, env_json):
     for i, var in enumerate(env_json["values"]):
         if var["key"] == "rawTransaction":
             env_json["values"][i]["value"] = raw_txn
+        if var["key"] == "txHash":
+            env_json["values"][i]["value"] = tx_hash
         if var["key"] == "txn_delay":
             env_json["values"][i]["value"] = args.txn_delay
 
@@ -399,8 +412,8 @@ def setup_newman_only_explorer(test_json, global_json, env_json):
 
     source_shard = args.src_shard if args.src_shard else get_shard_from_endpoint(args.hmy_endpoint_src)
     destination_shard = args.dst_shard if args.dst_shard else get_shard_from_endpoint(args.hmy_endpoint_dst)
-    raw_txn = get_raw_txn(passphrase=args.passphrase, chain_id=args.chain_id,
-                          node=args.hmy_endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
+    raw_txn, tx_hash = get_raw_txn(passphrase=args.passphrase, chain_id=args.chain_id,
+                                   node=args.hmy_endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
 
     if str(source_shard) not in args.hmy_endpoint_src:
         print(f"Source shard {source_shard} may not match source endpoint {args.hmy_endpoint_src}")
@@ -410,6 +423,8 @@ def setup_newman_only_explorer(test_json, global_json, env_json):
     for i, var in enumerate(env_json["values"]):
         if var["key"] == "rawTransaction":
             env_json["values"][i]["value"] = raw_txn
+        if var["key"] == "txHash":
+            env_json["values"][i]["value"] = tx_hash
         if var["key"] == "tx_beta_endpoint":
             env_json["values"][i]["value"] = args.hmy_exp_endpoint
         if var["key"] == "txn_delay":
@@ -430,8 +445,8 @@ def setup_newman_default(test_json, global_json, env_json):
 
     source_shard = args.src_shard if args.src_shard else get_shard_from_endpoint(args.hmy_endpoint_src)
     destination_shard = args.dst_shard if args.dst_shard else get_shard_from_endpoint(args.hmy_endpoint_dst)
-    raw_txn = get_raw_txn(passphrase=args.passphrase, chain_id=args.chain_id,
-                          node=args.hmy_endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
+    raw_txn, tx_hash = get_raw_txn(passphrase=args.passphrase, chain_id=args.chain_id,
+                                   node=args.hmy_endpoint_src, src_shard=source_shard, dst_shard=destination_shard)
 
     if str(source_shard) not in args.hmy_endpoint_src:
         print(f"Source shard {source_shard} may not match source endpoint {args.hmy_endpoint_src}")
@@ -441,6 +456,8 @@ def setup_newman_default(test_json, global_json, env_json):
     for i, var in enumerate(env_json["values"]):
         if var["key"] == "rawTransaction":
             env_json["values"][i]["value"] = raw_txn
+        if var["key"] == "txHash":
+            env_json["values"][i]["value"] = tx_hash
         if var["key"] == "tx_beta_endpoint":
             env_json["values"][i]["value"] = args.hmy_exp_endpoint
         if var["key"] == "txn_delay":
@@ -472,7 +489,7 @@ if __name__ == "__main__":
         load_keys()
 
         print(f"Waiting for epoch {args.start_epoch} (or later)")
-        while not is_after_epoch(args.start_epoch-1):
+        while not is_after_epoch(args.start_epoch - 1):
             time.sleep(5)
 
         if not args.ignore_staking_test:
@@ -507,14 +524,14 @@ if __name__ == "__main__":
                 json.dump(env_json, f)
 
             for i in range(args.iterations):
-                print(f"\n\tIteration {i+1} out of {args.iterations}\n")
+                print(f"\n\tIteration {i + 1} out of {args.iterations}\n")
                 proc = subprocess.Popen(["newman", "run", f"{args.test_dir}/test.json",
                                          "-e", f"{args.test_dir}/env.json",
                                          "-g", f"{args.test_dir}/global.json"])
                 proc.wait()
                 exit_code = proc.returncode
                 if proc.returncode == 0:
-                    print(f"\n\tSucceeded in {i+1} attempt(s)\n")
+                    print(f"\n\tSucceeded in {i + 1} attempt(s)\n")
                     break
 
     except (RuntimeError, KeyboardInterrupt) as err:

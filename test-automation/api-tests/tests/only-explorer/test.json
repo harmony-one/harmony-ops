@@ -17,18 +17,7 @@
 							"console.log(pm.request.body.raw)",
 							"console.log()",
 							"console.log(\"Response\")",
-							"console.log(pm.response.json())",
-							"",
-							"pm.test(\"Response should not contain errors.\", () => {",
-							"    pm.expect('error' in pm.response.json()).to.equal(false);",
-							"})",
-							"",
-							"pm.test(\"Response should have non-null result field.\", () => {",
-							"    pm.expect(pm.response.json()).to.include.keys(\"result\");",
-							"    pm.expect(pm.response.json().result).not.equal(null);",
-							"})",
-							"",
-							"pm.environment.set('txHash', pm.response.json().result)"
+							"console.log(pm.response.json())"
 						],
 						"type": "text/javascript"
 					}

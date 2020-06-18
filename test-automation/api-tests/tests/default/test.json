@@ -67,19 +67,7 @@
 							"console.log(pm.request.body.raw)",
 							"console.log()",
 							"console.log(\"Response\")",
-							"console.log(pm.response.json())",
-							"",
-							"pm.test(\"Response should not contain errors.\", () => {",
-							"    pm.expect('error' in pm.response.json()).to.equal(false);",
-							"})",
-							"",
-							"pm.test(\"Response should have non-null result field.\", () => {",
-							"    pm.expect(pm.response.json()).to.include.keys(\"result\");",
-							"    pm.expect(pm.response.json().result).not.equal(null);",
-							"})",
-							"",
-							"pm.environment.set('txHash', pm.response.json().result)",
-							"// pm.environment.set('txHash', '0x5388c4eba87bd1c3ae20595052505bb9637a76cb7414f4fac4cae039dbf55665')"
+							"console.log(pm.response.json())"
 						],
 						"type": "text/javascript"
 					}
