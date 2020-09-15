@@ -286,10 +286,13 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
         if mode not in ["mainnet", "lrtn"]:
             data_part_json["alert"]["notifications"] = []
 
-        disk_query = "node_filesystem_avail_bytes{{instance=\"{ip}:9100\"," \
-                     "job=\"{job_name}\", mountpoint=\"/\"}}/1024/1024/1024".format(ip=ip, job_name=job_name)
+        # disk_query = "node_filesystem_avail_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", mountpoint=\"/\"}}/1024/1024/1024"
 
-        title_chart = "FREE SPACE -"
+        disk_query = "(1-(node_filesystem_free_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
+                     "mountpoint=\"/\", fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
+                     "job=\"{job_name}\", mountpoint=\"/\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip, job_name=job_name)
+
+        title_chart = "DISK SPACE -"
 
         data_part_json["targets"][0].update({"expr": disk_query})
     # FOURTH COLUMN - DISK IO Monitoring

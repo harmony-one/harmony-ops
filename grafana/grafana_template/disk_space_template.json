@@ -5,9 +5,9 @@
       {
         "evaluator": {
           "params": [
-            5
+            90
           ],
-          "type": "lt"
+          "type": "gt"
         },
         "operator": {
           "type": "and"
@@ -30,8 +30,8 @@
     "for": "3m",
     "frequency": "1m",
     "handler": 1,
-    "message": "the free space of the node is abnormal",
-    "name": "Node Free Space Alert",
+    "message": "the disk space of the node is abnormal",
+    "name": "Node Disk Space Alert",
     "noDataState": "keep_state",
     "notifications": [
       {
@@ -83,7 +83,7 @@
     {
       "expr": "",
       "format": "time_series",
-      "legendFormat": "Free Space",
+      "legendFormat": "Used Space Rate",
       "intervalFactor": 1,
       "refId": "A"
     }
@@ -109,7 +109,7 @@
   "yaxes": [
     {
       "format": "short",
-      "label": "GB",
+      "label": "%",
       "logBase": 1,
       "max": null,
       "min": null,
