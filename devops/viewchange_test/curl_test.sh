@@ -140,6 +140,7 @@ function do_vcX() {
       return
    fi
 
+   echo "current block number: $cur_block"
    new_block=$(( cur_block + AFTER_BLOCK ))
    if [ -n "$IP" ]; then
       echo "$IP will be killed in the $phase phase at the block number: $new_block"
@@ -177,7 +178,7 @@ function do_vc4() {
    fi
    if [ -n "$SHARD" ]; then
       if $LEADER; then
-         echo "$LIP will be killed instantly"
+         echo "leader: $LIP will be killed instantly"
          send_cmd "$LIP" killNode 'true'
       else
          for i in "${HOSTS[@]}"; do
@@ -192,7 +193,7 @@ function do_vc5() {
    num_hosts=${#HOSTS[@]}
    random_host=$(( RANDOM % num_hosts ))
 
-   echo "${HOSTS[$random_host]} will be killed instantly"
+   echo "randome node: ${HOSTS[$random_host]} will be killed instantly"
    send_cmd "${HOSTS[$random_host]}" killNode 'true'
 }
 
