@@ -16,6 +16,8 @@ Options:
    -m method      specify the method to send
    -p params      specify the parameters to the method
    -L             send to leader only (default: $LEADER)
+   -w seconds     wait seconds for the kill command (default: $WAIT)
+   -v             verbose output of the curl command (default: $VERBOSE)
 
 Note:
    This command assumes the stn network
@@ -27,15 +29,19 @@ Actions:
    vc2            trigger vc test after $AFTER_BLOCK blocks (kill on prepare)
    vc3            trigger vc test after $AFTER_BLOCK blocks (kill on announce)
    vc4            trigger vc test (instant kill)
+   vc5            randomly kill a node (instant kill)
 
 Examples:
    $ME -I 34.220.233.31 -m getLatestChainHeaders
    $ME -I 52.33.12.218 -m killNode -p true
-   $ME -I 52.33.12.218 -m killNodeCond -p 'true, "*", "*", 43480, 60, true'
-   $ME -I 34.220.233.31 -m killNodeCond -p 'true, "Commit", "*", 219800, 60, false'
+   $ME -I 52.33.12.218 -m killNodeCond -p 'true, "*", "*", 43480, 60'
+   $ME -I 34.220.233.31 -m killNodeCond -p 'true, "Commit", "*", 219800, 60'
 
 # send to leader only on shard 1
    $ME -S 1 -L vc1
+   $ME -S 0 vc5
+   $ME -S 0 -L -w 80 vc2
+
 EOT
    exit 0
 }
@@ -59,8 +65,12 @@ function send_cmd() {
    ]
 EOT
 
-   echo "curl $CURL --header \"Content-Type: application/json\" --data @$tmpfile" > /dev/stderr
-   curl "$CURL" --header "Content-Type: application/json" --data @"$tmpfile" | jq .[0].result
+   if $VERBOSE; then
+      cat "$tmpfile" > /dev/stderr
+      echo "curl $CURL --header \"Content-Type: application/json\" --data @$tmpfile" > /dev/stderr
+   fi
+# shellcheck disable=SC2086
+   curl $CURL --header "Content-Type: application/json" --data @"$tmpfile" | jq .[0].result
 
    rm -f "$tmpfile"
 }
@@ -85,7 +95,7 @@ function get_leader_ip() {
    for ip in "${HOSTS[@]}"; do
       result=$(send_cmd "$ip" getNodeMetadata "")
       leader=$(echo "$result" | jq -r '.["is-leader"]')
-      if $leader; then
+      if [[ -n "$leader" && "$leader" == "true" ]]; then
          echo "$ip"
          return
       fi
@@ -108,7 +118,7 @@ function get_current_block_from_shard() {
    height=-1
    for ip in "${HOSTS[@]}"; do
       h=$( get_current_block "$ip" )
-      if [ "$h" -gt "$height" ]; then
+      if [[ -n "$h" && "$h" -gt "$height" ]]; then
          height=$h
       fi
    done
@@ -132,14 +142,17 @@ function do_vcX() {
 
    new_block=$(( cur_block + AFTER_BLOCK ))
    if [ -n "$IP" ]; then
-      send_cmd "$IP" killNodeCond "true, \"$phase\", \"*\", $new_block, 60, false"
+      echo "$IP will be killed in the $phase phase at the block number: $new_block"
+      send_cmd "$IP" killNodeCond "true, \"$phase\", \"*\", $new_block, $WAIT"
    fi
    if [ -n "$SHARD" ]; then
       if $LEADER; then
-         send_cmd "$LIP" killNodeCond "true, \"$phase\", \"*\", $new_block, 60, false"
+         echo "leader: $LIP will be killed in the $phase phase at the block number: $new_block"
+         send_cmd "$LIP" "killNodeCond" "true, \"$phase\", \"*\", $new_block, $WAIT"
       else
          for i in "${HOSTS[@]}"; do
-            send_cmd "$i" killNodeCond "true, \"$phase\", \"*\", $new_block, 60, false"
+            echo "$i will be killed in the $phase phase at the block number: $new_block"
+            send_cmd "$i" "killNodeCond" "true, \"$phase\", \"*\", $new_block, $WAIT"
          done
       fi
    fi
@@ -154,30 +167,42 @@ function do_vc2() {
 }
 
 function do_vc3() {
-   do_vcX "Annouce"
+   do_vcX "Announce"
 }
 
 function do_vc4() {
    if [ -n "$IP" ]; then
+      echo "$IP will be killed instantly"
       send_cmd "$IP" killNode 'true'
    fi
    if [ -n "$SHARD" ]; then
-      cur_block=$(get_current_block_from_shard "$SHARD")
       if $LEADER; then
+         echo "$LIP will be killed instantly"
          send_cmd "$LIP" killNode 'true'
       else
          for i in "${HOSTS[@]}"; do
+            echo "$i will be killed instantly"
             send_cmd "$i" killNode 'true'
          done
       fi
    fi
 }
 
+function do_vc5() {
+   num_hosts=${#HOSTS[@]}
+   random_host=$(( RANDOM % num_hosts ))
+
+   echo "${HOSTS[$random_host]} will be killed instantly"
+   send_cmd "${HOSTS[$random_host]}" killNode 'true'
+}
+
 AFTER_BLOCK=5
 LEADER=false
 HOSTS=()
+VERBOSE=false
+WAIT=60
 
-while getopts ":h:B:S:I:m:p:L" opt; do
+while getopts ":vh:B:S:I:m:p:Lw:" opt; do
    case $opt in
       B) AFTER_BLOCK=$OPTARG ;;
       S) SHARD=$OPTARG ;;
@@ -185,6 +210,8 @@ while getopts ":h:B:S:I:m:p:L" opt; do
       m) METHOD=$OPTARG ;;
       p) PARAMS="$OPTARG" ;;
       L) LEADER=true ;;
+      v) VERBOSE=true ;;
+      w) WAIT=$OPTARG ;;
       *) usage ;;
    esac
 done
@@ -210,6 +237,7 @@ case $ACTION in
    vc2) do_vc2 ;;
    vc3) do_vc3 ;;
    vc4) do_vc4 ;;
+   vc5) do_vc5 ;;
    *) do_test ;;
 esac
 
