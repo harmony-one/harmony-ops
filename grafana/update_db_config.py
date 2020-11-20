@@ -22,7 +22,7 @@ prometheus_scrape_interval = 5
 dict_grafana_folder_mode = {
     "mainnet": 18,
     "ostn": 19,
-    "stn": 20,
+    "stn": 91,
     "test": 31,
     "lrtn": 45,
     "pstn": 46,
@@ -137,11 +137,11 @@ def create_grafana_config(mode, category, dict_ip_array, dict_dns_ip_array, dict
             mode=mode.upper(), category=category.upper(), shard_index=ind)
         # modify global stat
         shard_dashboard_json["panels"][2]["targets"][0].update(
-            {"expr": "count(up{{job=\"{shard}\"}}==1)".format(shard=job_name)})
+            {"expr": "count(up{{job=\"{shard}\", instance=~\".*:9100\"}}==1)".format(shard=job_name)})
         shard_dashboard_json["panels"][3]["targets"][0].update(
-            {"expr": "up{{job=\"{shard}\"}}==0".format(shard=job_name)})
+            {"expr": "up{{job=\"{shard}\", instance=~\".*:9100\"}}==0".format(shard=job_name)})
         shard_dashboard_json["panels"][3]["targets"][1].update(
-            {"expr": "count(up{{job=\"{shard}\"}}==0)".format(shard=job_name)})
+            {"expr": "count(up{{job=\"{shard}\", instance=~\".*:9100\"}}==0)".format(shard=job_name)})
 
         id_0 = 10
         y_point = 10
@@ -195,6 +195,22 @@ def create_grafana_config(mode, category, dict_ip_array, dict_dns_ip_array, dict
 
                         # create panel for network metric
                         data_part_json = create_grafana_network_panel_config(mode, ind, ip, part_index, job_name,
+                                                                             dict_part_temp_json)
+
+                        data_part_json.update({"gridPos": {'h': 6, 'w': 12, 'x': x_point, 'y': y_point},
+                                               "id": id_0
+                                               })
+
+                        # insert this chart to dashboard.panels
+                        row_panel["panels"].append(data_part_json)
+                elif category == "hmy-metrics":
+                    for part_index in range(2):
+                        id_0 += 2
+
+                        x_point = part_index * 12
+
+                        # create panel for network metric
+                        data_part_json = create_grafana_hmy_metrics_panel_config(mode, ind, ip, part_index, job_name,
                                                                              dict_part_temp_json)
 
                         data_part_json.update({"gridPos": {'h': 6, 'w': 12, 'x': x_point, 'y': y_point},
@@ -372,6 +388,41 @@ def create_grafana_network_panel_config(mode, ind, ip, part_index, shard, dict_p
     return data_part_json
 
 
+# create grafana network metric config file
+def create_grafana_hmy_metrics_panel_config(mode, ind, ip, part_index, shard, dict_part_temp_json):
+    data_part_json = {}
+    title_chart = ""
+
+    # FIRST COLUMN - NETWORK Monitoring
+    if part_index == 0:
+        # load net metric template
+        data_part_json = copy.deepcopy(dict_part_temp_json["hmy_con_finality"])
+
+        consensus_finality_query = "histogram_quantile(0.95, sum(rate(hmy_consensus_finality_bucket{{insta" \
+                                   "nce=\"{ip}:9900\", job=\"{shard}\"}}[5m])) by (le))".format(ip=ip, shard=shard)
+
+        title_chart = "CONSENSUS FINALITY - "
+
+        data_part_json["targets"][0].update({"expr": consensus_finality_query})
+    # SECOND COLUMN - RAM Monitoring
+    elif part_index == 1:
+        # load tcp metric template
+        data_part_json = copy.deepcopy(dict_part_temp_json["hmy_con_bingo"])
+
+        consensus_bingo_query = "increase(hmy_consensus_bingo{{consensus=\"bingo\", instan" \
+                                "ce=\"{ip}:9900\", job=\"{shard}\"}}[1m])".format(ip=ip, shard=shard)
+
+        title_chart = "CONSENSUS BINGO - "
+        data_part_json["targets"][0].update({"expr": consensus_bingo_query})
+    else:
+        pass
+
+    # set panel title
+    data_part_json["title"] = title_chart + ip
+
+    return data_part_json
+
+
 # create prometheus whole config file
 def create_prometheus_config(mode, dict_ip_array, config_template):
     total_config_part_count = len(config_template["scrape_configs"])
@@ -393,6 +444,7 @@ def create_prometheus_config(mode, dict_ip_array, config_template):
                         continue
 
                     targets.append(ip + ":9100")
+                    targets.append(ip + ":9900")
 
                 config_template["scrape_configs"][part_index]["scrape_interval"] = str(prometheus_scrape_interval) + "s"
                 config_template["scrape_configs"][part_index]["static_configs"][0]["targets"] = targets
@@ -470,13 +522,15 @@ def main():
         "io": load_file_to_json("grafana_template/disk_io_count_template.json"),
         "net": load_file_to_json("grafana_template/net_traffic_template.json"),
         "tcp": load_file_to_json("grafana_template/net_sock_tcp_template.json"),
+        "hmy_con_finality": load_file_to_json("grafana_template/hmy_consensus_finality_template.json"),
+        "hmy_con_bingo": load_file_to_json("grafana_template/hmy_consensus_bingo_template.json"),
     }
 
     # get script run mode
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', type=str, help="select run mode. mainnet ostn stn etc.")
     args = parser.parse_args()
-    if args.m not in ["all", "mainnet", "lrtn", "test"]:
+    if args.m not in ["all", "mainnet", "lrtn", "test", "stn"]:
         raise RuntimeError("need to set correct network mode")
     elif args.m == "all":
         run_modes = ["mainnet", "lrtn"]
@@ -488,6 +542,8 @@ def main():
         # special shard count for stn & test
         if mode in ["test"]:
             shard_count = 1
+        elif mode in ["stn"]:
+            shard_count = 2
         else:
             shard_count = 4
 
@@ -530,7 +586,7 @@ def main():
         create_prometheus_config(mode, dict_ip_array, prometheus_config_template)
         logging.info('create prometheus config success')
 
-        for category in ["base", "network"]:
+        for category in ["base", "network", "hmy-metrics"]:
             # create grafana whole config file
             dict_shard_dashboard_json = create_grafana_config(mode, category, dict_ip_array, dict_dns_ip_array,
                                                               dict_exp_ip_array,
