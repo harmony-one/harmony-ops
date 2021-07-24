@@ -3,14 +3,23 @@
   "bars": false,
   "dashLength": 10,
   "dashes": false,
+  "datasource": null,
+  "fieldConfig": {
+    "defaults": {
+      "custom": {},
+      "links": []
+    },
+    "overrides": []
+  },
   "fill": 1,
   "fillGradient": 0,
   "gridPos": {
-    "h": 0,
-    "w": 0,
+    "h": 6,
+    "w": 6,
     "x": 0,
-    "y": 0
+    "y": 11
   },
+  "hiddenSeries": false,
   "id": 0,
   "legend": {
     "avg": false,
@@ -23,11 +32,13 @@
   },
   "lines": true,
   "linewidth": 1,
+  "links": [],
   "nullPointMode": "null",
   "options": {
-    "dataLinks": []
+    "alertThreshold": true
   },
   "percentage": false,
+  "pluginVersion": "7.3.1",
   "pointradius": 2,
   "points": false,
   "renderer": "flot",
@@ -38,28 +49,18 @@
   "targets": [
     {
       "expr": "",
-      "interval": "",
-      "legendFormat": "TCP Alloc",
+      "format": "time_series",
+      "interval": "300",
+      "intervalFactor": 1,
+      "legendFormat": "finality latency",
       "refId": "A"
-    },
-    {
-      "expr": "",
-      "interval": "",
-      "legendFormat": "TCP Inuse",
-      "refId": "B"
-    },
-    {
-      "expr": "",
-      "interval": "",
-      "legendFormat": "TCP Mem",
-      "refId": "C"
     }
   ],
   "thresholds": [],
   "timeFrom": null,
   "timeRegions": [],
   "timeShift": null,
-  "title": "TCP SOCK STAT - ",
+  "title": "CONSENSUS FINALITY",
   "tooltip": {
     "shared": true,
     "sort": 0,
@@ -75,8 +76,9 @@
   },
   "yaxes": [
     {
-      "format": "short",
-      "label": null,
+      "decimals": null,
+      "format": "string",
+      "label": "ms",
       "logBase": 1,
       "max": null,
       "min": null,
