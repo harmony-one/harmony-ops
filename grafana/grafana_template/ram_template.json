@@ -27,7 +27,7 @@
       }
     ],
     "executionErrorState": "keep_state",
-    "for": "3m",
+    "for": "15m",
     "frequency": "30s",
     "handler": 1,
     "message": "the memory usage rate of the node is abnormal",
