@@ -5,7 +5,7 @@
       {
         "evaluator": {
           "params": [
-            85
+            95
           ],
           "type": "gt"
         },
@@ -27,7 +27,7 @@
       }
     ],
     "executionErrorState": "keep_state",
-    "for": "15m",
+    "for": "30m",
     "frequency": "30s",
     "handler": 1,
     "message": "the memory usage rate of the node is abnormal",
