@@ -32,19 +32,19 @@ scrape_configs:
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard0_lrtn'
+  - job_name: 'shard0_testnet'
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard1_lrtn'
+  - job_name: 'shard1_testnet'
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard2_lrtn'
+  - job_name: 'shard2_testnet'
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard3_lrtn'
+  - job_name: 'shard3_testnet'
     scrape_interval: 5s
     static_configs:
       - targets: []

@@ -26,7 +26,8 @@ dict_grafana_folder_mode = {
     "test": 31,
     "lrtn": 45,
     "pstn": 46,
-    "dryrun": 52
+    "dryrun": 52,
+    "testnet": 105
 }
 do_node_ips = ["143.110.234.143", "138.68.11.38", "143.110.234.143"]
 local_disk_node_ips = ["3.236.64.29", "18.116.33.241", "52.53.250.187", "35.82.29.182", "34.229.131.248", "54.189.61.183", "54.188.66.208", "34.216.159.65", "54.212.179.219", "44.235.31.107", "44.241.141.240", "44.237.240.249", "44.225.100.239", "34.222.190.168", "44.230.211.156"]
@@ -486,10 +487,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', type=str, help="select run mode. mainnet ostn stn etc.")
     args = parser.parse_args()
-    if args.m not in ["all", "mainnet", "lrtn", "test"]:
+    if args.m not in ["all", "mainnet", "testnet", "test"]:
         raise RuntimeError("need to set correct network mode")
     elif args.m == "all":
-        run_modes = ["mainnet", "lrtn"]
+        run_modes = ["mainnet", "testnet"]
     else:
         run_modes = [args.m]
 
