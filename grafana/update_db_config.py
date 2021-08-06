@@ -26,8 +26,11 @@ dict_grafana_folder_mode = {
     "test": 31,
     "lrtn": 45,
     "pstn": 46,
-    "dryrun": 52
+    "dryrun": 52,
+    "testnet": 105
 }
+do_node_ips = ["143.110.234.143", "138.68.11.38", "143.110.234.143"]
+local_disk_node_ips = ["3.236.64.29", "18.116.33.241", "52.53.250.187", "35.82.29.182", "34.229.131.248", "54.189.61.183", "54.188.66.208", "34.216.159.65", "54.212.179.219", "44.235.31.107", "44.241.141.240", "44.237.240.249", "44.225.100.239", "34.222.190.168", "44.230.211.156"]
 
 
 def shcmd(cmd, ignore_error=False):
@@ -105,17 +108,16 @@ def create_grafana_config(mode, category, dict_ip_array, dict_dns_ip_array, dict
                           shard_dashboard_template_json, dict_part_temp_json):
     dict_shard_dashboard_json = {}
     for ind in range(shard_count):
-        ip_array = {"dns": [], "explorer": [], "node": []}
+        ip_array = {"dns": [], "node": []}
         ip_created = []
 
         if mode == "mainnet":
             # load dns and exp ip list
             ip_array["dns"] = dict_dns_ip_array.get(ind)
-            ip_array["explorer"] = dict_exp_ip_array.get(ind)
 
             all_ip_array = dict_ip_array.get(ind)
             for ip in all_ip_array:
-                if ip in ip_array["dns"] or ip in ip_array["explorer"]:
+                if ip in ip_array["dns"]:
                     continue
                 else:
                     ip_array["node"].append(ip)
@@ -239,7 +241,7 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
                                                                                                              shard_index=ind,
                                                                                                              ip=ip)
         # no need alert network
-        if mode not in ["mainnet", "lrtn"]:
+        if mode not in ["mainnet"]:
             data_part_json["alert"]["notifications"] = []
 
         cpu_query = "100 - (avg by (instance) (irate(node_cpu_seconds_total{{instance=\"{ip}:9100\", job=\"{job_name}\",mode=\"idle\"}}[5m])) * 100)".format(
@@ -257,7 +259,7 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
             "message"] = "the memory usage rate of the {mode} shard{shard_index} node({ip}) is abnormal".format(
             mode=mode, shard_index=ind, ip=ip)
         # no need alert network
-        if mode not in ["mainnet", "lrtn"]:
+        if mode not in ["mainnet"]:
             data_part_json["alert"]["notifications"] = []
 
         ram_query = "(node_memory_MemTotal_bytes{{instance=\"{ip}:9100\",job=\"{job_name}\"}} - node_memory_" \
@@ -283,14 +285,23 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
                                                                                                          shard_index=ind,
                                                                                                          ip=ip)
         # no need alert network
-        if mode not in ["mainnet", "lrtn"]:
+        if mode not in ["mainnet"]:
             data_part_json["alert"]["notifications"] = []
 
         # disk_query = "node_filesystem_avail_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", mountpoint=\"/\"}}/1024/1024/1024"
-
-        disk_query = "(1-(node_filesystem_free_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
-                     "mountpoint=\"/\", fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
-                     "job=\"{job_name}\", mountpoint=\"/\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip, job_name=job_name)
+        if ip in do_node_ips:
+            disk_query = "(1-(node_filesystem_free_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
+                         "device=\"/dev/sda\", fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
+                         "job=\"{job_name}\", device=\"/dev/sda\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip, job_name=job_name)
+        else:
+            if ip in local_disk_node_ips:
+                mountpoint = "/data"
+            else:
+                mountpoint = "/"
+                
+            disk_query = "(1-(node_filesystem_free_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
+                     "mountpoint=\"{mountpoint}\", fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
+                     "job=\"{job_name}\", mountpoint=\"{mountpoint}\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip, job_name=job_name, mountpoint=mountpoint)
 
         title_chart = "DISK SPACE -"
 
@@ -333,7 +344,7 @@ def create_grafana_network_panel_config(mode, ind, ip, part_index, shard, dict_p
             "message"] = "the network traffic of the {mode} shard{shard_index} node({ip}) is abnormal".format(
             mode=mode, shard_index=ind, ip=ip)
         # no need alert network
-        if mode not in ["mainnet", "lrtn"]:
+        if mode not in ["mainnet"]:
             data_part_json["alert"]["notifications"] = []
 
         network_incoming_query = "rate(node_network_receive_bytes_total{{instance" \
@@ -476,10 +487,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', type=str, help="select run mode. mainnet ostn stn etc.")
     args = parser.parse_args()
-    if args.m not in ["all", "mainnet", "lrtn", "test"]:
+    if args.m not in ["all", "mainnet", "testnet", "test"]:
         raise RuntimeError("need to set correct network mode")
     elif args.m == "all":
-        run_modes = ["mainnet", "lrtn"]
+        run_modes = ["mainnet", "testnet"]
     else:
         run_modes = [args.m]
 

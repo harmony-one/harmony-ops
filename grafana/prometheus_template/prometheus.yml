@@ -8,6 +8,14 @@ global:
 #    - targets: ["alertmanager:9093"]
 
 scrape_configs:
+  - job_name: 'pushgateway'
+    honor_labels: true
+    static_configs:
+      - targets: ['gateway.harmony.one']
+  - job_name: 'multi-sig-backend'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["54.153.118.255:9100", "13.57.190.45:9100"]
   - job_name: 'shard0_mainnet'
     scrape_interval: 5s
     static_configs:
@@ -24,19 +32,19 @@ scrape_configs:
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard0_lrtn'
+  - job_name: 'shard0_testnet'
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard1_lrtn'
+  - job_name: 'shard1_testnet'
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard2_lrtn'
+  - job_name: 'shard2_testnet'
     scrape_interval: 5s
     static_configs:
       - targets: []
-  - job_name: 'shard3_lrtn'
+  - job_name: 'shard3_testnet'
     scrape_interval: 5s
     static_configs:
       - targets: []
