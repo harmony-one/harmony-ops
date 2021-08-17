@@ -29,8 +29,8 @@ dict_grafana_folder_mode = {
     "dryrun": 52,
     "testnet": 105
 }
-do_node_ips = ["143.110.234.143", "138.68.11.38", "143.110.234.143"]
-local_disk_node_ips = ["3.236.64.29", "18.116.33.241", "52.53.250.187", "35.82.29.182", "34.229.131.248", "54.189.61.183", "54.188.66.208", "34.216.159.65", "54.212.179.219", "44.235.31.107", "44.241.141.240", "44.237.240.249", "44.225.100.239", "34.222.190.168", "44.230.211.156"]
+do_node_ips = []
+service_list = ['bridge', 'graph', 'multisig']
 
 
 def shcmd(cmd, ignore_error=False):
@@ -43,10 +43,7 @@ def shcmd(cmd, ignore_error=False):
 
 # get latest node ips from github
 def download_ip_list_from_github(git_token, mode):
-    if mode == "lrtn":
-        github_dir = "testnet"
-    else:
-        github_dir = mode
+    github_dir = mode
 
     # download list of IP from shard
     for index in range(shard_count):
@@ -72,9 +69,27 @@ def download_ip_list_from_github(git_token, mode):
             url_path = "https://raw.githubusercontent.com/harmony-one/nodedb/" \
                        "master/{github_dir}/shard{shard_index}exp.txt".format(shard_index=index, github_dir=github_dir)
             cmd = "curl -H 'Authorization: token {token}' " \
-                  "-H 'Accept: application/vnd.github.v3.raw' -o ips/{mode}/shard{shard_index}exp.txt " \
+                  "-H 'Accept: application/vnd.github.v3.raw' -o ips/{mode}/exp.shard{shard_index}.txt " \
                   "{path}".format(token=git_token, shard_index=index, path=url_path, mode=mode)
             shcmd(cmd)
+
+        # download list of services
+        for service in service_list:
+            url_path = "https://raw.githubusercontent.com/harmony-one/nodedb/" \
+                       "master/{github_dir}/services/{service_name}.txt".format(service_name=service,
+                                                                                github_dir=github_dir)
+            cmd = "curl -H 'Authorization: token {token}' " \
+                  "-H 'Accept: application/vnd.github.v3.raw' -o ips/{mode}/services/{service_name}.txt " \
+                  "{path}".format(token=git_token, service_name=service, path=url_path, mode=mode)
+            shcmd(cmd)
+
+        # download list of DO node
+        url_path = "https://raw.githubusercontent.com/harmony-one/nodedb/" \
+                   "master/mainnet/shard/do.{mode}.nodes.txt"
+        cmd = "curl -H 'Authorization: token {token}' " \
+              "-H 'Accept: application/vnd.github.v3.raw' -o ips/{mode}/do.{mode}.nodes.txt " \
+              "{path}".format(token=git_token, path=url_path, mode=mode)
+        shcmd(cmd)
 
 
 def load_file_to_json(json_file):
@@ -103,10 +118,11 @@ def load_file_split_to_array(txt_file):
     return ip_array
 
 
-# create grafana whole config file
-def create_grafana_config(mode, category, dict_ip_array, dict_dns_ip_array, dict_exp_ip_array,
-                          shard_dashboard_template_json, dict_part_temp_json):
+# create grafana whole config file for network node
+def create_network_node_grafana_config(mode, category, dict_ip_array, dict_dns_ip_array,
+                                       shard_dashboard_template_json, dict_part_temp_json):
     dict_shard_dashboard_json = {}
+    # create network nodes
     for ind in range(shard_count):
         ip_array = {"dns": [], "node": []}
         ip_created = []
@@ -222,7 +238,107 @@ def create_grafana_config(mode, category, dict_ip_array, dict_dns_ip_array, dict
                 shard_dashboard_json["panels"].append(row_panel)
 
         dict_shard_dashboard_json[ind] = shard_dashboard_json
+
     return dict_shard_dashboard_json
+
+
+# create grafana whole config file for service node
+def create_service_grafana_config(mode, category, dict_service_ip_array,
+                                  service_dashboard_template_json, dict_part_temp_json):
+    job_name = "service_{mode}".format(mode=mode)
+    service_dashboard_json = copy.deepcopy(service_dashboard_template_json)
+
+    # modify dashboard uid
+    service_dashboard_json["uid"] = "{mode}_service_{category}".format(mode=mode, category=category)
+    # modify dashboard title
+    service_dashboard_json["title"] = "{mode} - {category} - SERVICE".format(
+        mode=mode.upper(), category=category.upper())
+    # modify global stat
+    service_dashboard_json["panels"][2]["targets"][0].update(
+        {"expr": "count(up{{job=\"{job_name}\"}}==1)".format(job_name=job_name)})
+    service_dashboard_json["panels"][3]["targets"][0].update(
+        {"expr": "up{{job=\"{job_name}\"}}==0".format(job_name=job_name)})
+    service_dashboard_json["panels"][3]["targets"][1].update(
+        {"expr": "count(up{{job=\"{job_name}\"}}==0)".format(job_name=job_name)})
+
+    id_0 = 10
+    y_point = 10
+    ip_created = []
+
+    for node_type in dict_service_ip_array:
+        ips = dict_service_ip_array[node_type]
+        # skip the empty node set
+        if not len(ips):
+            continue
+
+        # add row panel
+        id_0 += 2
+        row_panel = {
+            "collapsed": True,
+            "datasource": "null",
+            "gridPos": {"h": 1, "w": 24, "x": 0, "y": y_point},
+            "id": id_0,
+            "panels": [],
+            "title": node_type.upper(),
+            "type": "row"
+        }
+        y_point += 1
+
+        ips_size = len(ips)
+        for idx in range(ips_size):
+            ip = ips[idx].rstrip()
+
+            if ip == "" or ip in ip_created:
+                continue
+
+            if category == "base":
+                for part_index in range(4):
+                    id_0 += 2
+
+                    x_point = part_index * 6
+
+                    # create panel for base metric
+                    data_part_json = create_grafana_base_panel_config(mode, "service", ip, part_index, job_name,
+                                                                      dict_part_temp_json)
+
+                    data_part_json.update({"gridPos": {'h': 6, 'w': 6, 'x': x_point, 'y': y_point},
+                                           "id": id_0
+                                           })
+                    # insert this chart to dashboard.panels
+                    row_panel["panels"].append(data_part_json)
+            elif category == "network":
+                for part_index in range(2):
+                    id_0 += 2
+
+                    x_point = part_index * 12
+
+                    # create panel for network metric
+                    data_part_json = create_grafana_network_panel_config(mode, "service", ip, part_index, job_name,
+                                                                         dict_part_temp_json)
+
+                    data_part_json.update({"gridPos": {'h': 6, 'w': 12, 'x': x_point, 'y': y_point},
+                                           "id": id_0
+                                           })
+
+                    # insert this chart to dashboard.panels
+                    row_panel["panels"].append(data_part_json)
+
+            y_point += 6
+
+            # record created ip to avoid create duplicate
+            ip_created.append(ip)
+
+        if node_type == "bridge":
+            # auto collapse row for bridge
+            row_panel_child = row_panel["panels"]
+            row_panel["panels"] = []
+            row_panel["collapsed"] = False
+            service_dashboard_json["panels"].append(row_panel)
+            service_dashboard_json["panels"].extend(row_panel_child)
+        else:
+            service_dashboard_json["panels"].append(row_panel)
+
+    return service_dashboard_json
 
 
 # create grafana base metric config file
@@ -236,10 +352,15 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
         data_part_json = copy.deepcopy(dict_part_temp_json["cpu"])
 
         # add an alert for CPU
-        data_part_json["alert"][
-            "message"] = "the cpu usage rate of the {mode} shard{shard_index} node({ip}) is abnormal".format(mode=mode,
-                                                                                                             shard_index=ind,
-                                                                                                             ip=ip)
+        if ind == "service":
+            data_part_json["alert"][
+                "message"] = "the cpu usage rate of the {mode} service node({ip}) is abnormal".format(
+                mode=mode, ip=ip)
+        else:
+            data_part_json["alert"][
+                "message"] = "the cpu usage rate of the {mode} shard{shard_index} node({ip}) is abnormal".format(
+                mode=mode, shard_index=ind, ip=ip)
+
         # no need alert network
         if mode not in ["mainnet"]:
             data_part_json["alert"]["notifications"] = []
@@ -255,9 +376,15 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
         data_part_json = copy.deepcopy(dict_part_temp_json["ram"])
 
         # add an alert for Memory
-        data_part_json["alert"][
-            "message"] = "the memory usage rate of the {mode} shard{shard_index} node({ip}) is abnormal".format(
-            mode=mode, shard_index=ind, ip=ip)
+        if ind == "service":
+            data_part_json["alert"][
+                "message"] = "the memory usage rate of the {mode} service node({ip}) is abnormal".format(
+                mode=mode, ip=ip)
+        else:
+            data_part_json["alert"][
+                "message"] = "the memory usage rate of the {mode} shard{shard_index} node({ip}) is abnormal".format(
+                mode=mode, shard_index=ind, ip=ip)
+
         # no need alert network
         if mode not in ["mainnet"]:
             data_part_json["alert"]["notifications"] = []
@@ -280,10 +407,15 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
         data_part_json = copy.deepcopy(dict_part_temp_json["disk"])
 
         # add an alert for storage
-        data_part_json["alert"][
-            "message"] = "the free space of the {mode} shard{shard_index} node({ip}) is abnormal".format(mode=mode,
-                                                                                                         shard_index=ind,
-                                                                                                         ip=ip)
+        if ind == "service":
+            data_part_json["alert"][
+                "message"] = "the free space of the {mode} service node({ip}) abnormal".format(
+                mode=mode, ip=ip)
+        else:
+            data_part_json["alert"][
+                "message"] = "the free space of the {mode} shard{shard_index} node({ip}) abnormal".format(
+                mode=mode, shard_index=ind, ip=ip)
+
         # no need alert network
         if mode not in ["mainnet"]:
             data_part_json["alert"]["notifications"] = []
@@ -292,18 +424,14 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
         if ip in do_node_ips:
             disk_query = "(1-(node_filesystem_free_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
                          "device=\"/dev/sda\", fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
-                         "job=\"{job_name}\", device=\"/dev/sda\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip, job_name=job_name)
+                         "job=\"{job_name}\", device=\"/dev/sda\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip,
+                                                                                                           job_name=job_name)
         else:
-            if ip in local_disk_node_ips:
-                mountpoint = "/data"
-            else:
-                mountpoint = "/"
-                
             disk_query = "(1-(node_filesystem_free_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
-                     "mountpoint=\"{mountpoint}\", fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
-                     "job=\"{job_name}\", mountpoint=\"{mountpoint}\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip, job_name=job_name, mountpoint=mountpoint)
+                         "fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
+                         "job=\"{job_name}\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip, job_name=job_name)
 
-        title_chart = "DISK SPACE -"
+        title_chart = "DISK SPACE - "
 
         data_part_json["targets"][0].update({"expr": disk_query})
     # FOURTH COLUMN - DISK IO Monitoring
@@ -340,19 +468,25 @@ def create_grafana_network_panel_config(mode, ind, ip, part_index, shard, dict_p
         data_part_json = copy.deepcopy(dict_part_temp_json["net"])
 
         # add an alert for network traffic
-        data_part_json["alert"][
-            "message"] = "the network traffic of the {mode} shard{shard_index} node({ip}) is abnormal".format(
-            mode=mode, shard_index=ind, ip=ip)
+        if ind == "service":
+            data_part_json["alert"][
+                "message"] = "the network traffic of the {mode} service node({ip}) is abnormal".format(
+                mode=mode, ip=ip)
+        else:
+            data_part_json["alert"][
+                "message"] = "the network traffic of the {mode} shard{shard_index} node({ip}) is abnormal".format(
+                mode=mode, shard_index=ind, ip=ip)
+
         # no need alert network
         if mode not in ["mainnet"]:
             data_part_json["alert"]["notifications"] = []
 
         network_incoming_query = "rate(node_network_receive_bytes_total{{instance" \
-                                 "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(
-            ip=ip, shard=shard)
+                                 "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(ip=ip,
+                                                                                                         shard=shard)
         network_outgoing_query = "rate(node_network_transmit_bytes_total{{instance" \
-                                 "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(
-            ip=ip, shard=shard)
+                                 "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(ip=ip,
+                                                                                                         shard=shard)
 
         title_chart = "NETWORK TRAFFIC - "
 
@@ -363,12 +497,9 @@ def create_grafana_network_panel_config(mode, ind, ip, part_index, shard, dict_p
         # load tcp metric template
         data_part_json = copy.deepcopy(dict_part_temp_json["tcp"])
 
-        tcp_alloc = "node_sockstat_TCP_alloc{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip,
-                                                                                               shard=shard)
-        tcp_inuse = "node_sockstat_TCP_inuse{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip,
-                                                                                               shard=shard)
-        tcp_mem = "node_sockstat_TCP_mem{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip,
-                                                                                           shard=shard)
+        tcp_alloc = "node_sockstat_TCP_alloc{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip, shard=shard)
+        tcp_inuse = "node_sockstat_TCP_inuse{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip, shard=shard)
+        tcp_mem = "node_sockstat_TCP_mem{{instance=\"{ip}:9100\",job=\"{shard}\"}}".format(ip=ip, shard=shard)
 
         title_chart = "TCP SOCK - "
         data_part_json["targets"][0].update({"expr": tcp_alloc})
@@ -384,12 +515,14 @@ def create_grafana_network_panel_config(mode, ind, ip, part_index, shard, dict_p
 
 
 # create prometheus whole config file
-def create_prometheus_config(mode, dict_ip_array, config_template):
+def create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, config_template):
     total_config_part_count = len(config_template["scrape_configs"])
 
+    # create network nodes
     for ind in range(shard_count):
         # find config part index
         job_name = "shard{shard_index}_{mode}".format(shard_index=ind, mode=mode)
+
         for part_index in range(total_config_part_count):
             if job_name == config_template["scrape_configs"][part_index]["job_name"]:
                 ip_array = dict_ip_array.get(ind)
@@ -409,6 +542,27 @@ def create_prometheus_config(mode, dict_ip_array, config_template):
                 config_template["scrape_configs"][part_index]["static_configs"][0]["targets"] = targets
                 break
 
+    # create service nodes
+    service_ips = []
+    for service_name in service_list:
+        ip_array = dict_service_ip_array.get(service_name)
+        ip_array_size = len(ip_array)
+
+        for idx in range(ip_array_size):
+            ip = ip_array[idx].rstrip()
+
+            if ip == "":
+                continue
+
+            service_ips.append(ip + ":9100")
+
+    service_job_name = "service_{mode}".format(mode=mode)
+    for part_index in range(total_config_part_count):
+        if service_job_name == config_template["scrape_configs"][part_index]["job_name"]:
+            config_template["scrape_configs"][part_index]["scrape_interval"] = str(prometheus_scrape_interval) + "s"
+            config_template["scrape_configs"][part_index]["static_configs"][0]["targets"] = service_ips
+            break
+
     with open("prometheus/prometheus.yml", 'w') as fp:
         yaml.dump(config_template, fp)
 
@@ -420,7 +574,8 @@ def update_prometheus_config():
 
 
 # update grafana config
-def update_grafana_config(mode, category, dict_shard_dashboard_json, grafana_token):
+def update_grafana_config(mode, category, dict_shard_dashboard_json, dict_service_dashboard_json, grafana_token):
+    # update network nodes
     for index in range(shard_count):
         # get now dashboard version
         url = grafana_api_host + "dashboards/uid/{mode}_shard{shard_index}_{category}".format(mode=mode,
@@ -451,9 +606,37 @@ def update_grafana_config(mode, category, dict_shard_dashboard_json, grafana_tok
         else:
             logging.error("failed to update grafana dashboard config: " + json.dumps(response))
 
+    # update service nodes
+    # get now dashboard version
+    url = grafana_api_host + "dashboards/uid/{mode}_service_{category}".format(mode=mode, category=category)
+    headers = {"Authorization": "Bearer " + grafana_token}
+    response = requests.get(url, headers=headers).json()
+
+    # check new dashboard
+    if "dashboard" in response:
+        version = response["dashboard"]["version"]
+    else:
+        version = 1
+
+    # post new dashboard config
+    dict_service_dashboard_json["version"] = version
+    new_dashboard_config = {
+        "dashboard": dict_service_dashboard_json,
+        "folderId": dict_grafana_folder_mode[mode],
+        "overwrite": False
+    }
+    url = grafana_api_host + "dashboards/db"
+    headers = {"Authorization": "Bearer " + grafana_token, "Content-Type": "application/json"}
+    response = requests.post(url, data=json.dumps(new_dashboard_config), headers=headers).json()
+
+    if response["status"] == "success":
+        logging.info("update grafana dashboard config success for " + response["uid"])
+    else:
+        logging.error("failed to update grafana dashboard config: " + json.dumps(response))
+
 
 def main():
-    global min_storage_space, prometheus_scrape_interval, shard_count, grafana_api_host, max_actual_usage_memory_rate
+    global min_storage_space, prometheus_scrape_interval, shard_count, grafana_api_host, max_actual_usage_memory_rate, do_node_ips
     logging.basicConfig(level=10, format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s')
 
     # get config by .env file
@@ -510,10 +693,11 @@ def main():
         dict_ip_array = {}
         dict_dns_ip_array = {}
         dict_exp_ip_array = {}
+        dict_service_ip_array = {}
 
         # load grafana dashboard template files
         file_path = "grafana_template/dashboard_template.json"
-        shard_dashboard_template_json = load_file_to_json(file_path)
+        dashboard_template_json = load_file_to_json(file_path)
 
         # load latest node ip files
         for index in range(shard_count):
@@ -528,8 +712,17 @@ def main():
 
             # load latest exp node ip files
             for index in range(shard_count):
-                file_path = "ips/{mode}/shard{shard_index}exp.txt".format(shard_index=index, mode=mode)
+                file_path = "ips/{mode}/exp.shard{shard_index}.txt".format(shard_index=index, mode=mode)
                 dict_exp_ip_array[index] = load_file_to_array(file_path)
+
+            # load service ip files
+            for service_name in service_list:
+                file_path = "ips/{mode}/services/{service_name}.txt".format(service_name=service_name, mode=mode)
+                dict_service_ip_array[service_name] = load_file_to_array(file_path)
+
+            # load DO node
+            file_path = "ips/mainnet/do.mainnet.nodes.txt"
+            do_node_ips = load_file_to_array(file_path)
 
         # load prometheus config template
         if os.path.exists("prometheus/prometheus.yml"):
@@ -538,18 +731,23 @@ def main():
             prometheus_config_template = load_file_to_yaml("prometheus_template/prometheus.yml")
 
         # create prometheus whole config file
-        create_prometheus_config(mode, dict_ip_array, prometheus_config_template)
+        create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, prometheus_config_template)
         logging.info('create prometheus config success')
 
         for category in ["base", "network"]:
             # create grafana whole config file
-            dict_shard_dashboard_json = create_grafana_config(mode, category, dict_ip_array, dict_dns_ip_array,
-                                                              dict_exp_ip_array,
-                                                              shard_dashboard_template_json, dict_part_temp_json)
-            logging.info('create grafana config success')
+            dict_shard_dashboard_json = create_network_node_grafana_config(mode, category, dict_ip_array,
+                                                                           dict_dns_ip_array,
+                                                                           dashboard_template_json,
+                                                                           dict_part_temp_json)
+            dict_service_dashboard_json = create_service_grafana_config(mode, category, dict_service_ip_array,
+                                                                        dashboard_template_json,
+                                                                        dict_part_temp_json)
+
+            logging.info('create network and service node grafana config success')
 
             # update grafana config
-            update_grafana_config(mode, category, dict_shard_dashboard_json, grafana_token)
+            update_grafana_config(mode, category, dict_shard_dashboard_json, dict_service_dashboard_json, grafana_token)
             logging.info('update grafana config success')
 
     # update prometheus config and restart service
