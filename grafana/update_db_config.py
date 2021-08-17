@@ -30,9 +30,6 @@ dict_grafana_folder_mode = {
     "testnet": 105
 }
 do_node_ips = []
-local_disk_node_ips = ["3.236.64.29", "18.116.33.241", "52.53.250.187", "35.82.29.182", "34.229.131.248",
-                       "54.189.61.183", "54.188.66.208", "34.216.159.65", "54.212.179.219", "44.235.31.107",
-                       "44.241.141.240", "44.237.240.249", "44.225.100.239", "34.222.190.168", "44.230.211.156"]
 service_list = ['bridge', 'graph', 'multisig']
 
 
@@ -430,11 +427,6 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
                          "job=\"{job_name}\", device=\"/dev/sda\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip,
                                                                                                            job_name=job_name)
         else:
-            if ip in local_disk_node_ips:
-                mountpoint = "/data"
-            else:
-                mountpoint = "/"
-
             disk_query = "(1-(node_filesystem_free_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
                          "fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
                          "job=\"{job_name}\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip, job_name=job_name)
