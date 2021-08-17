@@ -543,25 +543,26 @@ def create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, config_
                 break
 
     # create service nodes
-    service_ips = []
-    for service_name in service_list:
-        ip_array = dict_service_ip_array.get(service_name)
-        ip_array_size = len(ip_array)
+    if mode == "mainnet":
+        service_ips = []
+        for service_name in service_list:
+            ip_array = dict_service_ip_array.get(service_name)
+            ip_array_size = len(ip_array)
 
-        for idx in range(ip_array_size):
-            ip = ip_array[idx].rstrip()
+            for idx in range(ip_array_size):
+                ip = ip_array[idx].rstrip()
 
-            if ip == "":
-                continue
+                if ip == "":
+                    continue
 
-            service_ips.append(ip + ":9100")
+                service_ips.append(ip + ":9100")
 
-    service_job_name = "service_{mode}".format(mode=mode)
-    for part_index in range(total_config_part_count):
-        if service_job_name == config_template["scrape_configs"][part_index]["job_name"]:
-            config_template["scrape_configs"][part_index]["scrape_interval"] = str(prometheus_scrape_interval) + "s"
-            config_template["scrape_configs"][part_index]["static_configs"][0]["targets"] = service_ips
-            break
+        service_job_name = "service_{mode}".format(mode=mode)
+        for part_index in range(total_config_part_count):
+            if service_job_name == config_template["scrape_configs"][part_index]["job_name"]:
+                config_template["scrape_configs"][part_index]["scrape_interval"] = str(prometheus_scrape_interval) + "s"
+                config_template["scrape_configs"][part_index]["static_configs"][0]["targets"] = service_ips
+                break
 
     with open("prometheus/prometheus.yml", 'w') as fp:
         yaml.dump(config_template, fp)
