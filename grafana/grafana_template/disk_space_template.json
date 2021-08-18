@@ -83,7 +83,7 @@
     {
       "expr": "",
       "format": "time_series",
-      "legendFormat": "Used Space Rate",
+      "legendFormat": "% Used of {{ mountpoint }}",
       "intervalFactor": 1,
       "refId": "A"
     }
