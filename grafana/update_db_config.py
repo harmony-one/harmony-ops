@@ -422,12 +422,12 @@ def create_grafana_base_panel_config(mode, ind, ip, part_index, job_name, dict_p
 
         # disk_query = "node_filesystem_avail_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", mountpoint=\"/\"}}/1024/1024/1024"
         if ip in do_node_ips:
-            disk_query = "(1-(node_filesystem_free_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
+            disk_query = "(1-(node_filesystem_avail_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
                          "device=\"/dev/sda\", fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
                          "job=\"{job_name}\", device=\"/dev/sda\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip,
                                                                                                            job_name=job_name)
         else:
-            disk_query = "(1-(node_filesystem_free_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
+            disk_query = "(1-(node_filesystem_avail_bytes{{instance=\"{ip}:9100\", job=\"{job_name}\", " \
                          "fstype=~\"ext4|xfs\"}} / node_filesystem_size_bytes{{instance=\"{ip}:9100\", " \
                          "job=\"{job_name}\", fstype=~\"ext4|xfs\"}} )) * 100".format(ip=ip, job_name=job_name)
 
