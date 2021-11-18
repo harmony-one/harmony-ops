@@ -5,7 +5,7 @@
       {
         "evaluator": {
           "params": [
-            95
+            85
           ],
           "type": "gt"
         },
