@@ -30,7 +30,7 @@ dict_grafana_folder_mode = {
     "testnet": 105
 }
 do_node_ips = []
-service_list = ['bridge', 'graph', 'multisig', 'contractverify', 'explorerv2', 'btc-bridge']
+service_list = ['bridge', 'graph', 'multisig', 'contractverify', 'explorerv2', 'btc-bridge', 'explorer-rpc-api']
 
 
 def shcmd(cmd, ignore_error=False):
