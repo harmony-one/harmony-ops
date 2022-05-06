@@ -570,7 +570,7 @@ def create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, array_e
         explorerv2_apimetrics_node = []
         ip_array_size = len(array_explorerapimetrics)
         for idx in range(ip_array_size):
-            ip = ip_array[idx].rstrip()
+            ip = array_explorerapimetrics[idx].rstrip()
             if ip == "":
                 continue
             explorerv2_apimetrics_node.append(ip)
