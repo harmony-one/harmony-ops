@@ -17,6 +17,10 @@ scrape_configs:
     honor_labels: true
     static_configs:
       - targets: [ 'gateway.harmony.one' ]
+  - job_name: 'explorer-api-metrics'
+    scheme: http
+    static_configs:
+      - targets: [ ]
   - job_name: 'service_mainnet'
     scrape_interval: 5s
     static_configs:
