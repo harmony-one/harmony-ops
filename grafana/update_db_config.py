@@ -83,6 +83,15 @@ def download_ip_list_from_github(git_token, mode):
                   "{path}".format(token=git_token, service_name=service, path=url_path, mode=mode)
             shcmd(cmd)
 
+        # download list of Explorer v2 API metrics target
+        url_path = "https://raw.githubusercontent.com/harmony-one/nodedb/" \
+                "master/mainnet/explorerapimetrics/explorerv2.txt"
+
+        cmd = "curl -H 'Authorization: token {token}' " \
+                "-H 'Accept: application/vnd.github.v3.raw' -o ips/{mode}/explorerapimetrics/explorerv2.txt" \
+                " {path}".format(token=git_token, service_name=service, path=url_path, mode=mode)
+        shcmd(cmd)
+
         # download list of DO node
         url_path = "https://raw.githubusercontent.com/harmony-one/nodedb/" \
                    "master/mainnet/shard/do.{mode}.nodes.txt"
@@ -515,7 +524,7 @@ def create_grafana_network_panel_config(mode, ind, ip, part_index, shard, dict_p
 
 
 # create prometheus whole config file
-def create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, config_template):
+def create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, array_explorerapimetrics, config_template):
     total_config_part_count = len(config_template["scrape_configs"])
 
     # create network nodes
@@ -557,11 +566,25 @@ def create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, config_
 
                 service_ips.append(ip + ":9100")
 
+        # Create the api metrics node
+        explorerv2_apimetrics_node = []
+        ip_array_size = len(array_explorerapimetrics)
+        for idx in range(ip_array_size):
+            ip = ip_array[idx].rstrip()
+            if ip == "":
+                continue
+            explorerv2_apimetrics_node.append(ip)
+
         service_job_name = "service_{mode}".format(mode=mode)
         for part_index in range(total_config_part_count):
             if service_job_name == config_template["scrape_configs"][part_index]["job_name"]:
                 config_template["scrape_configs"][part_index]["scrape_interval"] = str(prometheus_scrape_interval) + "s"
                 config_template["scrape_configs"][part_index]["static_configs"][0]["targets"] = service_ips
+                break
+            #update Explorer v2 target for api metrics 
+            if "explorer-api-metrics" == config_template["scrape_configs"][part_index]["job_name"]:
+                config_template["scrape_configs"][part_index]["scrape_interval"] = "30s"
+                config_template["scrape_configs"][part_index]["static_configs"][0]["targets"] = explorerv2_apimetrics_node
                 break
 
     with open("prometheus/prometheus.yml", 'w') as fp:
@@ -695,6 +718,7 @@ def main():
         dict_dns_ip_array = {}
         dict_exp_ip_array = {}
         dict_service_ip_array = {}
+        array_explorerapimetrics = []
 
         # load grafana dashboard template files
         file_path = "grafana_template/dashboard_template.json"
@@ -721,6 +745,10 @@ def main():
                 file_path = "ips/{mode}/services/{service_name}.txt".format(service_name=service_name, mode=mode)
                 dict_service_ip_array[service_name] = load_file_to_array(file_path)
 
+            # load Explorer v2 nodes for api metrics
+            file_path = "ips/mainnet/explorerapimetrics/explorerv2.txt"
+            array_explorerapimetrics = load_file_to_array(file_path)
+
             # load DO node
             file_path = "ips/mainnet/do.mainnet.nodes.txt"
             do_node_ips = load_file_to_array(file_path)
@@ -732,7 +760,7 @@ def main():
             prometheus_config_template = load_file_to_yaml("prometheus_template/prometheus.yml")
 
         # create prometheus whole config file
-        create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, prometheus_config_template)
+        create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, array_explorerapimetrics, prometheus_config_template)
         logging.info('create prometheus config success')
 
         for category in ["base", "network"]:
