@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -20,6 +22,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var serverCertificate string
+var serverPrivateKey string
+var serverMtls string
+
 var gracefulTimeout time.Duration
 var clientIpFile string
 var serverPort int
@@ -33,6 +39,13 @@ var _secretAccessKey string
 var _sessionToken string
 
 func main() {
+	flag.StringVar(&serverCertificate, "server-certificate", "", "")
+	flag.StringVar(&serverPrivateKey, "server-private-key", "", "")
+	flag.StringVar(&serverMtls, "server-mtls", "", "")
+
+	flag.StringVar(&serverCertificate, "server-certificate", "", "")
+	flag.StringVar(&serverPrivateKey, "server-private-key", "", "")
+
 	flag.DurationVar(&gracefulTimeout, "graceful-timeout", time.Second*15, "the duration for which the server gracefully gracefulTimeout for existing connections to finish - e.g. 15s or 1m")
 	flag.StringVar(&clientIpFile, "client-ip", "client-ip.json", "client ip which allow to access")
 	flag.IntVar(&serverPort, "server-port", 8080, "server port")
@@ -66,20 +79,54 @@ func main() {
 
 	http.Handle("/", r)
 
-	srv := &http.Server{
-		Addr: fmt.Sprintf("0.0.0.0:%d", serverPort),
-		// Good practice to set timeouts to avoid Slowloris attacks.
-		WriteTimeout: time.Second * 15,
-		ReadTimeout:  time.Second * 15,
-		IdleTimeout:  time.Second * 60,
-		Handler:      r, // Pass our instance of gorilla/mux in.
+	var srv *http.Server
+
+	if serverCertificate != "" && serverPrivateKey != "" {
+		var config *tls.Config
+		if serverMtls != "" {
+			mtlsCertificate, errorReadFile := os.ReadFile(serverMtls)
+			if errorReadFile != nil {
+				log.Println(errorReadFile.Error())
+			} else {
+				certPool := x509.NewCertPool()
+				certPool.AppendCertsFromPEM(mtlsCertificate)
+				config = &tls.Config{
+					ClientCAs:  certPool,
+					ClientAuth: tls.RequireAndVerifyClientCert,
+				}
+			}
+		}
+		srv = &http.Server{
+			Addr: fmt.Sprintf("0.0.0.0:%d", serverPort),
+			// Good practice to set timeouts to avoid Slowloris attacks.
+			WriteTimeout: time.Second * 15,
+			ReadTimeout:  time.Second * 15,
+			IdleTimeout:  time.Second * 60,
+			TLSConfig:    config,
+			Handler:      r, // Pass our instance of gorilla/mux in.
+		}
+	} else {
+		srv = &http.Server{
+			Addr: fmt.Sprintf("0.0.0.0:%d", serverPort),
+			// Good practice to set timeouts to avoid Slowloris attacks.
+			WriteTimeout: time.Second * 15,
+			ReadTimeout:  time.Second * 15,
+			IdleTimeout:  time.Second * 60,
+			Handler:      r, // Pass our instance of gorilla/mux in.
+		}
 	}
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		common.InfoIP(serverPort)
-		if errorListenAndServe := srv.ListenAndServe(); errorListenAndServe != nil {
-			log.Println(errorListenAndServe.Error())
+		if serverCertificate != "" && serverPrivateKey != "" {
+			if errorListenAndServe := srv.ListenAndServeTLS(serverCertificate, serverPrivateKey); errorListenAndServe != nil {
+				log.Println(errorListenAndServe.Error())
+			}
+		} else {
+			if errorListenAndServe := srv.ListenAndServe(); errorListenAndServe != nil {
+				log.Println(errorListenAndServe.Error())
+			}
 		}
 	}()
 
