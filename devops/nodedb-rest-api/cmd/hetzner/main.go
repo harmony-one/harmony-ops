@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,7 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"nodedb-rest-api/common"
+	"nodedb-rest-api/pkg/nodedb"
 	"os"
 	"os/signal"
 	"time"
@@ -29,26 +27,18 @@ var serverMtls string
 
 var accessToken string
 
-var _accessToken string
-
 func main() {
+	flag.IntVar(&serverPort, "server-port", 8080, "server port")
 	flag.StringVar(&serverCertificate, "server-certificate", "", "")
 	flag.StringVar(&serverPrivateKey, "server-private-key", "", "")
 	flag.StringVar(&serverMtls, "server-mtls", "", "")
 
 	flag.DurationVar(&gracefulTimeout, "graceful-timeout", time.Second*15, "the duration for which the server gracefully gracefulTimeout for existing connections to finish - e.g. 15s or 1m")
 	flag.StringVar(&clientIpFile, "client-ip", "client-ip.json", "client ip which allow to access")
-	flag.IntVar(&serverPort, "server-port", 8080, "server port")
 
 	flag.StringVar(&accessToken, "access-token", "", "")
 
-	_accessToken = os.Getenv("HCLOUD_ACCESS_TOKEN")
-
 	flag.Parse()
-
-	if accessToken != "" {
-		_accessToken = accessToken
-	}
 
 	r := mux.NewRouter()
 
@@ -57,47 +47,18 @@ func main() {
 
 	http.Handle("/", r)
 
-	var srv *http.Server
-
+	var hasTLS = false
 	if serverCertificate != "" && serverPrivateKey != "" {
-		var config *tls.Config
-		if serverMtls != "" {
-			mtlsCertificate, errorReadFile := os.ReadFile(serverMtls)
-			if errorReadFile != nil {
-				log.Println(errorReadFile.Error())
-			} else {
-				certPool := x509.NewCertPool()
-				certPool.AppendCertsFromPEM(mtlsCertificate)
-				config = &tls.Config{
-					ClientCAs:  certPool,
-					ClientAuth: tls.RequireAndVerifyClientCert,
-				}
-			}
-		}
-		srv = &http.Server{
-			Addr: fmt.Sprintf("0.0.0.0:%d", serverPort),
-			// Good practice to set timeouts to avoid Slowloris attacks.
-			WriteTimeout: time.Second * 15,
-			ReadTimeout:  time.Second * 15,
-			IdleTimeout:  time.Second * 60,
-			TLSConfig:    config,
-			Handler:      r, // Pass our instance of gorilla/mux in.
-		}
-	} else {
-		srv = &http.Server{
-			Addr: fmt.Sprintf("0.0.0.0:%d", serverPort),
-			// Good practice to set timeouts to avoid Slowloris attacks.
-			WriteTimeout: time.Second * 15,
-			ReadTimeout:  time.Second * 15,
-			IdleTimeout:  time.Second * 60,
-			Handler:      r, // Pass our instance of gorilla/mux in.
-		}
+		hasTLS = true
 	}
+
+	var srv = nodedb.ConfigurationServer(serverPort, serverCertificate, serverPrivateKey, serverMtls)
+	srv.Handler = r
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		common.InfoIP(serverPort)
-		if serverCertificate != "" && serverPrivateKey != "" {
+		nodedb.InfoIP(hasTLS, serverPort)
+		if hasTLS {
 			if errorListenAndServe := srv.ListenAndServeTLS(serverCertificate, serverPrivateKey); errorListenAndServe != nil {
 				log.Println(errorListenAndServe.Error())
 			}
@@ -141,7 +102,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allow, errorAllowClient := common.AllowClient(clientIpFile, clientIp)
+	allow, errorAllowClient := nodedb.AllowClient(clientIpFile, clientIp)
 
 	if errorAllowClient != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -155,11 +116,11 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := hcloud.NewClient(hcloud.WithToken(_accessToken))
+	client := hcloud.NewClient(hcloud.WithToken(accessToken))
 
 	_context := context.Background()
 
-	var _servers []common.HetznerDto
+	var _servers []nodedb.HetznerDto
 
 	var _listServers []hcloud.Server
 
@@ -183,7 +144,6 @@ func Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, server := range _listServers {
-		server.PrivateNet[0].IP.String()
 		_publicIPv6Address := server.PublicNet.IPv6.IP.String()
 		_publicIPv4Address := server.PublicNet.IPv4.IP.String()
 		_region := ""
@@ -199,7 +159,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 			_region = server.Datacenter.Name
 		}
 
-		_servers = append(_servers, common.HetznerDto{
+		_servers = append(_servers, nodedb.HetznerDto{
 			Id:         server.ID,
 			Region:     _region,
 			Name:       server.Name,

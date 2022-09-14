@@ -2,19 +2,15 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"log"
 	"net"
 	"net/http"
-	"nodedb-rest-api/common"
+	"nodedb-rest-api/pkg/nodedb"
 	"os"
 	"os/signal"
 	"time"
@@ -30,44 +26,17 @@ var gracefulTimeout time.Duration
 var clientIpFile string
 var serverPort int
 
-var accessKey string
-var secretAccessKey string
-var sessionToken string
-
-var _accessKey string
-var _secretAccessKey string
-var _sessionToken string
-
 func main() {
+	flag.IntVar(&serverPort, "server-port", 8080, "server port")
 	flag.StringVar(&serverCertificate, "server-certificate", "", "")
 	flag.StringVar(&serverPrivateKey, "server-private-key", "", "")
 	flag.StringVar(&serverMtls, "server-mtls", "", "")
 
 	flag.DurationVar(&gracefulTimeout, "graceful-timeout", time.Second*15, "the duration for which the server gracefully gracefulTimeout for existing connections to finish - e.g. 15s or 1m")
+
 	flag.StringVar(&clientIpFile, "client-ip", "client-ip.json", "client ip which allow to access")
-	flag.IntVar(&serverPort, "server-port", 8080, "server port")
-
-	flag.StringVar(&accessKey, "access-key", "", "")
-	flag.StringVar(&secretAccessKey, "secret-access-key", "", "")
-	flag.StringVar(&sessionToken, "session-token", "", "")
-
-	_accessKey = os.Getenv("AWS_ACCESS_KEY_ID")
-	_secretAccessKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
-	_sessionToken = os.Getenv("AWS_SESSION_TOKEN")
 
 	flag.Parse()
-
-	if accessKey != "" {
-		_accessKey = accessKey
-	}
-
-	if secretAccessKey != "" {
-		_secretAccessKey = secretAccessKey
-	}
-
-	if sessionToken != "" {
-		_sessionToken = sessionToken
-	}
 
 	r := mux.NewRouter()
 
@@ -76,47 +45,18 @@ func main() {
 
 	http.Handle("/", r)
 
-	var srv *http.Server
-
+	var hasTLS = false
 	if serverCertificate != "" && serverPrivateKey != "" {
-		var config *tls.Config
-		if serverMtls != "" {
-			mtlsCertificate, errorReadFile := os.ReadFile(serverMtls)
-			if errorReadFile != nil {
-				log.Println(errorReadFile.Error())
-			} else {
-				certPool := x509.NewCertPool()
-				certPool.AppendCertsFromPEM(mtlsCertificate)
-				config = &tls.Config{
-					ClientCAs:  certPool,
-					ClientAuth: tls.RequireAndVerifyClientCert,
-				}
-			}
-		}
-		srv = &http.Server{
-			Addr: fmt.Sprintf("0.0.0.0:%d", serverPort),
-			// Good practice to set timeouts to avoid Slowloris attacks.
-			WriteTimeout: time.Second * 15,
-			ReadTimeout:  time.Second * 15,
-			IdleTimeout:  time.Second * 60,
-			TLSConfig:    config,
-			Handler:      r, // Pass our instance of gorilla/mux in.
-		}
-	} else {
-		srv = &http.Server{
-			Addr: fmt.Sprintf("0.0.0.0:%d", serverPort),
-			// Good practice to set timeouts to avoid Slowloris attacks.
-			WriteTimeout: time.Second * 15,
-			ReadTimeout:  time.Second * 15,
-			IdleTimeout:  time.Second * 60,
-			Handler:      r, // Pass our instance of gorilla/mux in.
-		}
+		hasTLS = true
 	}
+
+	var srv = nodedb.ConfigurationServer(serverPort, serverCertificate, serverPrivateKey, serverMtls)
+	srv.Handler = r
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		common.InfoIP(serverPort)
-		if serverCertificate != "" && serverPrivateKey != "" {
+		nodedb.InfoIP(hasTLS, serverPort)
+		if hasTLS {
 			if errorListenAndServe := srv.ListenAndServeTLS(serverCertificate, serverPrivateKey); errorListenAndServe != nil {
 				log.Println(errorListenAndServe.Error())
 			}
@@ -162,7 +102,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allow, errorAllowClient := common.AllowClient(clientIpFile, clientIp)
+	allow, errorAllowClient := nodedb.AllowClient(clientIpFile, clientIp)
 
 	if errorAllowClient != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -176,27 +116,18 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var client *ec2.Client = nil
-	if _accessKey != "" && _secretAccessKey != "" {
-		_config := aws.Config{
-			Region:      "us-west-2",
-			Credentials: credentials.NewStaticCredentialsProvider(_accessKey, _secretAccessKey, _sessionToken),
-		}
-		client = ec2.NewFromConfig(_config)
-	} else {
-		_config, errorLoadDefaultConfig := config.LoadDefaultConfig(_context, func(options *config.LoadOptions) error {
-			options.Region = "us-west-2"
-			return nil
-		})
+	_config, errorLoadDefaultConfig := config.LoadDefaultConfig(_context, func(options *config.LoadOptions) error {
+		options.Region = "us-west-2"
+		return nil
+	})
 
-		if errorLoadDefaultConfig != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = fmt.Fprintln(w, errorLoadDefaultConfig.Error())
-			return
-		}
-
-		client = ec2.NewFromConfig(_config)
+	if errorLoadDefaultConfig != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintln(w, errorLoadDefaultConfig.Error())
+		return
 	}
+
+	client := ec2.NewFromConfig(_config)
 
 	_regions, errorDescribeRegions := client.DescribeRegions(_context, &ec2.DescribeRegionsInput{})
 
@@ -206,7 +137,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var _ec2s []common.Ec2Dto
+	var _ec2s []nodedb.Ec2Dto
 
 	for _, region := range _regions.Regions {
 
@@ -236,7 +167,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 							_tagName = *tag.Value
 						}
 					}
-					_ec2s = append(_ec2s, common.Ec2Dto{
+					_ec2s = append(_ec2s, nodedb.Ec2Dto{
 						TagName:    _tagName,
 						InstanceId: _instanceId,
 						PublicIP:   _publicIpAddress,

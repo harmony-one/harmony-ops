@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,7 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"nodedb-rest-api/common"
+	"nodedb-rest-api/pkg/nodedb"
 	"os"
 	"os/signal"
 	"strings"
@@ -36,14 +34,15 @@ var accessToken string
 var refreshToken string
 
 func main() {
+	flag.IntVar(&serverPort, "server-port", 8080, "server port")
 	flag.StringVar(&serverCertificate, "server-certificate", "", "")
 	flag.StringVar(&serverPrivateKey, "server-private-key", "", "")
 	flag.StringVar(&serverMtls, "server-mtls", "", "")
 
 	flag.DurationVar(&gracefulTimeout, "graceful-timeout", time.Second*15, "the duration for which the server gracefully gracefulTimeout for existing connections to finish - e.g. 15s or 1m")
+
 	flag.StringVar(&clientIpFile, "client-ip", "client-ip.json", "client ip which allow to access")
 	flag.StringVar(&configurationFile, "configuration", "configuration.json", "configuration")
-	flag.IntVar(&serverPort, "server-port", 8080, "server port")
 
 	flag.Parse()
 
@@ -57,47 +56,18 @@ func main() {
 
 	go RefreshToken()
 
-	var srv *http.Server
-
+	var hasTLS = false
 	if serverCertificate != "" && serverPrivateKey != "" {
-		var config *tls.Config
-		if serverMtls != "" {
-			mtlsCertificate, errorReadFile := os.ReadFile(serverMtls)
-			if errorReadFile != nil {
-				log.Println(errorReadFile.Error())
-			} else {
-				certPool := x509.NewCertPool()
-				certPool.AppendCertsFromPEM(mtlsCertificate)
-				config = &tls.Config{
-					ClientCAs:  certPool,
-					ClientAuth: tls.RequireAndVerifyClientCert,
-				}
-			}
-		}
-		srv = &http.Server{
-			Addr: fmt.Sprintf("0.0.0.0:%d", serverPort),
-			// Good practice to set timeouts to avoid Slowloris attacks.
-			WriteTimeout: time.Second * 15,
-			ReadTimeout:  time.Second * 15,
-			IdleTimeout:  time.Second * 60,
-			TLSConfig:    config,
-			Handler:      r, // Pass our instance of gorilla/mux in.
-		}
-	} else {
-		srv = &http.Server{
-			Addr: fmt.Sprintf("0.0.0.0:%d", serverPort),
-			// Good practice to set timeouts to avoid Slowloris attacks.
-			WriteTimeout: time.Second * 15,
-			ReadTimeout:  time.Second * 15,
-			IdleTimeout:  time.Second * 60,
-			Handler:      r, // Pass our instance of gorilla/mux in.
-		}
+		hasTLS = true
 	}
+
+	var srv = nodedb.ConfigurationServer(serverPort, serverCertificate, serverPrivateKey, serverMtls)
+	srv.Handler = r
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		common.InfoIP(serverPort)
-		if serverCertificate != "" && serverPrivateKey != "" {
+		nodedb.InfoIP(hasTLS, serverPort)
+		if hasTLS {
 			if errorListenAndServe := srv.ListenAndServeTLS(serverCertificate, serverPrivateKey); errorListenAndServe != nil {
 				log.Println(errorListenAndServe.Error())
 			}
@@ -141,7 +111,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allow, errorAllowClient := common.AllowClient(clientIpFile, clientIp)
+	allow, errorAllowClient := nodedb.AllowClient(clientIpFile, clientIp)
 
 	if errorAllowClient != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -172,7 +142,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 
 	_context := context.Background()
 
-	var _droplets []common.DigitalOceanDto
+	var _droplets []nodedb.DigitalOceanDto
 
 	var _listDroplets []godo.Droplet
 
@@ -208,7 +178,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		_publicIPv4Address, _ := droplet.PublicIPv4()
 		_publicIPv6Address, _ := droplet.PublicIPv6()
 		_privateIPv4Address, _ := droplet.PrivateIPv4()
-		_droplets = append(_droplets, common.DigitalOceanDto{
+		_droplets = append(_droplets, nodedb.DigitalOceanDto{
 			Id:          droplet.ID,
 			Region:      droplet.Region.Name,
 			Name:        droplet.Name,
@@ -240,7 +210,7 @@ func Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allow, errorAllowClient := common.AllowClient(clientIpFile, clientIp)
+	allow, errorAllowClient := nodedb.AllowClient(clientIpFile, clientIp)
 
 	if errorAllowClient != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -297,7 +267,7 @@ func Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var oauthToken common.DigitalOceanOAuthToken
+	var oauthToken nodedb.DigitalOceanOAuthToken
 
 	errorUnmarshal1 := json.Unmarshal(bodyContent, &oauthToken)
 
@@ -344,7 +314,7 @@ func RefreshToken() {
 						if errorReadAll != nil {
 							log.Println(errorReadAll.Error())
 						} else {
-							var oauthToken common.DigitalOceanOAuthToken
+							var oauthToken nodedb.DigitalOceanOAuthToken
 							errorUnmarshal1 := json.Unmarshal(bodyContent, &oauthToken)
 							if errorUnmarshal1 != nil {
 								log.Println(errorUnmarshal1.Error())
@@ -361,13 +331,13 @@ func RefreshToken() {
 	}
 }
 
-func LookupConfiguration() (*common.ConfigurationDto, error) {
+func LookupConfiguration() (*nodedb.ConfigurationDto, error) {
 	configurationContent, errorReadFile := os.ReadFile(configurationFile)
 	if errorReadFile != nil {
 		return nil, errorReadFile
 	}
 
-	var dto common.ConfigurationDto
+	var dto nodedb.ConfigurationDto
 	errorUnmarshal := json.Unmarshal(configurationContent, &dto)
 
 	if errorUnmarshal != nil {
