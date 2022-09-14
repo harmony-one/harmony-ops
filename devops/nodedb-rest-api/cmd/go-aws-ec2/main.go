@@ -43,9 +43,6 @@ func main() {
 	flag.StringVar(&serverPrivateKey, "server-private-key", "", "")
 	flag.StringVar(&serverMtls, "server-mtls", "", "")
 
-	flag.StringVar(&serverCertificate, "server-certificate", "", "")
-	flag.StringVar(&serverPrivateKey, "server-private-key", "", "")
-
 	flag.DurationVar(&gracefulTimeout, "graceful-timeout", time.Second*15, "the duration for which the server gracefully gracefulTimeout for existing connections to finish - e.g. 15s or 1m")
 	flag.StringVar(&clientIpFile, "client-ip", "client-ip.json", "client ip which allow to access")
 	flag.IntVar(&serverPort, "server-port", 8080, "server port")
