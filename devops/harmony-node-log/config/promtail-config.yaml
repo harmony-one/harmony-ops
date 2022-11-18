@@ -1,0 +1,99 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+- job_name: system
+  static_configs:
+  - targets:
+      - localhost
+    labels:
+      job: varlogs
+      __path__: /var/log/*log
+      
+- job_name: s00
+  pipeline_stages:
+  - json:
+      expressions:
+        time: time
+  - timestamp:
+      source: time
+      format: RFC3339Nano
+      location: UTC
+  static_configs:
+  - targets:
+      - localhost
+    labels:
+      job: s0-0
+      __path__: /var/log/old_logs/s0-0/*.log
+      
+- job_name: s04
+  pipeline_stages:
+  - json:
+      expressions:
+        time: time
+  - timestamp:
+      source: time
+      format: RFC3339Nano
+      location: UTC
+  static_configs:
+  - targets:
+      - localhost
+    labels:
+      job: s0-4
+      __path__: /var/log/old_logs/s0-4/*.log
+      
+- job_name: s08
+  pipeline_stages:
+  - json:
+      expressions:
+        time: time
+  - timestamp:
+      source: time
+      format: RFC3339Nano
+      location: UTC
+  static_configs:
+  - targets:
+      - localhost
+    labels:
+      job: s0-8
+      __path__: /var/log/old_logs/s0-8/*.log
+      
+      
+- job_name: s012
+  pipeline_stages:
+  - json:
+      expressions:
+        time: time
+  - timestamp:
+      source: time
+      format: RFC3339Nano
+      location: UTC
+  static_configs:
+  - targets:
+      - localhost
+    labels:
+      job: s0-12
+      __path__: /var/log/old_logs/s0-12/*.log
+      
+- job_name: s016
+  pipeline_stages:
+  - json:
+      expressions:
+        time: time
+  - timestamp:
+      source: time
+      format: RFC3339Nano
+      location: UTC
+  static_configs:
+  - targets:
+      - localhost
+    labels:
+      job: s0-16
+      __path__: /var/log/old_logs/s0-16/*.log
