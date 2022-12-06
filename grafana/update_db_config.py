@@ -491,7 +491,7 @@ def create_grafana_network_panel_config(mode, ind, ip, part_index, shard, dict_p
             data_part_json["alert"]["notifications"] = []
 
         network_incoming_query = "rate(node_network_receive_bytes_total{{instance" \
-                                 "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(ip=ip,
+                                 "=\"{ip}:9100\", job=\"{shard}\", device!=\"lo\"}}[5m]) / 1024".format(ip=ip,
                                                                                                          shard=shard)
         network_outgoing_query = "rate(node_network_transmit_bytes_total{{instance" \
                                  "=\"{ip}:9100\", job=\"{shard}\", device=\"eth0\"}}[5m]) / 1024".format(ip=ip,
