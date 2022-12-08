@@ -581,6 +581,7 @@ def create_prometheus_config(mode, dict_ip_array, dict_service_ip_array, array_e
                 config_template["scrape_configs"][part_index]["scrape_interval"] = str(prometheus_scrape_interval) + "s"
                 config_template["scrape_configs"][part_index]["static_configs"][0]["targets"] = service_ips
                 break
+        for part_index in range(total_config_part_count):
             #update Explorer v2 target for api metrics 
             if "explorer-api-metrics" == config_template["scrape_configs"][part_index]["job_name"]:
                 config_template["scrape_configs"][part_index]["scrape_interval"] = "30s"
