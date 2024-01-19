@@ -1,0 +1,9 @@
+{
+  "homeUri": "http://127.0.0.1:8080",
+  "redirectUri": "http://127.0.0.1:8080/callback",
+  "digitalOcean": {
+    "oauthUrl": "https://cloud.digitalocean.com/v1/oauth",
+    "clientId": "",
+    "clientSecret": ""
+  }
+}
