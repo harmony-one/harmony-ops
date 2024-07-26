@@ -1,0 +1,272 @@
+[
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one174rtn0j6ugy8xt0cxm9gg3r7p0zf8scd7uht42",
+        "epoch": 1740,
+        "epoch_cleared": 1758,
+        "original_amount": 140.9999999999992,
+        "final_amount": 140.9999999999992,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one1896zzyfpqd2h3plzpqqmpk3uvqu3crhpa2jncf",
+        "epoch": 1742,
+        "epoch_cleared": 1815,
+        "original_amount": 20175.453436,
+        "final_amount": 20175.453436,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one1qfz6njk6f7quf0727r5yj0fcrw5earwj9yyzlk",
+        "epoch": 1743,
+        "epoch_cleared": 1785,
+        "original_amount": 1300.0,
+        "final_amount": 1300.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1hwe68yprkhp5sqq5u7sm9uqu8jxz87fd7ffex7",
+        "delegator_add": "one1wsvq9t3g2wv3kc6c82xa57p9nt82m5em28eeu7",
+        "epoch": 1748,
+        "epoch_cleared": 1763,
+        "original_amount": 199.0,
+        "final_amount": 199.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one18vhnl0f542trwcmlqxsfqcxtnc7dfvadzx2cc0",
+        "epoch": 1754,
+        "epoch_cleared": 1776,
+        "original_amount": 2087.889349,
+        "final_amount": 2087.889349,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1hwe68yprkhp5sqq5u7sm9uqu8jxz87fd7ffex7",
+        "delegator_add": "one12d704h86t04dlw7tvyy5hu3fy3puwv50tgavfu",
+        "epoch": 1762,
+        "epoch_cleared": 1788,
+        "original_amount": 30011.968399999998,
+        "final_amount": 30011.968399999998,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one1e6h9xvzzaejf4hxrvchzwlvr0najjp376rgprf",
+        "epoch": 1767,
+        "epoch_cleared": 1799,
+        "original_amount": 30170.35,
+        "final_amount": 30170.35,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1dgn6cnhueyg0vqvq6g84hljwvl0nruwlt4huhy",
+        "delegator_add": "one1ugvtdxau0mmd38wt42na9la9melp84alnfkyx4",
+        "epoch": 1771,
+        "epoch_cleared": 1900,
+        "original_amount": 50000.0,
+        "final_amount": 50000.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one136vqavvz9y3xkpx5kpsk7ygpyeuc689ct536ey",
+        "epoch": 1791,
+        "epoch_cleared": 1800,
+        "original_amount": 804.0,
+        "final_amount": 804.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one14fddh3t4hqc2tk8f0ntu8a22f343aflpsfufmc",
+        "epoch": 1791,
+        "epoch_cleared": 1800,
+        "original_amount": 922.0,
+        "final_amount": 922.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one162y560r8zgkua7nq4zuqx3az6k82y8c4hrzngt",
+        "epoch": 1793,
+        "epoch_cleared": 1828,
+        "original_amount": 14630.0,
+        "final_amount": 14630.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one1x5a2pcacq5afx5yfy88d8n3x2hkxj5zyshmzy5",
+        "epoch": 1805,
+        "epoch_cleared": 1837,
+        "original_amount": 10000.0,
+        "final_amount": 10000.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1aagrkq9vg49jm5xx22fvm4leg0lt48qeupexvu",
+        "delegator_add": "one1zrxysler8e5k6ekhe88t33t422dqfp53d69kzf",
+        "epoch": 1807,
+        "epoch_cleared": 1899,
+        "original_amount": 683.581617,
+        "final_amount": 683.581617,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1aagrkq9vg49jm5xx22fvm4leg0lt48qeupexvu",
+        "delegator_add": "one1nuas2zqgnp0jtj5p08wu0y59p7rksszysg3wf7",
+        "epoch": 1816,
+        "epoch_cleared": 1829,
+        "original_amount": 1000.0,
+        "final_amount": 1000.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one12ws9g3mta77qgrjw5nsjv9lse63cu5aygpn2sn",
+        "epoch": 1823,
+        "epoch_cleared": 1834,
+        "original_amount": 110.0,
+        "final_amount": 110.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1aagrkq9vg49jm5xx22fvm4leg0lt48qeupexvu",
+        "delegator_add": "one1td2svm5r27uqvzgukjj7f36pnexy8kpjvfp236",
+        "epoch": 1824,
+        "epoch_cleared": 1861,
+        "original_amount": 15942.596,
+        "final_amount": 15942.596,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one1ggxwxcpt083d98c8lcm6dstczms8rln82j03tz",
+        "epoch": 1835,
+        "epoch_cleared": 1844,
+        "original_amount": 2620.0,
+        "final_amount": 2620.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1m79e4ztrefz4nl475tw2ezvcw8a98nfhrzkxr0",
+        "delegator_add": "one1lvxc0su4v8acqakc4u4hyw8atk67qn0jnsrpgy",
+        "epoch": 1845,
+        "epoch_cleared": 1898,
+        "original_amount": 1400.0,
+        "final_amount": 1400.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1dgn6cnhueyg0vqvq6g84hljwvl0nruwlt4huhy",
+        "delegator_add": "one1fvvceuv6lzd0574858ct6w7qv6lp6g4x675zg0",
+        "epoch": 1847,
+        "epoch_cleared": 1958,
+        "original_amount": 5400000.0,
+        "final_amount": 4837440.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one1s6l5azf87ajnfa8lj2yan8fkqhg4nuc40c4zed",
+        "epoch": 1848,
+        "epoch_cleared": 1858,
+        "original_amount": 2800.0,
+        "final_amount": 100.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1h9z66rjlrely889rkhlaxf7chk3pv2ksy46eq7",
+        "delegator_add": "one1qrx6xfmdqf5qn49haj6v2u33987y0cv2xxy8qf",
+        "epoch": 1848,
+        "epoch_cleared": 1871,
+        "original_amount": 4880.0,
+        "final_amount": 4880.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1aagrkq9vg49jm5xx22fvm4leg0lt48qeupexvu",
+        "delegator_add": "one1qrx6xfmdqf5qn49haj6v2u33987y0cv2xxy8qf",
+        "epoch": 1848,
+        "epoch_cleared": 1871,
+        "original_amount": 20000.01,
+        "final_amount": 20000.01,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nmdgnvhntuyjvaegvpm0kstskr3s7aeradt6du",
+        "delegator_add": "one1ywa47alv0dkewegeeehxae2nh9xsqstttxw9wz",
+        "epoch": 1862,
+        "epoch_cleared": 1942,
+        "original_amount": 310.0,
+        "final_amount": 310.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1hwe68yprkhp5sqq5u7sm9uqu8jxz87fd7ffex7",
+        "delegator_add": "one1xpneuwv3xsadnfwgqee97ynq6z0qkelv0mrm34",
+        "epoch": 1870,
+        "epoch_cleared": 1886,
+        "original_amount": 600.0,
+        "final_amount": 600.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1nef0c8kgy30delcckf87jaegdp7s7ntrknvajj",
+        "delegator_add": "one1hj2xfhd5f26m7vehve9whu9m5t9gnp8m57aee8",
+        "epoch": 1871,
+        "epoch_cleared": 1889,
+        "original_amount": 2800.0,
+        "final_amount": 2800.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one19kfmnpj6p0g3ll2xevxw3agzppkwntfl6ue50u",
+        "delegator_add": "one1atjetqsmkrxd5nxm4sjd73al396mkrwp0kw8hy",
+        "epoch": 1890,
+        "epoch_cleared": 1906,
+        "original_amount": 11065.0,
+        "final_amount": 11065.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1dgn6cnhueyg0vqvq6g84hljwvl0nruwlt4huhy",
+        "delegator_add": "one1mg08pm69kxm0tuxwej7ur98c9ugsnsqyksfn5y",
+        "epoch": 1906,
+        "epoch_cleared": 1926,
+        "original_amount": 69000.0,
+        "final_amount": 69000.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1j35d0vd4uzwffeawjjfukn8t9wjt8csungj0z0",
+        "delegator_add": "one1qk4pdy2tehrwzqgw4avz94wdpnpy229eg5e28c",
+        "epoch": 1917,
+        "epoch_cleared": 1936,
+        "original_amount": 320.0,
+        "final_amount": 320.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1dgn6cnhueyg0vqvq6g84hljwvl0nruwlt4huhy",
+        "delegator_add": "one1mg08pm69kxm0tuxwej7ur98c9ugsnsqyksfn5y",
+        "epoch": 1929,
+        "epoch_cleared": 1938,
+        "original_amount": 138000.0,
+        "final_amount": 138000.0,
+        "malicious": true
+    },
+    {
+        "validator_add": "one1hwe68yprkhp5sqq5u7sm9uqu8jxz87fd7ffex7",
+        "delegator_add": "one1z490ctqrclewla5uns6azvk8m8vc9jr9jpmee8",
+        "epoch": 1936,
+        "epoch_cleared": 1953,
+        "original_amount": 999.0,
+        "final_amount": 999.0,
+        "malicious": true
+    }
+]
