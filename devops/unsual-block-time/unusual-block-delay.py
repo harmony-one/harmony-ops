@@ -177,12 +177,13 @@ if __name__ == "__main__":
     parser.add_argument("--shard", type=int, choices=[0, 1], default=0, help="The shard number to query (0 or 1).")
     parser.add_argument("--localhost", action="store_true", help="Use localhost endpoints.")
     parser.add_argument("--onesec", action="store_true", help="Use 1s block time.")
+    parser.add_argument("--devnet", action="store_true", help="Use devnet endpoints.")
     args = parser.parse_args()
 
     if args.onesec:
-        expected_block_time=1
+        expected_block_time = 1
     else:
-        expected_block_time=2
+        expected_block_time = 2
 
     if args.localhost:
         if args.shard == 0:
@@ -191,9 +192,15 @@ if __name__ == "__main__":
             endpoint = "http://127.0.0.1:9622"
     else:
         if args.shard == 0:
-            endpoint = "https://api.s0.t.hmny.io"
+            if args.devnet:
+                endpoint = "https://api.s0.ps.hmny.io"
+            else:
+                endpoint = "https://api.s0.t.hmny.io"
         else:
-            endpoint = "https://api.s1.t.hmny.io"
+            if args.devnet:
+                endpoint = "https://api.s1.ps.hmny.io"
+            else:
+                endpoint = "https://api.s1.t.hmny.io"
 
     miners, blockstimes = get_last_miners_between_blocks(endpoint, args.start_block, args.end_block, num_threads=args.num_threads)
     print("write Last miners with block before next unusual block time to file")
